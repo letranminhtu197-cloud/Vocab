@@ -17,10 +17,13 @@ fun LessonScreen(
     modifier: Modifier = Modifier,
     onReview: (WordEntity, ReviewRating) -> Unit
 ) {
-    val lessonDeck = remember(words.map { it.id }) {
+    // Keep the randomized deck order stable, but always resolve current entities
+    // so edits to a word's meaning/example are reflected without reshuffling the lesson.
+    val lessonIds = remember(words.map { it.id }) {
         val newWords = words.filter { it.reviewCount == 0 || it.srsLevel == 0 }
-        (newWords.ifEmpty { words }).shuffled().take(5)
+        (newWords.ifEmpty { words }).shuffled().take(5).map { it.id }
     }
+    val lessonDeck = lessonIds.mapNotNull { id -> words.firstOrNull { it.id == id } }
     var index by remember(lessonDeck.map { it.id }) { mutableIntStateOf(0) }
     var revealed by remember(lessonDeck.map { it.id }) { mutableStateOf(false) }
     var remembered by remember(lessonDeck.map { it.id }) { mutableIntStateOf(0) }
