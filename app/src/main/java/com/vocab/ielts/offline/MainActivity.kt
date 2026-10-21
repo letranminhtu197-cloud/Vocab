@@ -1,6 +1,8 @@
 package com.vocab.ielts.offline
 
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -20,12 +22,16 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +52,8 @@ private fun VocabApp(dao: WordDao) {
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var showSamplesConfirm by remember { mutableStateOf(false) }
+    var csvMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val words by dao.observeAll().collectAsState(initial = emptyList())
     val filtered = words.filter {
@@ -53,6 +61,60 @@ private fun VocabApp(dao: WordDao) {
             it.topic.contains(query, true) || it.example.contains(query, true)
     }
     val current = words.getOrNull(currentIndex.coerceIn(0, (words.size - 1).coerceAtLeast(0)))
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val importedText = runCatching {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    }
+                }.getOrNull()
+                if (importedText == null) {
+                    csvMessage = "Không đọc được file. Hãy chọn một file CSV hợp lệ."
+                } else {
+                    val parsed = CsvCodec.parse(importedText)
+                    if (parsed.error != null) {
+                        csvMessage = parsed.error
+                    } else {
+                        val existingTerms = dao.observeAll().first().map { it.term.trim().lowercase() }.toMutableSet()
+                        var duplicateCount = 0
+                        val uniqueWords = parsed.words.filter { word ->
+                            if (existingTerms.add(word.term.trim().lowercase())) true
+                            else { duplicateCount++; false }
+                        }
+                        val insertError = runCatching {
+                            if (uniqueWords.isNotEmpty()) withContext(Dispatchers.IO) { dao.insertAll(uniqueWords) }
+                        }.exceptionOrNull()
+                        csvMessage = if (insertError != null) {
+                            "Nhập file thất bại: ${insertError.message ?: "lỗi dữ liệu"}"
+                        } else {
+                            "Đã nhập ${uniqueWords.size} từ. Bỏ qua ${duplicateCount} từ trùng và ${parsed.invalidRows} dòng thiếu từ/nghĩa."
+                        }
+                    }
+                }
+            }
+        }
+    }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = runCatching {
+                    val allWords = dao.observeAll().first()
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use {
+                            it.write("\uFEFF")
+                            it.write(CsvCodec.export(allWords))
+                        } ?: error("Không mở được file đích.")
+                    }
+                    allWords.size
+                }
+                csvMessage = result.fold(
+                    onSuccess = { "Đã xuất ${it} từ ra file CSV." },
+                    onFailure = { "Xuất CSV thất bại: ${it.message ?: "lỗi ghi file"}" }
+                )
+            }
+        }
+    }
 
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -212,6 +274,17 @@ private fun VocabApp(dao: WordDao) {
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         singleLine = true
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        OutlinedButton(
+                            onClick = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Nhập CSV") }
+                        OutlinedButton(
+                            onClick = { exportLauncher.launch("vocab-words.csv") },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Xuất CSV") }
+                    }
+                    Text("CSV hỗ trợ cột bắt buộc term và meaning; các cột ipa, partOfSpeech, example, topic là tùy chọn.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (words.isEmpty()) {
                         Spacer(Modifier.height(18.dp))
                         Text("Chưa có từ nào. Nhấn nút + để nhập từ đầu tiên.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -258,6 +331,14 @@ private fun VocabApp(dao: WordDao) {
         }
     }
 
+    if (csvMessage != null) {
+        AlertDialog(
+            onDismissRequest = { csvMessage = null },
+            title = { Text("CSV") },
+            text = { Text(csvMessage.orEmpty()) },
+            confirmButton = { TextButton(onClick = { csvMessage = null }) { Text("Đóng") } }
+        )
+    }
     if (showEditor) {
         WordEditorDialog(
             initial = editorWord,
