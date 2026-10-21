@@ -11,6 +11,11 @@ class QuizLogicTest {
         assertEquals("We need to _____ more resources.", QuizLogic.clozeSentence("We need to Allocate more resources.", "allocate"))
     }
 
+    @Test fun clozeDoesNotMatchTermInsideAnotherWord() {
+        assertNull(QuizLogic.clozeSentence("The artist joined the party.", "art"))
+        assertEquals("The _____ is useful.", QuizLogic.clozeSentence("The tool is useful.", "tool"))
+    }
+
     @Test fun clozeReturnsNullWhenExampleDoesNotContainTerm() {
         assertNull(QuizLogic.clozeSentence("The plan was successful.", "allocate"))
     }
