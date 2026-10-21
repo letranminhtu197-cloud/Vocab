@@ -59,8 +59,10 @@ object BackupCodec {
         } catch (e: IOException) {
             return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu bị hỏng hoặc không phải ZIP hợp lệ.")
         }
-        if (manifest?.lineSequence()?.any { it.trim() == "format=VocabOfflineBackup" } != true ||
-            manifest.lineSequence().none { it.trim() == "version=1" }) {
+        val manifestText = manifest
+            ?: return CsvCodec.ImportResult(emptyList(), 0, "Không nhận diện được định dạng file sao lưu Vocab.")
+        if (manifestText.lineSequence().none { it.trim() == "format=VocabOfflineBackup" } ||
+            manifestText.lineSequence().none { it.trim() == "version=1" }) {
             return CsvCodec.ImportResult(emptyList(), 0, "Không nhận diện được định dạng file sao lưu Vocab.")
         }
         if (csv == null) return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu không có dữ liệu từ vựng.")
