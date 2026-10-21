@@ -37,6 +37,10 @@ object CsvCodec {
         val posIndex = index("partofspeech", "pos", "type", "từloại")
         val exampleIndex = index("example", "sentence", "vídụ", "câuvídụ")
         val topicIndex = index("topic", "category", "chủđề")
+        val collocationsIndex = index("collocations", "collocation", "cụmtừ", "cụmtừđi kèm", "cụmtừđikèm")
+        val wordFamilyIndex = index("wordfamily", "wordfamilies", "họtừ", "họtừvựng")
+        val notesIndex = index("notes", "note", "ghichú", "ghichucánhân")
+        val tagsIndex = index("tags", "tag", "thẻ", "the")
         val srsIndex = index("srslevel", "level")
         val nextIndex = index("nextreviewatmillis", "nextreview")
         val reviewIndex = index("reviewcount", "reviews")
@@ -89,6 +93,10 @@ object CsvCodec {
                     partOfSpeech = value(posIndex),
                     example = value(exampleIndex),
                     topic = value(topicIndex),
+                    collocations = value(collocationsIndex),
+                    wordFamily = value(wordFamilyIndex),
+                    notes = value(notesIndex),
+                    tags = value(tagsIndex),
                     srsLevel = level!!,
                     nextReviewAtMillis = nextReview!!,
                     reviewCount = reviews!!,
@@ -104,10 +112,10 @@ object CsvCodec {
 
     fun export(words: List<WordEntity>): String {
         val rows = mutableListOf(
-            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis")
+            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "collocations", "wordFamily", "notes", "tags", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis")
         )
         words.forEach { w ->
-            rows += listOf(w.term, w.ipa, w.partOfSpeech, w.meaning, w.example, w.topic,
+            rows += listOf(w.term, w.ipa, w.partOfSpeech, w.meaning, w.example, w.topic, w.collocations, w.wordFamily, w.notes, w.tags,
                 w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString(), w.createdAtMillis.toString(), w.lastReviewedAtMillis.toString())
         }
         return rows.joinToString("\r\n") { row -> row.joinToString(",") { escape(it) } } + "\r\n"
