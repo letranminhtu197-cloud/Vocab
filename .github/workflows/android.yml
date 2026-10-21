@@ -41,8 +41,12 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions app/build/outputs/apk/debug/app-debug.apk | tee /tmp/vocab-permissions.txt
           ! grep -q 'android.permission.INTERNET' /tmp/vocab-permissions.txt
           sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - name: Prepare versioned APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Vocab-1.0.0-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: vocab-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: vocab-1.0.0-debug-apk
+          path: dist/Vocab-1.0.0-debug.apk
           if-no-files-found: error
