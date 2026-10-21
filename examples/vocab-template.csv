@@ -1,1 +1,1 @@
-term,ipa,partOfSpeech,meaning,example,topic,srsLevel,nextReviewAtMillis,reviewCount,lapseCount
+term,ipa,partOfSpeech,meaning,example,topic,collocations,wordFamily,notes,tags,srsLevel,nextReviewAtMillis,reviewCount,lapseCount,createdAtMillis,lastReviewedAtMillis
