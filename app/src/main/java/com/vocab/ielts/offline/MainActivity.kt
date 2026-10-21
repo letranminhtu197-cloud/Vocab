@@ -64,6 +64,7 @@ private fun VocabApp(dao: WordDao) {
     val words by dao.observeAll().collectAsState(initial = emptyList())
     val filtered = words.filter {
         it.term.contains(query, true) || it.meaning.contains(query, true) ||
+            it.ipa.contains(query, true) || it.partOfSpeech.contains(query, true) ||
             it.topic.contains(query, true) || it.example.contains(query, true)
     }
     val reviewDeck = if (dueOnly) words.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() } else words
