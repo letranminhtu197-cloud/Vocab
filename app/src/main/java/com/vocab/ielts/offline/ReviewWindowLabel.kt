@@ -4,7 +4,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import java.time.Instant
 
 @Composable
@@ -15,13 +14,14 @@ fun ReviewWindowLabel(word: WordEntity) {
         reviewCount = word.reviewCount,
         lapseCount = word.lapseCount
     )
-    val label = when (SrsScheduler.goldenWindow(state, Instant.now())) {
+    val window = SrsScheduler.goldenWindow(state, Instant.now())
+    val label = when (window) {
         "NEW" -> "Mới — chưa ôn"
         "UPCOMING" -> "Sắp đến hạn ôn"
         "GOLDEN" -> "Thời điểm vàng — nên ôn ngay"
         else -> "Đã quá hạn — nên ôn bù"
     }
-    val color = when (SrsScheduler.goldenWindow(state, Instant.now())) {
+    val color = when (window) {
         "GOLDEN" -> MaterialTheme.colorScheme.primary
         "OVERDUE" -> MaterialTheme.colorScheme.error
         "UPCOMING" -> MaterialTheme.colorScheme.secondary
