@@ -26,9 +26,9 @@ class CsvCodecTest {
     }
 
     @Test fun rejectsMalformedQuotePlacement() {
-        assertNotNull(CsvCodec.parse("term,meaning\\n\"word\"tail,meaning").error)
-        assertNotNull(CsvCodec.parse("term,meaning\\nwo\"rd,meaning").error)
-        assertNotNull(CsvCodec.parse("term,meaning\\n\"word,meaning").error)
+        assertNotNull(CsvCodec.parse("term,meaning\n\"word\"tail,meaning").error)
+        assertNotNull(CsvCodec.parse("term,meaning\nwo\"rd,meaning").error)
+        assertNotNull(CsvCodec.parse("term,meaning\n\"word,meaning").error)
     }
 
     @Test fun exportCanBeImportedWithoutLosingFields() {
