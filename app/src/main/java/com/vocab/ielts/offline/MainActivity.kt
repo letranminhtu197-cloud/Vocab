@@ -268,7 +268,7 @@ private fun VocabApp(dao: WordDao) {
                                                     lastReviewedAtMillis = now.toEpochMilli()
                                                 ))
                                             }
-                                            currentIndex = if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
+                                            currentIndex = if (dueOnly) currentIndex else if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
                                             revealed = false
                                         },
                                         enabled = revealed,
