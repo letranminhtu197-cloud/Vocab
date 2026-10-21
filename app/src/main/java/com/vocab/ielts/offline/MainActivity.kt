@@ -226,7 +226,11 @@ private fun VocabApp(dao: WordDao) {
                                             Spacer(Modifier.height(10.dp))
                                             Text(current.example)
                                         }
-                                        if (current.topic.isNotBlank()) Text(current.topic, style = MaterialTheme.typography.labelMedium)
+                                        if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
+                                        if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
+                                        if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
+                                        if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
+                                        if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Spacer(Modifier.height(16.dp))
                                     OutlinedButton(onClick = { revealed = !revealed }) {
