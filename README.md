@@ -5,7 +5,7 @@
 ## Đã triển khai
 - Kotlin, Jetpack Compose, Material 3.
 - Room database cục bộ: từ vựng và tiến độ vẫn còn sau khi đóng/mở ứng dụng.
-- Thêm, sửa, xóa, tìm kiếm từ; flashcard; thống kê cơ bản.
+- Thêm, sửa, xóa, tìm kiếm từ; flashcard; thống kê cơ bản. Khi thêm/sửa sẽ chặn từ trùng không phân biệt chữ hoa/thường; thao tác xóa cần xác nhận và tìm kiếm có trạng thái rỗng rõ ràng.
 - Ôn SRS 5 cấp, đánh giá Lại/Khó/Tốt/Dễ; lưu cấp độ, lịch ôn, số lượt ôn và số lần quên.
 - Hiển thị trạng thái SRS: từ mới, sắp đến hạn, thời điểm vàng hoặc quá hạn.
 - Lưu cục bộ tổng số câu quiz và tỷ lệ đúng qua các lần mở ứng dụng.
@@ -47,4 +47,4 @@ GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quy
 Dữ liệu từ vựng lưu trong cơ sở dữ liệu cục bộ của ứng dụng. Android Auto Backup bị tắt; nên dùng Sao lưu ZIP hoặc Xuất CSV định kỳ nếu muốn giữ bản sao. Không cấp quyền mạng vì ứng dụng không cần Internet để học.
 
 ## Những phần vẫn cần hoàn thiện so với master prompt
-Đây vẫn là bản phát triển, chưa nên coi là hoàn tất toàn bộ yêu cầu ban đầu. Thống kê theo ngày/tuần và chuỗi ngày học đã được bổ sung trong nhánh PR #13, đang chờ CI xác nhận trước khi gộp. Các hạng mục còn lại gồm cải tiến thêm giao diện và kiểm thử toàn bộ luồng trên emulator/thiết bị Samsung Galaxy S22 Ultra thật. Phát âm hiện dựa trên giọng Text-to-Speech offline đã cài trên Android; chưa đóng gói bộ tệp âm thanh riêng. Không có bộ 250–300 từ được tự nạp; nội dung học là do người dùng quản lý.
+Đây vẫn là bản phát triển, chưa nên coi là hoàn tất toàn bộ yêu cầu ban đầu. Thống kê theo ngày/tuần và chuỗi ngày học đã được gộp sau khi CI thành công. Các hạng mục còn lại gồm tiếp tục cải tiến giao diện, kiểm thử các trường hợp biên và kiểm thử toàn bộ luồng trên emulator/thiết bị Samsung Galaxy S22 Ultra thật. Các hạng mục còn lại gồm cải tiến thêm giao diện và kiểm thử toàn bộ luồng trên emulator/thiết bị Samsung Galaxy S22 Ultra thật. Phát âm hiện dựa trên giọng Text-to-Speech offline đã cài trên Android; chưa đóng gói bộ tệp âm thanh riêng. Không có bộ 250–300 từ được tự nạp; nội dung học là do người dùng quản lý.
