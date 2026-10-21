@@ -205,6 +205,7 @@ private fun VocabApp(dao: WordDao) {
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(current.term, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                                     OfflineSpeakButton(text = current.term)
                                     if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (current.partOfSpeech.isNotBlank()) Text(current.partOfSpeech, color = MaterialTheme.colorScheme.primary)
                                     if (revealed) {
