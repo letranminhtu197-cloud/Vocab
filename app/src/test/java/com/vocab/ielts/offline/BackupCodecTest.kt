@@ -2,6 +2,9 @@ package com.vocab.ielts.offline
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class BackupCodecTest {
     @Test fun zipBackupRoundTripPreservesSrsAndTextFields() {
@@ -26,5 +29,35 @@ class BackupCodecTest {
 
     @Test fun rejectsInvalidArchive() {
         assertNotNull(BackupCodec.restore("not a zip".toByteArray()).error)
+    }
+
+    @Test fun rejectsUnsupportedBackupVersion() {
+        val archive = zipOf(
+            "vocab-backup.txt" to "format=VocabOfflineBackup\nversion=99\n".toByteArray(),
+            "words.csv" to "term,meaning\nword,nghĩa".toByteArray(Charsets.UTF_8)
+        )
+        assertTrue(BackupCodec.restore(archive).error.orEmpty().contains("không được hỗ trợ"))
+    }
+
+    @Test fun rejectsMalformedUtf8InsteadOfSilentlyChangingText() {
+        val archive = zipOf(
+            "vocab-backup.txt" to "format=VocabOfflineBackup\nversion=1\n".toByteArray(),
+            "words.csv" to byteArrayOf(0x74, 0x65, 0x72, 0x6d, 0x2c, 0x6d, 0x65, 0x61, 0x6e, 0x69, 0x6e, 0x67, 0x0a, 0xC3.toByte(), 0x28, 0x2c, 0x78)
+        )
+        val result = BackupCodec.restore(archive)
+        assertNotNull(result.error)
+        assertTrue(result.words.isEmpty())
+    }
+
+    private fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray {
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zip ->
+            entries.forEach { (name, bytes) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(bytes)
+                zip.closeEntry()
+            }
+        }
+        return output.toByteArray()
     }
 }
