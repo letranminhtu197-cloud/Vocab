@@ -30,3 +30,5 @@ Sau khi workflow thành công, tải artifact, giải nén APK và mở trên Sa
 - Bổ sung dữ liệu khởi tạo đã kiểm duyệt tới 250–300 mục.
 - Audio chỉ hiển thị khi có tệp cục bộ thực sự.
 - Kiểm tra giao diện và cài đặt trên emulator/thiết bị thật.
+
+CI trigger: workflow uses the runner-provided Android SDK and accepts SDK licenses non-interactively.
