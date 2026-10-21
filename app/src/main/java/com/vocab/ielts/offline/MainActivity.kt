@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
@@ -143,7 +144,7 @@ private fun VocabApp(dao: WordDao) {
             },
             bottomBar = {
                 NavigationBar {
-                    listOf("Trang chủ", "Sổ từ", "Luyện tập", "Thống kê").forEachIndexed { i, label ->
+                    listOf("Trang chủ", "Sổ từ", "Bài học", "Luyện tập", "Thống kê").forEachIndexed { i, label ->
                         NavigationBarItem(
                             selected = tab == i,
                             onClick = { tab = i },
@@ -152,7 +153,8 @@ private fun VocabApp(dao: WordDao) {
                                     when (i) {
                                         0 -> Icons.Default.Home
                                         1 -> Icons.Default.MenuBook
-                                        2 -> Icons.Default.Refresh
+                                        2 -> Icons.Default.School
+                                        3 -> Icons.Default.Refresh
                                         else -> Icons.Default.QueryStats
                                     },
                                     contentDescription = label
@@ -209,6 +211,7 @@ private fun VocabApp(dao: WordDao) {
                                      OfflineSpeakButton(text = current.term)
                                     if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (current.partOfSpeech.isNotBlank()) Text(current.partOfSpeech, color = MaterialTheme.colorScheme.primary)
+                                     ReviewWindowLabel(current)
                                     if (revealed) {
                                         Spacer(Modifier.height(18.dp))
                                         Text(current.meaning, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
@@ -323,7 +326,30 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 }
-                2 -> QuizScreen(words = words, modifier = Modifier.fillMaxSize().padding(padding))
+                2 -> LessonScreen(
+                    words = words,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onReview = { word, rating ->
+                        val now = Instant.now()
+                        val state = ReviewState(
+                            level = word.srsLevel,
+                            nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
+                            reviewCount = word.reviewCount,
+                            lapseCount = word.lapseCount
+                        )
+                        val next = SrsScheduler.review(state, rating, now)
+                        scope.launch {
+                            dao.update(word.copy(
+                                srsLevel = next.level,
+                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                reviewCount = next.reviewCount,
+                                lapseCount = next.lapseCount,
+                                lastReviewedAtMillis = now.toEpochMilli()
+                            ))
+                        }
+                    }
+                )
+                3 -> QuizScreen(words = words, modifier = Modifier.fillMaxSize().padding(padding))
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
