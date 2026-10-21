@@ -242,7 +242,7 @@ private fun VocabApp(dao: WordDao) {
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Tiếp theo") }
                             }
-                            Text("Đánh giá sau khi hiện đáp án", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+                            Text(if (revealed) "Đánh giá mức độ ghi nhớ" else "Hãy hiện đáp án trước khi đánh giá", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 listOf("Lại" to ReviewRating.AGAIN, "Khó" to ReviewRating.HARD, "Tốt" to ReviewRating.GOOD, "Dễ" to ReviewRating.EASY).forEach { (label, rating) ->
                                     Button(
@@ -268,6 +268,7 @@ private fun VocabApp(dao: WordDao) {
                                             currentIndex = if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
                                             revealed = false
                                         },
+                                        enabled = revealed,
                                         modifier = Modifier.weight(1f),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                                     ) { Text(label, fontSize = 12.sp) }
