@@ -25,6 +25,12 @@ class CsvCodecTest {
         assertEquals(2, result.invalidRows)
     }
 
+    @Test fun rejectsMalformedQuotePlacement() {
+        assertNotNull(CsvCodec.parse("term,meaning\n\"word\"tail,meaning").error)
+        assertNotNull(CsvCodec.parse("term,meaning\nwo\"rd,meaning").error)
+        assertNotNull(CsvCodec.parse("term,meaning\n\"word,meaning").error)
+    }
+
     @Test fun exportCanBeImportedWithoutLosingFields() {
         val original = WordEntity(term = "impact", ipa = "/ˈɪmpækt/", partOfSpeech = "noun", meaning = "tác động", example = "A, B and C", topic = "Society", srsLevel = 2, reviewCount = 3)
         val restored = CsvCodec.parse(CsvCodec.export(listOf(original))).words.single()
