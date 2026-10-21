@@ -13,7 +13,7 @@
 - Quiz trắc nghiệm nghĩa tiếng Việt, chấm đáp án tức thì, giải thích kết quả và ví dụ nếu có.
 - Chế độ ôn riêng các từ mới/đến hạn, tách khỏi chế độ xem toàn bộ sổ từ.
 - Bài học ngắn tối đa 5 từ, ưu tiên từ chưa ôn; người học tự đánh giá nhớ/chưa nhớ để cập nhật tiến độ SRS.
-- Sao lưu/khôi phục ZIP cục bộ có phiên bản định dạng, bảo toàn nội dung và tiến độ SRS; khi khôi phục, chỉ thêm từ chưa có và bỏ qua từ trùng.
+- Sao lưu/khôi phục ZIP cục bộ có phiên bản định dạng, bảo toàn nội dung và tiến độ SRS; khi khôi phục, chỉ thêm từ chưa có và bỏ qua từ trùng. File khôi phục bị từ chối nếu thiếu mục bắt buộc, lặp mục dữ liệu, sai phiên bản hoặc chứa UTF-8 lỗi; giới hạn kích thước nén và giải nén đều được áp dụng.
 - CSV và ZIP giữ thời điểm tạo từ, lần ôn gần nhất cùng metadata SRS.
 - Nhắc ôn hằng ngày khoảng 19:00 bằng thông báo cục bộ; có công tắc bật/tắt, xin quyền thông báo theo Android và tự đăng ký lại sau khi khởi động máy. Android có thể dời thời điểm một chút để tiết kiệm pin.
 - Phát âm từ qua Text-to-Speech chỉ khi thiết bị có giọng tiếng Anh được đánh dấu là không cần mạng; nếu không có, ứng dụng hướng dẫn cài giọng offline và không gọi giọng mạng.

@@ -3,6 +3,9 @@ package com.vocab.ielts.offline
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -36,6 +39,9 @@ object BackupCodec {
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     if (!entry.isDirectory && (entry.name == MANIFEST || entry.name == WORDS)) {
+                        if ((entry.name == MANIFEST && manifest != null) || (entry.name == WORDS && csv != null)) {
+                            return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu có mục dữ liệu bị lặp.")
+                        }
                         val out = ByteArrayOutputStream()
                         val buffer = ByteArray(8192)
                         while (true) {
@@ -45,7 +51,7 @@ object BackupCodec {
                             if (expanded > MAX_BYTES) return CsvCodec.ImportResult(emptyList(), 0, "Dữ liệu giải nén vượt giới hạn an toàn.")
                             out.write(buffer, 0, count)
                         }
-                        val value = out.toByteArray().toString(Charsets.UTF_8)
+                        val value = decodeUtf8(out.toByteArray())
                         if (entry.name == MANIFEST) manifest = value
                         if (entry.name == WORDS) csv = value
                     }
@@ -53,7 +59,7 @@ object BackupCodec {
                 }
             }
         } catch (_: IOException) {
-            return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu bị hỏng hoặc không phải ZIP hợp lệ.")
+            return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu bị hỏng, chứa văn bản không hợp lệ hoặc không phải ZIP hợp lệ.")
         }
         val metadata = manifest ?: return CsvCodec.ImportResult(emptyList(), 0, "Không nhận diện được file sao lưu Vocab.")
         if (metadata.lineSequence().none { it.trim() == "format=VocabOfflineBackup" } ||
@@ -63,4 +69,11 @@ object BackupCodec {
         val payload = csv ?: return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu không có dữ liệu từ vựng.")
         return CsvCodec.parse(payload)
     }
+
+    private fun decodeUtf8(bytes: ByteArray): String =
+        StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
 }
