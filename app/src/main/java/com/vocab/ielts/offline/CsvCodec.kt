@@ -1,5 +1,9 @@
 package com.vocab.ielts.offline
 
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
+
 /** RFC-4180-style CSV support for user-owned vocabulary files. */
 object CsvCodec {
     data class ImportResult(
@@ -7,6 +11,14 @@ object CsvCodec {
         val invalidRows: Int,
         val error: String? = null
     )
+
+    /** Decode imported CSV without silently replacing malformed UTF-8 bytes. */
+    fun decodeUtf8(bytes: ByteArray): String =
+        StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
 
     fun parse(text: String): ImportResult {
         val rows = try { readRows(text.removePrefix("\uFEFF")) } catch (e: IllegalArgumentException) {
