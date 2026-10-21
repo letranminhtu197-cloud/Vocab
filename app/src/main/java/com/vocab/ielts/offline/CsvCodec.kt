@@ -29,6 +29,8 @@ object CsvCodec {
         val nextIndex = index("nextreviewatmillis", "nextreview")
         val reviewIndex = index("reviewcount", "reviews")
         val lapseIndex = index("lapsecount", "lapses")
+        val createdIndex = index("createdatmillis", "createdat")
+        val lastReviewedIndex = index("lastreviewedatmillis", "lastreviewed")
         val result = mutableListOf<WordEntity>()
         var invalid = 0
         nonEmpty.drop(1).forEach { row ->
@@ -48,7 +50,9 @@ object CsvCodec {
                     srsLevel = value(srsIndex).toIntOrNull()?.coerceIn(0, 5) ?: 0,
                     nextReviewAtMillis = value(nextIndex).toLongOrNull()?.coerceAtLeast(0L) ?: 0L,
                     reviewCount = value(reviewIndex).toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                    lapseCount = value(lapseIndex).toIntOrNull()?.coerceAtLeast(0) ?: 0
+                    lapseCount = value(lapseIndex).toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                    createdAtMillis = value(createdIndex).toLongOrNull()?.coerceAtLeast(0L) ?: System.currentTimeMillis(),
+                    lastReviewedAtMillis = value(lastReviewedIndex).toLongOrNull()?.coerceAtLeast(0L) ?: 0L
                 )
             }
         }
@@ -57,11 +61,11 @@ object CsvCodec {
 
     fun export(words: List<WordEntity>): String {
         val rows = mutableListOf(
-            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount")
+            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis")
         )
         words.forEach { w ->
             rows += listOf(w.term, w.ipa, w.partOfSpeech, w.meaning, w.example, w.topic,
-                w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString())
+                w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString(), w.createdAtMillis.toString(), w.lastReviewedAtMillis.toString())
         }
         return rows.joinToString("\r\n") { row -> row.joinToString(",") { escape(it) } } + "\r\n"
     }
