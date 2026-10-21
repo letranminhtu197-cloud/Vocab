@@ -286,6 +286,7 @@ private fun VocabApp(dao: WordDao) {
                         ) { Text("Xuất CSV") }
                     }
                     Text("CSV hỗ trợ cột bắt buộc term và meaning; các cột ipa, partOfSpeech, example, topic là tùy chọn.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    BackupControls(dao = dao, onMessage = { csvMessage = it })
                     if (words.isEmpty()) {
                         Spacer(Modifier.height(18.dp))
                         Text("Chưa có từ nào. Nhấn nút + để nhập từ đầu tiên.", color = MaterialTheme.colorScheme.onSurfaceVariant)
