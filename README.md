@@ -19,7 +19,7 @@
 - Phát âm từ qua Text-to-Speech chỉ khi thiết bị có giọng tiếng Anh được đánh dấu là không cần mạng; nếu không có, ứng dụng hướng dẫn cài giọng offline và không gọi giọng mạng.
 - Nhập/xuất CSV qua Android file picker (Storage Access Framework); không cần quyền truy cập toàn bộ bộ nhớ.
 - Nhập CSV yêu cầu cột `term` (hoặc `word`) và `meaning` (hoặc `nghĩa`). Các cột `ipa`, `partOfSpeech`, `example`, `topic` tùy chọn. Có thể thêm các cột SRS trong mẫu để giữ tiến độ khi xuất/nhập lại.
-- Từ trùng được bỏ qua; dòng thiếu từ hoặc nghĩa được báo số lượng. CSV có hỗ trợ trường đặt trong dấu ngoặc kép, dấu phẩy và xuống dòng bên trong trường.
+- Từ trùng được bỏ qua; dòng thiếu từ hoặc nghĩa được báo số lượng. CSV hỗ trợ trường đặt trong dấu ngoặc kép, dấu phẩy và xuống dòng bên trong trường; các dấu ngoặc kép đặt sai vị trí hoặc ký tự thừa sau dấu ngoặc kép đóng sẽ bị từ chối với thông báo lỗi.
 - Không khai báo quyền `INTERNET`; không gọi dịch vụ mạng trong ứng dụng. Quyền thông báo và nhận sự kiện khởi động chỉ phục vụ nhắc ôn cục bộ.
 
 ## File CSV mẫu
