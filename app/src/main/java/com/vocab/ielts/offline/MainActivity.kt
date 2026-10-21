@@ -210,6 +210,7 @@ private fun VocabApp(dao: WordDao) {
                                     Text(current.term, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                                     if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (current.partOfSpeech.isNotBlank()) Text(current.partOfSpeech, color = MaterialTheme.colorScheme.primary)
+                                     ReviewWindowLabel(current)
                                     if (revealed) {
                                         Spacer(Modifier.height(18.dp))
                                         Text(current.meaning, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
