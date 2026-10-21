@@ -10,7 +10,7 @@ object QuizLogic {
 
     fun clozeSentence(example: String, term: String): String? {
         if (example.isBlank() || term.isBlank()) return null
-        val pattern = Regex(Regex.escape(term), RegexOption.IGNORE_CASE)
+        val pattern = Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(term) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE)
         return if (pattern.containsMatchIn(example)) pattern.replaceFirst(example, "_____") else null
     }
 }
