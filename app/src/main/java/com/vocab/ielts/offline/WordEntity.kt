@@ -1,0 +1,21 @@
+package com.vocab.ielts.offline
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "words")
+data class WordEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val term: String,
+    val ipa: String = "",
+    val partOfSpeech: String = "",
+    val meaning: String,
+    val example: String = "",
+    val topic: String = "",
+    val srsLevel: Int = 0,
+    val nextReviewAtMillis: Long = 0L,
+    val reviewCount: Int = 0,
+    val lapseCount: Int = 0,
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val lastReviewedAtMillis: Long = 0L
+)
