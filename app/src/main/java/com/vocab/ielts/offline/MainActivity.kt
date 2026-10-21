@@ -52,6 +52,7 @@ private fun VocabApp(dao: WordDao) {
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var showSamplesConfirm by remember { mutableStateOf(false) }
+    var dueOnly by remember { mutableStateOf(false) }
     var csvMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -60,7 +61,8 @@ private fun VocabApp(dao: WordDao) {
         it.term.contains(query, true) || it.meaning.contains(query, true) ||
             it.topic.contains(query, true) || it.example.contains(query, true)
     }
-    val current = words.getOrNull(currentIndex.coerceIn(0, (words.size - 1).coerceAtLeast(0)))
+    val reviewDeck = if (dueOnly) words.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() } else words
+    val current = reviewDeck.getOrNull(currentIndex.coerceIn(0, (reviewDeck.size - 1).coerceAtLeast(0)))
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
@@ -180,13 +182,14 @@ private fun VocabApp(dao: WordDao) {
                             }
                         }
                     }
-                    item { Text("Ôn flashcard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+                    item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Ôn flashcard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); FilterChip(selected = dueOnly, onClick = { dueOnly = !dueOnly; currentIndex = 0; revealed = false }, label = { Text(if (dueOnly) "Chỉ từ đến hạn" else "Tất cả từ") }) } }
                     if (current == null) {
                         item {
                             Card(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("Sổ từ đang trống", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    Text("Bạn có thể tự nhập từ hoặc thêm vài từ mẫu để kiểm tra ứng dụng.")
+                                    Text(if (dueOnly && words.isNotEmpty()) "Không có từ đến hạn" else "Sổ từ đang trống", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                    Text(if (dueOnly && words.isNotEmpty()) "Bạn đã ôn hết từ đến hạn hiện tại. Có thể xem toàn bộ sổ từ hoặc quay lại sau." else "Bạn có thể tự nhập từ hoặc thêm vài từ mẫu để kiểm tra ứng dụng.")
+                                    if (dueOnly && words.isNotEmpty()) OutlinedButton(onClick = { dueOnly = false; currentIndex = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Xem toàn bộ từ") }
                                     Button(onClick = { tab = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Mở sổ từ") }
                                     OutlinedButton(onClick = { showSamplesConfirm = true }, modifier = Modifier.fillMaxWidth()) { Text("Thêm 3 từ mẫu để thử") }
                                 }
@@ -194,7 +197,7 @@ private fun VocabApp(dao: WordDao) {
                         }
                     } else {
                         item {
-                            Text("Thẻ ${currentIndex + 1} / ${words.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Thẻ ${currentIndex + 1} / ${reviewDeck.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Card(Modifier.fillMaxWidth().heightIn(min = 250.dp), shape = RoundedCornerShape(24.dp)) {
                                 Column(
                                     Modifier.fillMaxWidth().padding(24.dp),
@@ -222,11 +225,11 @@ private fun VocabApp(dao: WordDao) {
                             Spacer(Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(
-                                    onClick = { currentIndex = (currentIndex - 1 + words.size) % words.size; revealed = false },
+                                    onClick = { currentIndex = (currentIndex - 1 + reviewDeck.size) % reviewDeck.size; revealed = false },
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Trước") }
                                 Button(
-                                    onClick = { currentIndex = (currentIndex + 1) % words.size; revealed = false },
+                                    onClick = { currentIndex = (currentIndex + 1) % reviewDeck.size; revealed = false },
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Tiếp theo") }
                             }
@@ -252,7 +255,7 @@ private fun VocabApp(dao: WordDao) {
                                                     lastReviewedAtMillis = now.toEpochMilli()
                                                 ))
                                             }
-                                            currentIndex = if (words.size > 1) (currentIndex + 1) % words.size else 0
+                                            currentIndex = if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
                                             revealed = false
                                         },
                                         modifier = Modifier.weight(1f),
