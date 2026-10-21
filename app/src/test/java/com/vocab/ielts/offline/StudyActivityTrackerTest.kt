@@ -18,7 +18,6 @@ class StudyActivityTrackerTest {
             values[call.getArgument<String>(0)] = call.getArgument<Int>(1)
             editor
         }
-        Mockito.`when`(editor.apply()).thenAnswer { null }
         return prefs
     }
 
