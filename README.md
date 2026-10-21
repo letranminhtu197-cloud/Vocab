@@ -1,4 +1,6 @@
-# Vocab — IELTS Vocabulary Offline
+# Vocab 1.0.0 — IELTS Vocabulary Offline
+
+**Phiên bản ứng dụng:** `1.0.0` (`versionCode 100`). Đây là bản phát hành cá nhân ưu tiên ngoại tuyến; APK CI hiện là **debug-signed** để cài thử trực tiếp, chưa phải APK phát hành thương mại ký bằng khóa riêng.
 
 Ứng dụng Android cá nhân học từ vựng IELTS Academic, giao diện tiếng Việt, thiết kế cho dùng ngoại tuyến trên điện thoại Android. Ứng dụng không tự cài sẵn danh sách từ vựng; người dùng tự nhập từ, nhập CSV, hoặc chủ động thêm ba từ mẫu chỉ để thử tính năng.
 
@@ -41,10 +43,13 @@ gradle test
 gradle assembleDebug
 ```
 
-GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tải artifact `vocab-debug-apk`. Xem tab [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions) để xác nhận trạng thái build thực tế.
+GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tải artifact `vocab-1.0.0-debug-apk` với tên file `Vocab-1.0.0-debug.apk`. Mở [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions), chọn lượt build thành công gần nhất và tải artifact ở cuối trang. Artifact hết hạn theo chính sách lưu trữ GitHub Actions.
 
 ## Quyền riêng tư
 Dữ liệu từ vựng lưu trong cơ sở dữ liệu cục bộ của ứng dụng. Android Auto Backup bị tắt; nên dùng Sao lưu ZIP hoặc Xuất CSV định kỳ nếu muốn giữ bản sao. Không cấp quyền mạng vì ứng dụng không cần Internet để học.
 
-## Những phần vẫn cần hoàn thiện so với master prompt
-Đây vẫn là bản phát triển, chưa nên coi là hoàn tất toàn bộ yêu cầu ban đầu. Thống kê theo ngày/tuần và chuỗi ngày học đã được gộp sau khi CI thành công. Các hạng mục còn lại gồm tiếp tục cải tiến giao diện, kiểm thử các trường hợp biên và kiểm thử toàn bộ luồng trên emulator/thiết bị Samsung Galaxy S22 Ultra thật. Phát âm hiện dựa trên giọng Text-to-Speech offline đã cài trên Android; chưa đóng gói bộ tệp âm thanh riêng. Không có bộ 250–300 từ được tự nạp; nội dung học là do người dùng quản lý.
+## Phạm vi và lưu ý của bản 1.0.0
+- Không tự nạp bộ từ vựng; bạn tự nhập từ hoặc dùng file CSV của mình.
+- Phát âm dùng giọng Text-to-Speech offline có sẵn trên thiết bị; ứng dụng không đóng gói bộ âm thanh riêng. Nếu máy không có giọng tiếng Anh offline, chức năng phát âm có thể không hoạt động cho đến khi cài giọng ngoại tuyến trong cài đặt Android.
+- Nhắc hằng ngày dùng cơ chế lịch của Android; thời điểm thực tế có thể trễ do chế độ tiết kiệm pin hoặc giới hạn nền của hệ điều hành.
+- CI kiểm tra unit tests, tạo APK debug và xác nhận APK không yêu cầu quyền Internet. Chưa thể khẳng định mọi luồng đã được kiểm thử thủ công trên Samsung Galaxy S22 Ultra thật; trước khi coi là hoàn tất tuyệt đối, cần cài APK trên máy và kiểm tra nhập/xuất CSV, sao lưu/khôi phục ZIP, thông báo, TTS offline và toàn bộ màn hình.
