@@ -34,16 +34,21 @@ object StudyReminder {
             context, ALARM_REQUEST, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        alarm.setInexactRepeating(
+            AlarmManager.RTC_WAKEUP, nextReminderAt(System.currentTimeMillis()), AlarmManager.INTERVAL_DAY, pending
+        )
+    }
+
+    internal fun nextReminderAt(nowMillis: Long): Long {
         val next = Calendar.getInstance().apply {
+            timeInMillis = nowMillis
             set(Calendar.HOUR_OF_DAY, 19)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+            if (timeInMillis <= nowMillis) add(Calendar.DAY_OF_YEAR, 1)
         }
-        alarm.setInexactRepeating(
-            AlarmManager.RTC_WAKEUP, next.timeInMillis, AlarmManager.INTERVAL_DAY, pending
-        )
+        return next.timeInMillis
     }
 
     fun cancel(context: Context) {
