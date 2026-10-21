@@ -116,6 +116,72 @@ private fun VocabApp(dao: WordDao) {
         }
     }
 
+    val backupImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val bytes = runCatching {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            val output = java.io.ByteArrayOutputStream()
+                            val buffer = ByteArray(8192)
+                            var total = 0
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                total += count
+                                if (total > 20 * 1024 * 1024) error("File sao lưu vượt giới hạn 20 MB.")
+                                output.write(buffer, 0, count)
+                            }
+                            output.toByteArray()
+                        }
+                    }
+                }
+                if (bytes.isFailure || bytes.getOrNull() == null) {
+                    csvMessage = "Không đọc được file sao lưu: ${bytes.exceptionOrNull()?.message ?: "file trống"}"
+                } else {
+                    val parsed = BackupCodec.restore(bytes.getOrThrow()!!)
+                    if (parsed.error != null) {
+                        csvMessage = parsed.error
+                    } else {
+                        val existingTerms = dao.observeAll().first().map { it.term.trim().lowercase() }.toMutableSet()
+                        var duplicateCount = 0
+                        val uniqueWords = parsed.words.filter { word ->
+                            if (existingTerms.add(word.term.trim().lowercase())) true
+                            else { duplicateCount++; false }
+                        }
+                        val insertError = runCatching {
+                            if (uniqueWords.isNotEmpty()) withContext(Dispatchers.IO) { dao.insertAll(uniqueWords) }
+                        }.exceptionOrNull()
+                        csvMessage = if (insertError != null) {
+                            "Khôi phục thất bại: ${insertError.message ?: "lỗi dữ liệu"}"
+                        } else {
+                            "Đã khôi phục ${uniqueWords.size} từ. Giữ nguyên từ hiện có; bỏ qua ${duplicateCount} mục trùng."
+                        }
+                    }
+                }
+            }
+        }
+    }
+    val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = runCatching {
+                    val allWords = dao.observeAll().first()
+                    val archive = BackupCodec.create(allWords)
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.use { it.write(archive) }
+                            ?: error("Không mở được file đích.")
+                    }
+                    allWords.size
+                }
+                csvMessage = result.fold(
+                    onSuccess = { "Đã sao lưu ${it} từ cùng tiến độ SRS vào ZIP." },
+                    onFailure = { "Sao lưu thất bại: ${it.message ?: "lỗi ghi file"}" }
+                )
+            }
+        }
+    }
+
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = androidx.compose.ui.graphics.Color(0xFF356859),
@@ -284,7 +350,17 @@ private fun VocabApp(dao: WordDao) {
                             modifier = Modifier.weight(1f)
                         ) { Text("Xuất CSV") }
                     }
-                    Text("CSV hỗ trợ cột bắt buộc term và meaning; các cột ipa, partOfSpeech, example, topic là tùy chọn.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { backupImportLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Khôi phục ZIP") }
+                        OutlinedButton(
+                            onClick = { backupExportLauncher.launch("vocab-backup.zip") },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Sao lưu ZIP") }
+                    }
+                    Text("CSV dùng để trao đổi danh sách từ. ZIP lưu cả dữ liệu và tiến độ SRS. Khôi phục sẽ thêm từ chưa có, không ghi đè từ trùng.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (words.isEmpty()) {
                         Spacer(Modifier.height(18.dp))
                         Text("Chưa có từ nào. Nhấn nút + để nhập từ đầu tiên.", color = MaterialTheme.colorScheme.onSurfaceVariant)
