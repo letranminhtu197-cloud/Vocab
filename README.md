@@ -31,7 +31,7 @@ allocate,phân bổ
 sustainable,bền vững
 ```
 
-Có thể chỉ dùng hai cột `term,meaning`; các trường còn lại để trống hoặc bỏ qua. Nên lưu file dưới dạng CSV UTF-8.
+Có thể chỉ dùng hai cột `term,meaning`; các trường còn lại để trống hoặc bỏ qua. Nên lưu file dưới dạng CSV UTF-8. File có byte UTF-8 lỗi sẽ bị từ chối thay vì âm thầm thay ký tự.
 
 ## Build và kiểm tra
 Yêu cầu JDK 17, Android SDK Platform 35 và Gradle 8.9:
