@@ -69,6 +69,7 @@ fun LessonScreen(
                         Text(current.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                         if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (current.partOfSpeech.isNotBlank()) Text(current.partOfSpeech, color = MaterialTheme.colorScheme.primary)
+                        ReviewWindowLabel(current)
                         if (revealed) {
                             HorizontalDivider()
                             Text(current.meaning, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
