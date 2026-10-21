@@ -4,6 +4,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CsvCodecTest {
+    @Test fun rejectsMalformedUtf8InsteadOfReplacingCharacters() {
+        val malformed = byteArrayOf(0x74, 0x65, 0x72, 0x6d, 0x2c, 0x6d, 0x65, 0x61, 0x6e, 0x69, 0x6e, 0x67, 0x0a, 0xC3.toByte(), 0x28, 0x2c, 0x78)
+        assertTrue(runCatching { CsvCodec.decodeUtf8(malformed) }.isFailure)
+    }
+
     @Test fun importsFlexibleHeadersAndOptionalColumns() {
         val result = CsvCodec.parse("word,meaning,example,topic\nallocate,phân bổ,\"The city, however, must act\",Economy")
         assertNull(result.error)

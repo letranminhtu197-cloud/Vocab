@@ -74,7 +74,7 @@ private fun VocabApp(dao: WordDao) {
             scope.launch {
                 val importedText = runCatching {
                     withContext(Dispatchers.IO) {
-                        context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        context.contentResolver.openInputStream(uri)?.use { CsvCodec.decodeUtf8(it.readBytes()) }
                     }
                 }.getOrNull()
                 if (importedText == null) {
