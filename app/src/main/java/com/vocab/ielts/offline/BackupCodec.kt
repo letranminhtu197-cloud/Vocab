@@ -65,7 +65,7 @@ object BackupCodec {
             manifestText.lineSequence().none { it.trim() == "version=1" }) {
             return CsvCodec.ImportResult(emptyList(), 0, "Không nhận diện được định dạng file sao lưu Vocab.")
         }
-        if (csv == null) return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu không có dữ liệu từ vựng.")
-        return CsvCodec.parse(csv)
+        val csvText = csv ?: return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu không có dữ liệu từ vựng.")
+        return CsvCodec.parse(csvText)
     }
 }
