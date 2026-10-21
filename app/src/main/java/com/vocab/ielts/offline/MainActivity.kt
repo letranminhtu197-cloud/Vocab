@@ -52,6 +52,7 @@ private fun VocabApp(dao: WordDao) {
     var revealed by remember { mutableStateOf(false) }
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
+    var wordToDelete by remember { mutableStateOf<WordEntity?>(null) }
     var showSamplesConfirm by remember { mutableStateOf(false) }
     var dueOnly by remember { mutableStateOf(false) }
     var csvMessage by remember { mutableStateOf<String?>(null) }
@@ -308,6 +309,15 @@ private fun VocabApp(dao: WordDao) {
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.weight(1f).padding(top = 10.dp)
                     ) {
+                        if (filtered.isEmpty() && words.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "Không tìm thấy từ phù hợp. Hãy thử từ khóa khác hoặc xóa nội dung tìm kiếm.",
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         items(filtered, key = { it.id }) { word ->
                             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -316,7 +326,7 @@ private fun VocabApp(dao: WordDao) {
                                         IconButton(onClick = { editorWord = word; showEditor = true }) {
                                             Icon(Icons.Default.Edit, contentDescription = "Sửa từ")
                                         }
-                                        IconButton(onClick = { scope.launch { dao.delete(word) } }) {
+                                        IconButton(onClick = { wordToDelete = word }) {
                                             Icon(Icons.Default.Delete, contentDescription = "Xóa từ")
                                         }
                                     }
@@ -422,11 +432,36 @@ private fun VocabApp(dao: WordDao) {
             onDismiss = { showEditor = false; editorWord = null },
             onSave = { word ->
                 scope.launch {
-                    if (editorWord == null) dao.insert(word) else dao.update(word)
+                    val normalizedTerm = word.term.trim()
+                    val editingId = editorWord?.id
+                    val duplicate = dao.observeAll().first().any {
+                        it.id != editingId && it.term.trim().equals(normalizedTerm, ignoreCase = true)
+                    }
+                    if (duplicate) {
+                        csvMessage = "Từ/cụm từ \"$normalizedTerm\" đã có trong sổ. Hãy kiểm tra từ hiện có thay vì tạo bản trùng."
+                    } else {
+                        val normalizedWord = word.copy(term = normalizedTerm, meaning = word.meaning.trim())
+                        if (editorWord == null) dao.insert(normalizedWord) else dao.update(normalizedWord)
+                        showEditor = false
+                        editorWord = null
+                    }
                 }
-                showEditor = false
-                editorWord = null
             }
+        )
+    }
+    if (wordToDelete != null) {
+        val deleting = wordToDelete!!
+        AlertDialog(
+            onDismissRequest = { wordToDelete = null },
+            title = { Text("Xóa từ này?") },
+            text = { Text("Bạn có chắc muốn xóa \"${deleting.term}\" khỏi sổ từ vựng? Thao tác này không thể hoàn tác.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { dao.delete(deleting) }
+                    wordToDelete = null
+                }) { Text("Xóa") }
+            },
+            dismissButton = { TextButton(onClick = { wordToDelete = null }) { Text("Hủy") } }
         )
     }
     if (showSamplesConfirm) {
