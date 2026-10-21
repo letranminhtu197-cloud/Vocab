@@ -254,6 +254,7 @@ private fun VocabApp(dao: WordDao) {
                                                 lapseCount = current.lapseCount
                                             )
                                             val next = SrsScheduler.review(state, rating, now)
+                                            StudyActivityTracker.recordEvent(statsPrefs)
                                             scope.launch {
                                                 dao.update(current.copy(
                                                     srsLevel = next.level,
@@ -341,6 +342,7 @@ private fun VocabApp(dao: WordDao) {
                             lapseCount = word.lapseCount
                         )
                         val next = SrsScheduler.review(state, rating, now)
+                        StudyActivityTracker.recordEvent(statsPrefs)
                         scope.launch {
                             dao.update(word.copy(
                                 srsLevel = next.level,
@@ -356,6 +358,7 @@ private fun VocabApp(dao: WordDao) {
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
                     onAnswerRecorded = { correct ->
+                        StudyActivityTracker.recordEvent(statsPrefs)
                         quizTotal += 1
                         if (correct) quizCorrect += 1
                         statsPrefs.edit()
@@ -376,6 +379,29 @@ private fun VocabApp(dao: WordDao) {
                     item { StatCard("Từ đến hạn ôn", words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }.toString()) }
                     item { StatCard("Tổng câu quiz", quizTotal.toString()) }
                     item { StatCard("Tỷ lệ đúng quiz", if (quizTotal == 0) "Chưa có dữ liệu" else "${quizCorrect * 100 / quizTotal}%") }
+                    item { StatCard("Chuỗi ngày học hiện tại", "${StudyActivityTracker.activeDayCount(statsPrefs)} ngày") }
+                    item {
+                        val week = StudyActivityTracker.lastSevenDays(statsPrefs)
+                        val activeDays = week.count { it.activities > 0 }
+                        val eventTotal = week.sumOf { it.activities }
+                        val maximum = week.maxOfOrNull { it.activities }?.coerceAtLeast(1) ?: 1
+                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Hoạt động 7 ngày gần nhất", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Text("$activeDays/7 ngày có học • $eventTotal lượt luyện/ôn", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                week.forEach { day ->
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(day.date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")), modifier = Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)
+                                        LinearProgressIndicator(
+                                            progress = { day.activities.toFloat() / maximum },
+                                            modifier = Modifier.weight(1f).height(8.dp)
+                                        )
+                                        Text(day.activities.toString(), modifier = Modifier.width(24.dp), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     item { StatCard("Chế độ hoạt động", "Ngoại tuyến") }
                 }
             }
