@@ -16,7 +16,7 @@ private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
 
 @Composable
-fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier) {
+fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerRecorded: (Boolean) -> Unit = {}) {
     var mode by remember { mutableStateOf(QUIZ_MEANING) }
     var index by remember { mutableIntStateOf(0) }
     var selectedId by remember { mutableStateOf<Long?>(null) }
@@ -53,6 +53,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier) {
             answered = true
             total++
             if (correct) score++
+            onAnswerRecorded(correct)
         }
     }
 
@@ -139,6 +140,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier) {
                                             answered = true
                                             total++
                                             if (correct) score++
+                                            onAnswerRecorded(correct)
                                         }
                                     },
                                     color = fill,

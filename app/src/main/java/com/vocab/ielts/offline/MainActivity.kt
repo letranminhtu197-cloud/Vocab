@@ -56,6 +56,9 @@ private fun VocabApp(dao: WordDao) {
     var dueOnly by remember { mutableStateOf(false) }
     var csvMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
+    var quizCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_correct", 0)) }
+    var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
     val scope = rememberCoroutineScope()
     val words by dao.observeAll().collectAsState(initial = emptyList())
     val filtered = words.filter {
@@ -349,7 +352,18 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 )
-                3 -> QuizScreen(words = words, modifier = Modifier.fillMaxSize().padding(padding))
+                3 -> QuizScreen(
+                    words = words,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onAnswerRecorded = { correct ->
+                        quizTotal += 1
+                        if (correct) quizCorrect += 1
+                        statsPrefs.edit()
+                            .putInt("quiz_total", quizTotal)
+                            .putInt("quiz_correct", quizCorrect)
+                            .apply()
+                    }
+                )
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -359,6 +373,9 @@ private fun VocabApp(dao: WordDao) {
                     item { StatCard("Đã ôn ít nhất một lần", words.count { it.reviewCount > 0 }.toString()) }
                     item { StatCard("Tổng lượt ôn", words.sumOf { it.reviewCount }.toString()) }
                     item { StatCard("Cấp SRS 5", words.count { it.srsLevel == 5 }.toString()) }
+                    item { StatCard("Từ đến hạn ôn", words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }.toString()) }
+                    item { StatCard("Tổng câu quiz", quizTotal.toString()) }
+                    item { StatCard("Tỷ lệ đúng quiz", if (quizTotal == 0) "Chưa có dữ liệu" else "${quizCorrect * 100 / quizTotal}%") }
                     item { StatCard("Chế độ hoạt động", "Ngoại tuyến") }
                 }
             }
