@@ -7,6 +7,7 @@
 - Room database cục bộ: từ vựng và tiến độ vẫn còn sau khi đóng/mở ứng dụng.
 - Thêm, sửa, xóa, tìm kiếm từ; flashcard; thống kê cơ bản.
 - Ôn SRS 5 cấp, đánh giá Lại/Khó/Tốt/Dễ; lưu cấp độ, lịch ôn, số lượt ôn và số lần quên.
+- Hiển thị trạng thái SRS: từ mới, sắp đến hạn, thời điểm vàng hoặc quá hạn.
 - Quiz trắc nghiệm nghĩa tiếng Việt, chấm đáp án tức thì, giải thích kết quả và ví dụ nếu có.
 - Chế độ ôn riêng các từ mới/đến hạn, tách khỏi chế độ xem toàn bộ sổ từ.
 - Bài học ngắn tối đa 5 từ, ưu tiên từ chưa ôn; người học tự đánh giá nhớ/chưa nhớ để cập nhật tiến độ SRS.
