@@ -78,26 +78,57 @@ object CsvCodec {
         var row = mutableListOf<String>()
         val cell = StringBuilder()
         var quoted = false
+        var closedQuote = false
         var i = 0
+
+        fun finishCell() {
+            row.add(cell.toString())
+            cell.setLength(0)
+            closedQuote = false
+        }
+        fun finishRow() {
+            finishCell()
+            rows.add(row)
+            row = mutableListOf()
+        }
+
         while (i < text.length) {
-            val c = text[i]
+            val ch = text[i]
             when {
-                quoted && c == '"' && i + 1 < text.length && text[i + 1] == '"' -> { cell.append('"'); i++ }
-                c == '"' && !quoted && cell.isEmpty() -> quoted = true
-                c == '"' && quoted -> quoted = false
-                c == ',' && !quoted -> { row.add(cell.toString()); cell.setLength(0) }
-                (c == '\n' || c == '\r') && !quoted -> {
-                    if (c == '\r' && i + 1 < text.length && text[i + 1] == '\n') i++
-                    row.add(cell.toString()); cell.setLength(0)
-                    rows.add(row); row = mutableListOf()
+                quoted && ch == '"' && i + 1 < text.length && text[i + 1] == '"' -> {
+                    cell.append('"')
+                    i++
                 }
-                else -> cell.append(c)
+                quoted && ch == '"' -> {
+                    quoted = false
+                    closedQuote = true
+                }
+                quoted -> cell.append(ch)
+                closedQuote && ch == ',' -> finishCell()
+                closedQuote && (ch == '\n' || ch == '\r') -> {
+                    if (ch == '\r' && i + 1 < text.length && text[i + 1] == '\n') i++
+                    finishRow()
+                }
+                closedQuote -> throw IllegalArgumentException(
+                    "File CSV có ký tự không hợp lệ sau dấu ngoặc kép đóng."
+                )
+                ch == '"' && cell.isEmpty() -> quoted = true
+                ch == '"' -> throw IllegalArgumentException(
+                    "File CSV có dấu ngoặc kép ở vị trí không hợp lệ."
+                )
+                ch == ',' -> finishCell()
+                ch == '\n' || ch == '\r' -> {
+                    if (ch == '\r' && i + 1 < text.length && text[i + 1] == '\n') i++
+                    finishRow()
+                }
+                else -> cell.append(ch)
             }
             i++
         }
+
         require(!quoted) { "File CSV có dấu ngoặc kép chưa đóng." }
-        if (cell.isNotEmpty() || row.isNotEmpty()) {
-            row.add(cell.toString())
+        if (closedQuote || cell.isNotEmpty() || row.isNotEmpty()) {
+            finishCell()
             rows.add(row)
         }
         return rows
