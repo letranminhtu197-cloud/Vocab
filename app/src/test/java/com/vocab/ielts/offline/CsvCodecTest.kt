@@ -31,6 +31,22 @@ class CsvCodecTest {
         assertNotNull(CsvCodec.parse("term,meaning\n\"word,meaning").error)
     }
 
+    @Test fun rejectsInvalidSrsMetadataInsteadOfSilentlyResettingProgress() {
+        val invalidLevel = CsvCodec.parse("term,meaning,srsLevel\nallocate,phân bổ,9")
+        assertNotNull(invalidLevel.error)
+        assertTrue(invalidLevel.words.isEmpty())
+
+        val negativeReviews = CsvCodec.parse("term,meaning,reviewCount\nallocate,phân bổ,-1")
+        assertNotNull(negativeReviews.error)
+        assertTrue(negativeReviews.words.isEmpty())
+    }
+
+    @Test fun rejectsMalformedReviewTimestamp() {
+        val result = CsvCodec.parse("term,meaning,nextReviewAtMillis\nallocate,phân bổ,not-a-timestamp")
+        assertNotNull(result.error)
+        assertTrue(result.words.isEmpty())
+    }
+
     @Test fun exportCanBeImportedWithoutLosingFields() {
         val original = WordEntity(term = "impact", ipa = "/ˈɪmpækt/", partOfSpeech = "noun", meaning = "tác động", example = "A, B and C", topic = "Society", srsLevel = 2, reviewCount = 3)
         val restored = CsvCodec.parse(CsvCodec.export(listOf(original))).words.single()

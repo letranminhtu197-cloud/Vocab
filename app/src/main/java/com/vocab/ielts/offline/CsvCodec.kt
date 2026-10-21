@@ -33,6 +33,7 @@ object CsvCodec {
         val lastReviewedIndex = index("lastreviewedatmillis", "lastreviewed")
         val result = mutableListOf<WordEntity>()
         var invalid = 0
+        var metadataError: String? = null
         nonEmpty.drop(1).forEach { row ->
             fun value(i: Int): String = if (i >= 0 && i < row.size) row[i].trim() else ""
             val term = value(termIndex)
@@ -40,6 +41,35 @@ object CsvCodec {
             if (term.isBlank() || meaning.isBlank()) {
                 invalid++
             } else {
+                fun intField(index: Int, name: String, default: Int, range: IntRange): Int? {
+                    val raw = value(index)
+                    if (raw.isBlank()) return default
+                    val parsed = raw.toIntOrNull()
+                    if (parsed == null || parsed !in range) {
+                        metadataError = "Giá trị ${name} không hợp lệ ở dòng chứa từ \"${term}\"."
+                        return null
+                    }
+                    return parsed
+                }
+                fun longField(index: Int, name: String, default: Long): Long? {
+                    val raw = value(index)
+                    if (raw.isBlank()) return default
+                    val parsed = raw.toLongOrNull()
+                    if (parsed == null || parsed < 0L) {
+                        metadataError = "Giá trị ${name} không hợp lệ ở dòng chứa từ \"${term}\"."
+                        return null
+                    }
+                    return parsed
+                }
+                val level = intField(srsIndex, "srsLevel", 0, 0..5)
+                val reviews = intField(reviewIndex, "reviewCount", 0, 0..Int.MAX_VALUE)
+                val lapses = intField(lapseIndex, "lapseCount", 0, 0..Int.MAX_VALUE)
+                val nextReview = longField(nextIndex, "nextReviewAtMillis", 0L)
+                val created = longField(createdIndex, "createdAtMillis", System.currentTimeMillis())
+                val lastReviewed = longField(lastReviewedIndex, "lastReviewedAtMillis", 0L)
+                if (listOf(level, reviews, lapses, nextReview, created, lastReviewed).any { it == null }) {
+                    return@forEach
+                }
                 result += WordEntity(
                     term = term,
                     meaning = meaning,
@@ -47,15 +77,16 @@ object CsvCodec {
                     partOfSpeech = value(posIndex),
                     example = value(exampleIndex),
                     topic = value(topicIndex),
-                    srsLevel = value(srsIndex).toIntOrNull()?.coerceIn(0, 5) ?: 0,
-                    nextReviewAtMillis = value(nextIndex).toLongOrNull()?.coerceAtLeast(0L) ?: 0L,
-                    reviewCount = value(reviewIndex).toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                    lapseCount = value(lapseIndex).toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                    createdAtMillis = value(createdIndex).toLongOrNull()?.coerceAtLeast(0L) ?: System.currentTimeMillis(),
-                    lastReviewedAtMillis = value(lastReviewedIndex).toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+                    srsLevel = level!!,
+                    nextReviewAtMillis = nextReview!!,
+                    reviewCount = reviews!!,
+                    lapseCount = lapses!!,
+                    createdAtMillis = created!!,
+                    lastReviewedAtMillis = lastReviewed!!
                 )
             }
         }
+        if (metadataError != null) return ImportResult(emptyList(), 0, metadataError)
         return ImportResult(result, invalid)
     }
 
