@@ -169,6 +169,7 @@ private fun VocabApp(dao: WordDao) {
                     Modifier.fillMaxSize().padding(padding).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    item { StudyReminderControl(onMessage = { csvMessage = it }) }
                     item {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
