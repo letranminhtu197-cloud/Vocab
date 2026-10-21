@@ -1,0 +1,1 @@
+CI retry after changing Android SDK license acceptance.
