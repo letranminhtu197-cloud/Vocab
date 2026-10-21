@@ -141,7 +141,7 @@ private fun VocabApp(dao: WordDao) {
             },
             bottomBar = {
                 NavigationBar {
-                    listOf("Trang chủ", "Sổ từ", "Thống kê").forEachIndexed { i, label ->
+                    listOf("Trang chủ", "Sổ từ", "Luyện tập", "Thống kê").forEachIndexed { i, label ->
                         NavigationBarItem(
                             selected = tab == i,
                             onClick = { tab = i },
@@ -150,6 +150,7 @@ private fun VocabApp(dao: WordDao) {
                                     when (i) {
                                         0 -> Icons.Default.Home
                                         1 -> Icons.Default.MenuBook
+                                        2 -> Icons.Default.Refresh
                                         else -> Icons.Default.QueryStats
                                     },
                                     contentDescription = label
@@ -316,6 +317,7 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 }
+                2 -> QuizScreen(words = words, modifier = Modifier.fillMaxSize().padding(padding))
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
