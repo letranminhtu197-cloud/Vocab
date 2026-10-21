@@ -254,6 +254,7 @@ private fun VocabApp(dao: WordDao) {
                                                 lapseCount = current.lapseCount
                                             )
                                             val next = SrsScheduler.review(state, rating, now)
+                                            StudyActivityTracker.recordEvent(statsPrefs)
                                             scope.launch {
                                                 dao.update(current.copy(
                                                     srsLevel = next.level,
