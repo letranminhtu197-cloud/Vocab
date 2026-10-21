@@ -121,6 +121,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier) {
                             }
                         } else {
                             Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                            OfflineSpeakButton(text = word.term)
                             word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             options.forEach { option ->
                                 val correct = option.id == word.id
