@@ -105,6 +105,15 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                     }
                 }
             }
+        } else if (words.isEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Tạo bộ từ của riêng bạn", fontWeight = FontWeight.Bold)
+                        Text("Thêm từ trong Sổ từ hoặc nhập CSV để bắt đầu luyện tập. Vocab không tự cài sẵn danh sách từ.")
+                    }
+                }
+            }
         } else if (words.size < 2 && mode in listOf(QUIZ_MEANING, QUIZ_RECALL)) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
