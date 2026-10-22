@@ -73,6 +73,9 @@ private fun VocabApp(dao: WordDao) {
     var lessonTarget by remember(settingsPrefs) {
         mutableIntStateOf(settingsPrefs.getInt("lesson_target", 5).let { if (it in listOf(5, 10, 15, 20)) it else 5 })
     }
+    var dailyGoal by remember(settingsPrefs) {
+        mutableIntStateOf(StudyGoalLogic.normalizeGoal(settingsPrefs.getInt("daily_goal", 10)))
+    }
     val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
     var quizCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_correct", 0)) }
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
@@ -156,17 +159,25 @@ private fun VocabApp(dao: WordDao) {
     MaterialTheme(
         colorScheme = if (darkTheme) {
             darkColorScheme(
-                primary = androidx.compose.ui.graphics.Color(0xFF9CCDBA),
-                secondary = androidx.compose.ui.graphics.Color(0xFFF2B544),
-                background = androidx.compose.ui.graphics.Color(0xFF101512),
-                surface = androidx.compose.ui.graphics.Color(0xFF171E1A)
+                primary = androidx.compose.ui.graphics.Color(0xFF9DD7BE),
+                onPrimary = androidx.compose.ui.graphics.Color(0xFF12382B),
+                primaryContainer = androidx.compose.ui.graphics.Color(0xFF234A3B),
+                onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFDDF3E8),
+                secondary = androidx.compose.ui.graphics.Color(0xFFF2C46D),
+                background = androidx.compose.ui.graphics.Color(0xFF101713),
+                surface = androidx.compose.ui.graphics.Color(0xFF18221C),
+                surfaceVariant = androidx.compose.ui.graphics.Color(0xFF26352C)
             )
         } else {
             lightColorScheme(
-                primary = androidx.compose.ui.graphics.Color(0xFF356859),
-                secondary = androidx.compose.ui.graphics.Color(0xFFF2B544),
-                background = androidx.compose.ui.graphics.Color(0xFFF6F8F5),
-                surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF)
+                primary = androidx.compose.ui.graphics.Color(0xFF2D6A58),
+                onPrimary = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
+                primaryContainer = androidx.compose.ui.graphics.Color(0xFFDDF3E8),
+                onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFF173F32),
+                secondary = androidx.compose.ui.graphics.Color(0xFFE6A23C),
+                background = androidx.compose.ui.graphics.Color(0xFFF4F8F5),
+                surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
+                surfaceVariant = androidx.compose.ui.graphics.Color(0xFFEAF1EC)
             )
         }
     ) {
@@ -230,17 +241,22 @@ private fun VocabApp(dao: WordDao) {
                 ) {
                     item { StudyReminderControl(onMessage = { csvMessage = it }) }
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                            shape = RoundedCornerShape(24.dp)
-                        ) {
-                            Column(Modifier.padding(20.dp)) {
-                                Text("Học theo nhịp của bạn", color = MaterialTheme.colorScheme.onPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(8.dp))
-                                Text("Từ trong sổ: ${words.size} • Đến hạn: ${words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }}", color = MaterialTheme.colorScheme.onPrimary)
-                                Text("Dữ liệu được lưu cục bộ trên thiết bị.", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
+                        DashboardOverview(
+                            totalWords = words.size,
+                            dueWords = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() },
+                            learnedWords = words.count { it.reviewCount > 0 },
+                            activeStreak = StudyActivityTracker.activeDayCount(statsPrefs),
+                            todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
+                            dailyGoal = dailyGoal,
+                            onGoalChange = { goal ->
+                                dailyGoal = goal
+                                settingsPrefs.edit().putInt("daily_goal", goal).apply()
+                            },
+                            onStartReview = { tab = 3 },
+                            onOpenLibrary = { tab = 1 },
+                            onOpenLearningPath = { tab = 2 },
+                            onOpenStats = { tab = 4 }
+                        )
                     }
                     item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Ôn flashcard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); FilterChip(selected = dueOnly, onClick = { dueOnly = !dueOnly; currentIndex = 0; revealed = false }, label = { Text(if (dueOnly) "Chỉ từ đến hạn" else "Tất cả từ") }) } }
                     if (current == null) {
