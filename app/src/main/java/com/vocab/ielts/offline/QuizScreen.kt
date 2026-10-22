@@ -67,7 +67,7 @@ fun QuizScreen(
         QUIZ_FAMILY -> familyWords
         else -> scopedWords
     }
-    val activeWords = if (retryWrongOnly) modeWords.filter { it.id in retryDeckIds } else modeWords
+    val activeWords = if (retryWrongOnly) QuizLogic.retryWords(scopedWords, retryDeckIds.toList()) else modeWords
     val optionPool = when (mode) {
         QUIZ_COLLOCATIONS -> collocationWords
         QUIZ_FAMILY -> familyWords
@@ -149,6 +149,10 @@ fun QuizScreen(
                             }
                             Button(
                                 onClick = {
+                                    // Replay every wrong word in a stable, answerable mode. The due
+                                    // queue changes as SRS timestamps are updated after each answer.
+                                    selectedTopic = "Tất cả chủ đề"
+                                    mode = QUIZ_TYPED
                                     retryDeckIds.clear()
                                     retryDeckIds.addAll(wrongWordIds)
                                     retryWrongOnly = true

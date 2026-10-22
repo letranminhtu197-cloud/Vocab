@@ -49,6 +49,16 @@ class QuizLogicTest {
         assertTrue(options.any { it.id == target.id })
     }
 
+    @Test fun retryDeckPreservesCapturedOrderAndIgnoresMissingIds() {
+        val first = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
+        val second = WordEntity(id = 2, term = "sustainable", meaning = "bền vững")
+        val third = WordEntity(id = 3, term = "mitigate", meaning = "giảm nhẹ")
+
+        val replay = QuizLogic.retryWords(listOf(first, second, third), listOf(3, 1, 3, 99))
+
+        assertEquals(listOf(3L, 1L), replay.map { it.id })
+    }
+
     @Test fun blankAnswersAreNeverAccepted() {
         assertFalse(QuizLogic.isCorrectAnswer("", "sustainable"))
         assertFalse(QuizLogic.isCorrectAnswer("   ", "sustainable"))
