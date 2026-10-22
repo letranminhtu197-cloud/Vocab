@@ -79,10 +79,12 @@ fun DashboardOverview(
                     DashboardMetric("Chuỗi ngày", "$activeStreak", Modifier.weight(1f))
                 }
                 Button(
-                    onClick = when {
-                        totalWords == 0 -> onOpenLibrary()
-                        dueWords > 0 -> onStartReview()
-                        else -> onOpenPractice()
+                    onClick = {
+                        when {
+                            totalWords == 0 -> onOpenLibrary()
+                            dueWords > 0 -> onStartReview()
+                            else -> onOpenPractice()
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
