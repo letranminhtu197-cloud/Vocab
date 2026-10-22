@@ -57,6 +57,7 @@ private fun VocabApp(dao: WordDao) {
     var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
     var currentIndex by remember { mutableIntStateOf(0) }
     var revealed by remember { mutableStateOf(false) }
+    val ratingInProgress = remember { mutableStateOf(false) }
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var wordToDelete by remember { mutableStateOf<WordEntity?>(null) }
@@ -307,19 +308,25 @@ private fun VocabApp(dao: WordDao) {
                                             )
                                             val next = SrsScheduler.review(state, rating, now)
                                             StudyActivityTracker.recordEvent(statsPrefs)
+                                            if (ratingInProgress.value) return@Button
+                                            ratingInProgress.value = true
                                             scope.launch {
-                                                dao.update(current.copy(
-                                                    srsLevel = next.level,
-                                                    nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                                    reviewCount = next.reviewCount,
-                                                    lapseCount = next.lapseCount,
-                                                    lastReviewedAtMillis = now.toEpochMilli()
-                                                ))
+                                                try {
+                                                    dao.update(current.copy(
+                                                        srsLevel = next.level,
+                                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                                        reviewCount = next.reviewCount,
+                                                        lapseCount = next.lapseCount,
+                                                        lastReviewedAtMillis = now.toEpochMilli()
+                                                    ))
+                                                    currentIndex = FlashcardLogic.nextIndexAfterRating(currentIndex, reviewDeck.size, dueOnly)
+                                                    revealed = false
+                                                } finally {
+                                                    ratingInProgress.value = false
+                                                }
                                             }
-                                            currentIndex = FlashcardLogic.nextIndexAfterRating(currentIndex, reviewDeck.size, dueOnly)
-                                            revealed = false
                                         },
-                                        enabled = revealed,
+                                        enabled = revealed && !ratingInProgress.value,
                                         modifier = Modifier.weight(1f),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                                     ) { Text(label, fontSize = 12.sp) }
