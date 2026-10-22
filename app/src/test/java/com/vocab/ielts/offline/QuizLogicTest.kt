@@ -20,6 +20,19 @@ class QuizLogicTest {
         assertNull(QuizLogic.clozeSentence("The plan was successful.", "allocate"))
     }
 
+    @Test fun clozeHidesEveryOccurrenceOfTheTargetTerm() {
+        assertEquals(
+            "We must _____ resources and _____ budgets.",
+            QuizLogic.clozeSentence("We must allocate resources and allocate budgets.", "allocate")
+        )
+    }
+
+    @Test fun blankAnswersAreNeverAccepted() {
+        assertFalse(QuizLogic.isCorrectAnswer("", "sustainable"))
+        assertFalse(QuizLogic.isCorrectAnswer("   ", "sustainable"))
+    }
+
+
     @Test fun answerComparisonIgnoresCaseAndPunctuation() {
         assertTrue(QuizLogic.isCorrectAnswer("  SUSTAINABLE! ", "sustainable"))
         assertFalse(QuizLogic.isCorrectAnswer("sustain", "sustainable"))
