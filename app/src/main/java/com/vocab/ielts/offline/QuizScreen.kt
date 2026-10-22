@@ -57,16 +57,17 @@ fun QuizScreen(
     val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
     }
+    val nowMillis = System.currentTimeMillis()
     val weakWords = scopedWords.filter { it.lapseCount > 0 }
-    val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
+    val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= nowMillis }
     val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
     val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
     val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
     val synonymWords = scopedWords.filter { it.synonyms.isNotBlank() }
     val modeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
-        QUIZ_WEAK -> weakWords.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.nextReviewAtMillis })
-        QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
+        QUIZ_WEAK -> StudyQueueLogic.prioritize(weakWords, nowMillis)
+        QUIZ_DUE -> StudyQueueLogic.prioritize(dueWords, nowMillis)
         QUIZ_COLLOCATIONS -> collocationWords
         QUIZ_FAMILY -> familyWords
         QUIZ_SYNONYMS -> synonymWords
@@ -340,6 +341,13 @@ fun QuizScreen(
                             },
                             fontWeight = FontWeight.SemiBold
                         )
+                        if (mode == QUIZ_DUE || mode == QUIZ_WEAK) {
+                            Text(
+                                StudyQueueLogic.priorityReason(word, nowMillis),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         if (mode == QUIZ_CLOZE) {
                             Text(QuizLogic.clozeSentence(word.example, word.term).orEmpty(), fontSize = 20.sp, lineHeight = 28.sp)
                             if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
