@@ -45,6 +45,9 @@ fun QuizScreen(
     var sessionAttempts by remember { mutableIntStateOf(0) }
     var sessionCorrect by remember { mutableIntStateOf(0) }
     val wrongWordIds = remember { mutableStateListOf<Long>() }
+    // Freeze the replay deck for the duration of a retry session. The unresolved set can shrink
+    // after a correct answer, but changing the rendered deck mid-question would skip items.
+    val retryDeckIds = remember { mutableStateListOf<Long>() }
     val modeAttempts = remember { mutableStateMapOf<String, Int>() }
     val modeCorrect = remember { mutableStateMapOf<String, Int>() }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
@@ -64,7 +67,7 @@ fun QuizScreen(
         QUIZ_FAMILY -> familyWords
         else -> scopedWords
     }
-    val activeWords = if (retryWrongOnly) modeWords.filter { it.id in wrongWordIds } else modeWords
+    val activeWords = if (retryWrongOnly) modeWords.filter { it.id in retryDeckIds } else modeWords
     val optionPool = when (mode) {
         QUIZ_COLLOCATIONS -> collocationWords
         QUIZ_FAMILY -> familyWords
@@ -85,6 +88,7 @@ fun QuizScreen(
     fun resetForMode(nextMode: String) {
         mode = nextMode
         retryWrongOnly = false
+        retryDeckIds.clear()
         showSummary = false
         resetQuestionState()
     }
@@ -145,6 +149,8 @@ fun QuizScreen(
                             }
                             Button(
                                 onClick = {
+                                    retryDeckIds.clear()
+                                    retryDeckIds.addAll(wrongWordIds)
                                     retryWrongOnly = true
                                     showSummary = false
                                     resetQuestionState()
@@ -157,9 +163,11 @@ fun QuizScreen(
                                 sessionAttempts = 0
                                 sessionCorrect = 0
                                 wrongWordIds.clear()
+                                retryDeckIds.clear()
                                 modeAttempts.clear()
                                 modeCorrect.clear()
                                 retryWrongOnly = false
+                                retryDeckIds.clear()
                                 showSummary = false
                                 resetQuestionState()
                             },
@@ -203,6 +211,8 @@ fun QuizScreen(
                             selected = selectedTopic.equals(topic, ignoreCase = true),
                             onClick = {
                                 selectedTopic = topic
+                                retryWrongOnly = false
+                                retryDeckIds.clear()
                                 index = 0
                                 selectedId = null
                                 answerText = ""
