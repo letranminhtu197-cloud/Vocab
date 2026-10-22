@@ -23,6 +23,9 @@ fun BackupControls(dao: WordDao, onMessage: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pendingMessage by remember { mutableStateOf<String?>(null) }
+    var pendingRestoreWords by remember { mutableStateOf<List<WordEntity>?>(null) }
+    var pendingRestoreDuplicates by remember { mutableIntStateOf(0) }
+    var pendingRestoreInvalidRows by remember { mutableIntStateOf(0) }
 
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -53,13 +56,12 @@ fun BackupControls(dao: WordDao, onMessage: (String) -> Unit) {
                     val unique = parsed.words.filter { word ->
                         if (existing.add(word.term.trim().lowercase())) true else { duplicates++; false }
                     }
-                    val save = runCatching {
-                        if (unique.isNotEmpty()) withContext(Dispatchers.IO) { dao.insertAll(unique) }
-                    }
-                    pendingMessage = if (save.isFailure) {
-                        "Khôi phục thất bại: ${save.exceptionOrNull()?.message ?: "lỗi dữ liệu"}"
+                    if (unique.isEmpty()) {
+                        pendingMessage = "Không có từ mới để khôi phục. Bỏ qua ${duplicates} từ trùng và ${parsed.invalidRows} dòng lỗi."
                     } else {
-                        "Đã khôi phục ${unique.size} từ; bỏ qua ${duplicates} từ trùng và ${parsed.invalidRows} dòng lỗi."
+                        pendingRestoreWords = unique
+                        pendingRestoreDuplicates = duplicates
+                        pendingRestoreInvalidRows = parsed.invalidRows
                     }
                 }
             }
@@ -89,6 +91,44 @@ fun BackupControls(dao: WordDao, onMessage: (String) -> Unit) {
         OutlinedButton(onClick = { backupLauncher.launch("vocab-backup.zip") }, modifier = Modifier.weight(1f)) {
             Text("Sao lưu ZIP")
         }
+    }
+    pendingRestoreWords?.let { previewWords ->
+        AlertDialog(
+            onDismissRequest = { pendingRestoreWords = null },
+            title = { Text("Xác nhận khôi phục ZIP") },
+            text = {
+                androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Sẽ thêm ${previewWords.size} từ mới cùng tiến độ SRS. Dữ liệu đang có sẽ không bị ghi đè.")
+                    Text("Bỏ qua ${pendingRestoreDuplicates} từ trùng và ${pendingRestoreInvalidRows} dòng lỗi.")
+                    Text("Xem trước", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    previewWords.take(5).forEach { word ->
+                        Text("• ${word.term} — ${word.meaning}")
+                    }
+                    if (previewWords.size > 5) Text("… và ${previewWords.size - 5} từ khác")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val wordsToRestore = previewWords
+                    val duplicates = pendingRestoreDuplicates
+                    val invalidRows = pendingRestoreInvalidRows
+                    pendingRestoreWords = null
+                    scope.launch {
+                        val save = runCatching {
+                            withContext(Dispatchers.IO) { dao.insertAll(wordsToRestore) }
+                        }
+                        pendingMessage = if (save.isFailure) {
+                            "Khôi phục thất bại: ${save.exceptionOrNull()?.message ?: "lỗi dữ liệu"}"
+                        } else {
+                            "Đã khôi phục ${wordsToRestore.size} từ; bỏ qua ${duplicates} từ trùng và ${invalidRows} dòng lỗi."
+                        }
+                    }
+                }) { Text("Khôi phục ${previewWords.size} từ") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRestoreWords = null }) { Text("Hủy") }
+            }
+        )
     }
     pendingMessage?.let { message ->
         AlertDialog(
