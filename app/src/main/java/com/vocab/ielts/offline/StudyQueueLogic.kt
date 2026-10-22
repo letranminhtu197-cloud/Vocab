@@ -15,7 +15,7 @@ object StudyQueueLogic {
         val isNew = word.reviewCount == 0 || word.srsLevel == 0
         val lapseCount = word.lapseCount.coerceAtLeast(0)
         val overdueDays = if (word.nextReviewAtMillis > 0L && word.nextReviewAtMillis < nowMillis) {
-            TimeUnit.MILLISECONDS.toDays(nowMillis - word.nextReviewAtMillis).coerceAtMost(30).toInt()
+            TimeUnit.MILLISECONDS.toDays(nowMillis - word.nextReviewAtMillis).coerceAtMost(30L).toInt()
         } else 0
 
         return (if (isDue) 100 else 0) +
