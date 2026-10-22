@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 private const val QUIZ_MEANING = "Chọn nghĩa"
 private const val QUIZ_RECALL = "Tìm từ"
 private const val QUIZ_TYPED = "Gõ từ"
+private const val QUIZ_LISTENING = "Nghe & gõ"
 private const val QUIZ_SENTENCE = "Viết câu"
 private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
@@ -198,6 +199,7 @@ fun QuizScreen(
                 FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
                 FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
                 FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
+                FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
                 FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
                 FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
                 FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
@@ -315,7 +317,7 @@ fun QuizScreen(
                 Card(shape = RoundedCornerShape(24.dp)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Điểm phiên: $sessionScore / $sessionTotal", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        if (mode !in listOf(QUIZ_SENTENCE, QUIZ_TYPED, QUIZ_CLOZE)) {
+                        if (mode !in listOf(QUIZ_SENTENCE, QUIZ_TYPED, QUIZ_LISTENING, QUIZ_CLOZE)) {
                             Text("Câu ${index + 1} trong ${activeWords.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             LinearProgressIndicator(
                                 progress = { (index + 1).toFloat() / activeWords.size.coerceAtLeast(1) },
@@ -328,6 +330,7 @@ fun QuizScreen(
                                 QUIZ_WEAK -> "Ôn từ từng quên"
                                 QUIZ_RECALL -> "Chọn từ khớp với nghĩa"
                                 QUIZ_TYPED -> "Tự nhớ và gõ từ tiếng Anh"
+                                QUIZ_LISTENING -> "Nghe phát âm ngoại tuyến rồi gõ từ"
                                 QUIZ_SENTENCE -> "Tự đặt câu với từ mục tiêu"
                                 QUIZ_SYNONYMS -> "Chọn nhóm từ đồng nghĩa phù hợp"
                                 else -> "Chọn nghĩa đúng"
@@ -360,6 +363,27 @@ fun QuizScreen(
                             Button(onClick = { submitTypedAnswer() }, enabled = !answered && answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
                                 Text("Kiểm tra đáp án")
                             }
+                        } else if (mode == QUIZ_LISTENING) {
+                            Text(
+                                "Nghe từ tiếng Anh rồi nhập chính tả bạn nghe được. Đáp án không hiển thị trước khi kiểm tra.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OfflineSpeakButton(text = word.term, label = "Phát lại từ (offline)")
+                            if (word.topic.isNotBlank()) {
+                                Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Nhập từ bạn nghe được") },
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = { submitTypedAnswer() },
+                                enabled = !answered && answerText.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Kiểm tra chính tả") }
                         } else if (mode == QUIZ_SENTENCE) {
                             Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                             OfflineSpeakButton(text = word.term)
