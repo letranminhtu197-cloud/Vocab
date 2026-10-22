@@ -278,7 +278,7 @@ private fun VocabApp(dao: WordDao) {
                                         if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Spacer(Modifier.height(16.dp))
-                                    OutlinedButton(onClick = { revealed = !revealed }) {
+                                    OutlinedButton(onClick = { revealed = !revealed }, enabled = !ratingInProgress.value) {
                                         Text(if (revealed) "Ẩn đáp án" else "Hiện đáp án")
                                     }
                                 }
@@ -287,10 +287,12 @@ private fun VocabApp(dao: WordDao) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(
                                     onClick = { currentIndex = (currentIndex - 1 + reviewDeck.size) % reviewDeck.size; revealed = false },
+                                    enabled = !ratingInProgress.value,
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Trước") }
                                 Button(
                                     onClick = { currentIndex = (currentIndex + 1) % reviewDeck.size; revealed = false },
+                                    enabled = !ratingInProgress.value,
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Tiếp theo") }
                             }
