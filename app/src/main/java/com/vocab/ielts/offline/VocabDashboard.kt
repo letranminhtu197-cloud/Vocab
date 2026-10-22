@@ -108,6 +108,7 @@ fun DashboardOverview(
         }
 
         DailyGoalCard(activities = todayActivities, goal = dailyGoal, onGoalChange = onGoalChange)
+        LearningMethodCard(totalWords = totalWords, dueWords = dueWords)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             DashboardAction("Sổ từ", "Quản lý từ", Icons.Default.MenuBook, Modifier.weight(1f), onOpenLibrary)
@@ -195,6 +196,60 @@ private fun DashboardAction(
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
             Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+
+/** A compact, repeatable learning loop: retrieval first, feedback second, contextual use third. */
+@Composable
+private fun LearningMethodCard(totalWords: Int, dueWords: Int) {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Chu trình học hiệu quả", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                when {
+                    totalWords == 0 -> "Khi nhập từ, hãy ưu tiên thêm ví dụ và collocations để có thể luyện dùng từ, không chỉ nhớ nghĩa."
+                    dueWords > 0 -> "Bạn có $dueWords từ cần ôn. Hãy nhớ lại trước khi xem đáp án, sau đó kiểm tra và dùng từ trong câu."
+                    else -> "Chưa có từ đến hạn. Hãy luyện gõ từ từ nghĩa tiếng Việt, rồi chuyển sang điền từ hoặc viết câu."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            LearningStep(number = "1", title = "Tự nhớ", detail = "Che đáp án và tự gọi lại từ trước khi kiểm tra.")
+            LearningStep(number = "2", title = "Nhận phản hồi", detail = "Đọc lại nghĩa, phiên âm và ví dụ; chú ý các từ trả lời sai.")
+            LearningStep(number = "3", title = "Dùng được", detail = "Luyện collocations, điền từ hoặc tự đặt câu với từ vừa học.")
+        }
+    }
+}
+
+@Composable
+private fun LearningStep(number: String, title: String, detail: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Text(
+                number,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
