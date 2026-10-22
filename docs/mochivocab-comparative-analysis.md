@@ -16,6 +16,32 @@ Ba ZIP được kiểm tra bằng `unzip -t` và giải nén không báo lỗi:
 
 ## 2. Các nhóm tính năng có bằng chứng
 
+Manifest APK nhận diện ứng dụng `com.mochimochi.android.en`, phiên bản `5.16.2`, versionCode `3805`, target SDK 37. Manifest có các quyền `INTERNET`, `ACCESS_NETWORK_STATE`, Google Play Billing, nhận thông báo đẩy, `RECORD_AUDIO`, thông báo cục bộ và `AD_ID`. Đây là bằng chứng rõ rằng bản tham khảo có khả năng mạng và tích hợp nền tảng/dịch vụ; không thể xem nguyên trạng ứng dụng đó là ứng dụng offline hoàn toàn.
+
+Các tên module dưới đây được lấy từ đường dẫn còn lại trong `libapp.so`. Con số là số lần xuất hiện chuỗi đường dẫn package khi quét thư viện, **không phải** số tính năng độc lập hay phép đo độ hoàn thiện:
+
+| Nhóm đường dẫn nhận diện | Số lần xuất hiện chuỗi | Diễn giải thận trọng |
+|---|---:|---|
+| `mochi_garden` | 101 | Khu vực garden/vật phẩm và trạng thái tiến trình |
+| `flow_game` | 68 | Luồng học/ôn theo trò chơi và màn hình tổng kết |
+| `support_ticket` | 56 | Hỗ trợ và ticket, thường cần dịch vụ ngoài |
+| `event` | 48 | Sự kiện và nội dung sự kiện |
+| `community` | 42 | Tính năng cộng đồng |
+| `ielts_zone` | 35 | Khu vực nội dung IELTS |
+| `dashboard` | 35 | Trang tổng quan |
+| `auth` | 35 | Xác thực/tài khoản |
+| `leaderboard` | 28 | Bảng xếp hạng |
+| `dictionary_v2` | 27 | Tra cứu từ điển |
+| `conversation` | 27 | Bài luyện hội thoại |
+| `payment` | 25 | Thanh toán/gói trả phí |
+| `notebooks`, `notebook_v2` | 47 cộng lại | Sổ từ/ghi chú từ |
+| `streak` | 22 | Chuỗi ngày học và mục tiêu |
+| `lesson` | 19 | Bài học |
+| `review_word_limit` | 17 | Giới hạn số từ ôn |
+| `achievements` | 11 | Thành tựu/huy hiệu |
+| `daily_task` | 10 | Nhiệm vụ hằng ngày |
+| `notification`, `fast_review`, `daily_vocab_challenge` | 22 cộng lại | Nhắc học, ôn nhanh và thử thách từ vựng |
+
 Tên package/đường dẫn và chuỗi còn trong thư viện native cho thấy MochiVocab có các nhóm sau:
 
 - **Học và ôn từ:** flow học/ôn, fast review, flashcard, câu hỏi, màn hình tổng kết, giới hạn số từ ôn, sắp lịch ôn.
