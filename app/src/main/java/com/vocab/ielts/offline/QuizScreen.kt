@@ -21,7 +21,14 @@ private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
 
 @Composable
-fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerRecorded: (Boolean) -> Unit = {}) {
+fun QuizScreen(
+    words: List<WordEntity>,
+    modifier: Modifier = Modifier,
+    sessionScore: Int,
+    sessionTotal: Int,
+    onAnswerRecorded: (WordEntity, Boolean) -> Unit,
+    onSessionReset: () -> Unit
+) {
     var mode by remember { mutableStateOf(QUIZ_MEANING) }
     var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
@@ -29,9 +36,6 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
     var answerText by remember { mutableStateOf("") }
     var answered by remember { mutableStateOf(false) }
     var lastCorrect by remember { mutableStateOf<Boolean?>(null) }
-    var score by remember { mutableIntStateOf(0) }
-    var total by remember { mutableIntStateOf(0) }
-
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
@@ -61,18 +65,14 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
             val correct = QuizLogic.isCorrectAnswer(answerText, word.term)
             lastCorrect = correct
             answered = true
-            total++
-            if (correct) score++
-            onAnswerRecorded(correct)
+            onAnswerRecorded(word, correct)
         }
     }
     fun submitCloze() = submitTypedAnswer()
     fun rateSentence(usedCorrectly: Boolean) {
         if (mode == QUIZ_SENTENCE && answered && lastCorrect == null && word != null) {
             lastCorrect = usedCorrectly
-            total++
-            if (usedCorrectly) score++
-            onAnswerRecorded(usedCorrectly)
+            onAnswerRecorded(word, usedCorrectly)
         }
     }
 
@@ -161,7 +161,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
             item {
                 Card(shape = RoundedCornerShape(24.dp)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Điểm phiên: $score / $total", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text("Điểm phiên: $sessionScore / $sessionTotal", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text(
                             when (mode) {
                                 QUIZ_CLOZE -> "Điền từ còn thiếu"
@@ -248,9 +248,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                             selectedId = option.id
                                             lastCorrect = correct
                                             answered = true
-                                            total++
-                                            if (correct) score++
-                                            onAnswerRecorded(correct)
+                                            onAnswerRecorded(word, correct)
                                         }
                                     },
                                     color = fill,
@@ -288,7 +286,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Câu tiếp theo") }
                         TextButton(
-                            onClick = { score = 0; total = 0; index = 0; selectedId = null; answerText = ""; answered = false; lastCorrect = null },
+                            onClick = { onSessionReset(); index = 0; selectedId = null; answerText = ""; answered = false; lastCorrect = null },
                             modifier = Modifier.align(Alignment.End)
                         ) { Text("Đặt lại điểm") }
                     }
