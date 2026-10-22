@@ -66,6 +66,9 @@ private fun VocabApp(dao: WordDao) {
     val context = LocalContext.current
     val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
     var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", false)) }
+    var lessonTarget by remember(settingsPrefs) {
+        mutableIntStateOf(settingsPrefs.getInt("lesson_target", 5).let { if (it in listOf(5, 10, 15, 20)) it else 5 })
+    }
     val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
     var quizCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_correct", 0)) }
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
@@ -436,6 +439,7 @@ private fun VocabApp(dao: WordDao) {
                         LessonScreen(
                             words = pathWords,
                             modifier = Modifier.fillMaxSize().weight(1f),
+                            sessionSize = lessonTarget,
                             onReview = { word, rating ->
                                 val now = Instant.now()
                                 val state = ReviewState(
@@ -462,6 +466,11 @@ private fun VocabApp(dao: WordDao) {
                     LearningPathScreen(
                         words = words,
                         modifier = Modifier.fillMaxSize().padding(padding),
+                        sessionSize = lessonTarget,
+                        onSessionSizeChange = { target ->
+                            lessonTarget = target
+                            settingsPrefs.edit().putInt("lesson_target", target).apply()
+                        },
                         onStart = { topic -> learningPathTopic = topic; showPathLesson = true },
                         onOpenLibrary = { tab = 1 }
                     )
