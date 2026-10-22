@@ -316,7 +316,7 @@ private fun VocabApp(dao: WordDao) {
                                                     lastReviewedAtMillis = now.toEpochMilli()
                                                 ))
                                             }
-                                            currentIndex = if (dueOnly) currentIndex else if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
+                                            currentIndex = FlashcardLogic.nextIndexAfterRating(currentIndex, reviewDeck.size, dueOnly)
                                             revealed = false
                                         },
                                         enabled = revealed,
