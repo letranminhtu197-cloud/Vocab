@@ -126,7 +126,7 @@ fun QuizScreen(
                 )
             }
         }
-        if (mode == QUIZ_DUE && dueWords.isEmpty()) {
+        if (mode == QUIZ_DUE && dueWords.isEmpty() && words.isNotEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
