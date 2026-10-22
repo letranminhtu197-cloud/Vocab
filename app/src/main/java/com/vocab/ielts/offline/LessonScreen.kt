@@ -27,18 +27,26 @@ fun LessonScreen(
             .take(safeSessionSize)
             .map { it.id }
     }
-    val lessonDeck = lessonIds.mapNotNull { id -> words.firstOrNull { it.id == id } }
-    var index by remember(lessonDeck.map { it.id }) { mutableIntStateOf(0) }
-    var revealed by remember(lessonDeck.map { it.id }) { mutableStateOf(false) }
-    var remembered by remember(lessonDeck.map { it.id }) { mutableIntStateOf(0) }
-    var retry by remember(lessonDeck.map { it.id }) { mutableIntStateOf(0) }
+    // Wrong cards are appended once for an end-of-session retry pass. A failed retry
+    // is not appended again, preventing an endless loop.
+    val retryIds = remember(lessonIds) { mutableStateListOf<Long>() }
+    val lessonDeck = (lessonIds + retryIds.toList()).mapNotNull { id -> words.firstOrNull { it.id == id } }
+    var index by remember(lessonIds) { mutableIntStateOf(0) }
+    var revealed by remember(lessonIds) { mutableStateOf(false) }
+    var remembered by remember(lessonIds) { mutableIntStateOf(0) }
+    var retry by remember(lessonIds) { mutableIntStateOf(0) }
     val current = lessonDeck.getOrNull(index)
     val completed = lessonDeck.isNotEmpty() && index >= lessonDeck.size
 
     fun rateCurrent(rating: ReviewRating) {
         val word = current ?: return
         onReview(word, rating)
-        if (rating == ReviewRating.AGAIN) retry++ else remembered++
+        if (rating == ReviewRating.AGAIN) {
+            retry++
+            if (word.id !in retryIds) retryIds.add(word.id)
+        } else {
+            remembered++
+        }
         index++
         revealed = false
     }
@@ -65,9 +73,18 @@ fun LessonScreen(
                 Card(shape = RoundedCornerShape(22.dp)) {
                     Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Hoàn thành phiên học!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                        Text("Đã nhớ: $remembered • Cần ôn lại: $retry")
-                        Text("Các đánh giá đã được lưu vào tiến độ SRS.")
-                        Button(onClick = { index = 0; revealed = false; remembered = 0; retry = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Học lại phiên này") }
+                        Text("Đã nhớ: $remembered • Lượt cần củng cố: $retry")
+                        Text("Từ bạn đánh giá “Lại” đã được đưa trở lại cuối phiên một lần để luyện nhớ chủ động. Lịch ôn SRS cũng đã được cập nhật.")
+                        Button(
+                            onClick = {
+                                index = 0
+                                revealed = false
+                                remembered = 0
+                                retry = 0
+                                retryIds.clear()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Học lại phiên này") }
                     }
                 }
             }
