@@ -581,6 +581,15 @@ private fun VocabApp(dao: WordDao) {
                     item { StatCard("Tỷ lệ đúng quiz", if (quizTotal == 0) "Chưa có dữ liệu" else "${quizCorrect * 100 / quizTotal}%") }
                     item { StatCard("Chuỗi ngày học hiện tại", "${StudyActivityTracker.activeDayCount(statsPrefs)} ngày") }
                     item {
+                        AchievementSection(
+                            totalWords = words.size,
+                            totalPracticeEvents = words.sumOf { it.reviewCount },
+                            activeStreak = StudyActivityTracker.activeDayCount(statsPrefs),
+                            todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
+                            dailyGoal = dailyGoal
+                        )
+                    }
+                    item {
                         val week = StudyActivityTracker.lastSevenDays(statsPrefs)
                         val activeDays = week.count { it.activities > 0 }
                         val eventTotal = week.sumOf { it.activities }
