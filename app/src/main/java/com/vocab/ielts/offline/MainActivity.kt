@@ -334,6 +334,9 @@ private fun VocabApp(dao: WordDao) {
                                 listOf("Lại" to ReviewRating.AGAIN, "Khó" to ReviewRating.HARD, "Tốt" to ReviewRating.GOOD, "Dễ" to ReviewRating.EASY).forEach { (label, rating) ->
                                     Button(
                                         onClick = {
+                                            // Ignore rapid repeat taps before recording activity or calculating a second review.
+                                            if (ratingInProgress.value) return@Button
+                                            ratingInProgress.value = true
                                             val now = Instant.now()
                                             val state = ReviewState(
                                                 level = current.srsLevel,
@@ -343,8 +346,6 @@ private fun VocabApp(dao: WordDao) {
                                             )
                                             val next = SrsScheduler.review(state, rating, now)
                                             StudyActivityTracker.recordEvent(statsPrefs)
-                                            if (ratingInProgress.value) return@Button
-                                            ratingInProgress.value = true
                                             scope.launch {
                                                 try {
                                                     dao.update(current.copy(
