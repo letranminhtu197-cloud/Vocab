@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun VocabApp(dao: WordDao) {
     var tab by remember { mutableIntStateOf(0) }
+    var learningPathTopic by remember { mutableStateOf<String?>(null) }
+    var showPathLesson by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var libraryFilter by remember { mutableStateOf("Tất cả") }
     var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
@@ -423,30 +425,47 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 }
-                2 -> LessonScreen(
-                    words = words,
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    onReview = { word, rating ->
-                        val now = Instant.now()
-                        val state = ReviewState(
-                            level = word.srsLevel,
-                            nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                            reviewCount = word.reviewCount,
-                            lapseCount = word.lapseCount
-                        )
-                        val next = SrsScheduler.review(state, rating, now)
-                        StudyActivityTracker.recordEvent(statsPrefs)
-                        scope.launch {
-                            dao.update(word.copy(
-                                srsLevel = next.level,
-                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                reviewCount = next.reviewCount,
-                                lapseCount = next.lapseCount,
-                                lastReviewedAtMillis = now.toEpochMilli()
-                            ))
+                2 -> if (showPathLesson) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        TextButton(onClick = { showPathLesson = false }) { Text("← Quay lại lộ trình") }
+                        val pathWords = when (learningPathTopic) {
+                            null -> words
+                            "Chưa phân loại" -> words.filter { it.topic.isBlank() }
+                            else -> words.filter { it.topic.trim().equals(learningPathTopic, ignoreCase = true) }
                         }
+                        LessonScreen(
+                            words = pathWords,
+                            modifier = Modifier.fillMaxSize().weight(1f),
+                            onReview = { word, rating ->
+                                val now = Instant.now()
+                                val state = ReviewState(
+                                    level = word.srsLevel,
+                                    nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
+                                    reviewCount = word.reviewCount,
+                                    lapseCount = word.lapseCount
+                                )
+                                val next = SrsScheduler.review(state, rating, now)
+                                StudyActivityTracker.recordEvent(statsPrefs)
+                                scope.launch {
+                                    dao.update(word.copy(
+                                        srsLevel = next.level,
+                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                        reviewCount = next.reviewCount,
+                                        lapseCount = next.lapseCount,
+                                        lastReviewedAtMillis = now.toEpochMilli()
+                                    ))
+                                }
+                            }
+                        )
                     }
-                )
+                } else {
+                    LearningPathScreen(
+                        words = words,
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        onStart = { topic -> learningPathTopic = topic; showPathLesson = true },
+                        onOpenLibrary = { tab = 1 }
+                    )
+                }
                 3 -> QuizScreen(
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
