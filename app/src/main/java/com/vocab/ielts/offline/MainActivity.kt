@@ -87,7 +87,7 @@ private fun VocabApp(dao: WordDao) {
     val filtered = words.filter { word ->
         val matchesQuery = query.isBlank() || listOf(
             word.term, word.meaning, word.ipa, word.partOfSpeech, word.topic, word.example,
-            word.collocations, word.wordFamily, word.notes, word.tags
+            word.collocations, word.synonyms, word.wordFamily, word.notes, word.tags
         ).any { it.contains(query.trim(), ignoreCase = true) }
         val matchesMode = when (libraryFilter) {
             "Đến hạn" -> word.nextReviewAtMillis == 0L || word.nextReviewAtMillis <= System.currentTimeMillis()
@@ -306,6 +306,7 @@ private fun VocabApp(dao: WordDao) {
                                         }
                                         if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
                                         if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
+                                        if (current.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${current.synonyms}")
                                         if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
                                         if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
                                         if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -461,6 +462,7 @@ private fun VocabApp(dao: WordDao) {
                                     if (word.example.isNotBlank()) Text(word.example, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (word.topic.isNotBlank()) Text(word.topic, style = MaterialTheme.typography.labelSmall)
                                     if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
+                                    if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
                                     if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
                                     if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}", style = MaterialTheme.typography.labelSmall)
                                     if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -767,6 +769,7 @@ private fun WordEditorDialog(
     var example by remember(initial?.id) { mutableStateOf(initial?.example.orEmpty()) }
     var topic by remember(initial?.id) { mutableStateOf(initial?.topic.orEmpty()) }
     var collocations by remember(initial?.id) { mutableStateOf(initial?.collocations.orEmpty()) }
+    var synonyms by remember(initial?.id) { mutableStateOf(initial?.synonyms.orEmpty()) }
     var wordFamily by remember(initial?.id) { mutableStateOf(initial?.wordFamily.orEmpty()) }
     var notes by remember(initial?.id) { mutableStateOf(initial?.notes.orEmpty()) }
     var tags by remember(initial?.id) { mutableStateOf(initial?.tags.orEmpty()) }
@@ -787,6 +790,7 @@ private fun WordEditorDialog(
                 OutlinedTextField(example, { example = it }, label = { Text("Câu ví dụ") })
                 OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề IELTS") }, singleLine = true)
                 OutlinedTextField(collocations, { collocations = it }, label = { Text("Collocations / cụm từ đi kèm") }, minLines = 2)
+                OutlinedTextField(synonyms, { synonyms = it }, label = { Text("Synonyms / từ đồng nghĩa") }, minLines = 2)
                 OutlinedTextField(wordFamily, { wordFamily = it }, label = { Text("Word family / họ từ") }, minLines = 2)
                 OutlinedTextField(tags, { tags = it }, label = { Text("Tags / thẻ (phân tách bằng dấu phẩy)") }, minLines = 2)
                 OutlinedTextField(notes, { notes = it }, label = { Text("Ghi chú cá nhân") }, minLines = 2)
@@ -806,6 +810,7 @@ private fun WordEditorDialog(
                         example = example.trim(),
                         topic = topic.trim(),
                         collocations = collocations.trim(),
+                        synonyms = synonyms.trim(),
                         wordFamily = wordFamily.trim(),
                         notes = notes.trim(),
                         tags = tags.trim()

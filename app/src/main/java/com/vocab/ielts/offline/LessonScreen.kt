@@ -94,6 +94,7 @@ fun LessonScreen(
                             Text(current.meaning, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                             if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}")
                             if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
+                            if (current.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${current.synonyms}")
                             if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
                             if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
                             if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", color = MaterialTheme.colorScheme.onSurfaceVariant)
