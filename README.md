@@ -26,7 +26,7 @@
 - Tùy chọn mục tiêu 5/10/15/20 từ mỗi phiên học; lựa chọn được lưu cục bộ và áp dụng cho phiên học kế tiếp. Nếu chủ đề có ít từ hơn mục tiêu, phiên chỉ dùng số từ hiện có.
 - Phiên bài học có thể đặt mục tiêu 5/10/15/20 từ, ưu tiên từ chưa ôn; người học tự đánh giá nhớ/chưa nhớ để cập nhật tiến độ SRS.
 - Sao lưu/khôi phục ZIP cục bộ có phiên bản định dạng, bảo toàn nội dung và tiến độ SRS; khi khôi phục, có màn hình xem trước và chỉ thêm từ chưa có, không ghi đè từ đang có. File khôi phục bị từ chối nếu thiếu mục bắt buộc, lặp mục dữ liệu, sai phiên bản hoặc chứa UTF-8 lỗi; giới hạn kích thước nén và giải nén đều được áp dụng.
-- CSV và ZIP giữ thời điểm tạo từ, lần ôn gần nhất, metadata SRS, collocations, word family, ghi chú và tags. Cơ sở dữ liệu được nâng từ schema 1 lên schema 2 mà không xóa từ đã lưu.
+- CSV và ZIP giữ thời điểm tạo từ, lần ôn gần nhất, metadata SRS, collocations, từ đồng nghĩa, word family, ghi chú và tags. Cơ sở dữ liệu có migration tuần tự từ schema 1 qua schema 2 lên schema 3, giữ nguyên dữ liệu từ đã lưu.
 - Nhắc ôn hằng ngày khoảng 19:00 bằng thông báo cục bộ; có công tắc bật/tắt, xin quyền thông báo theo Android và tự đăng ký lại sau khi khởi động máy. Android có thể dời thời điểm một chút để tiết kiệm pin.
 - Phát âm từ qua Text-to-Speech chỉ khi thiết bị có giọng tiếng Anh được đánh dấu là không cần mạng; nếu không có, ứng dụng hướng dẫn cài giọng offline và không gọi giọng mạng.
 - Nhập/xuất CSV qua Android file picker (Storage Access Framework); không cần quyền truy cập toàn bộ bộ nhớ. CSV giới hạn 20 MB, kiểm tra UTF-8 nghiêm ngặt và có màn hình xem trước số từ mới/trùng/dòng lỗi trước khi xác nhận nhập.
