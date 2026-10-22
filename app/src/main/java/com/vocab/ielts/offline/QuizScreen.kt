@@ -23,6 +23,7 @@ private const val QUIZ_WEAK = "Từ yếu"
 @Composable
 fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerRecorded: (Boolean) -> Unit = {}) {
     var mode by remember { mutableStateOf(QUIZ_MEANING) }
+    var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var answerText by remember { mutableStateOf("") }
@@ -31,16 +32,20 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
     var score by remember { mutableIntStateOf(0) }
     var total by remember { mutableIntStateOf(0) }
 
-    val weakWords = words.filter { it.lapseCount > 0 }
-    val clozeWords = words.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
+    val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
+    val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
+        it.topic.trim().equals(selectedTopic, ignoreCase = true)
+    }
+    val weakWords = scopedWords.filter { it.lapseCount > 0 }
+    val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
     val activeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
         QUIZ_WEAK -> weakWords
-        else -> words
+        else -> scopedWords
     }
     val word = activeWords.getOrNull(if (activeWords.isEmpty()) 0 else index % activeWords.size)
-    val options = remember(word?.id, words.map { it.id }) {
-        if (word == null) emptyList() else (words.filter { it.id != word.id }.shuffled().take(3) + word).shuffled()
+    val options = remember(word?.id, scopedWords.map { it.id }) {
+        if (word == null) emptyList() else (scopedWords.filter { it.id != word.id }.shuffled().take(3) + word).shuffled()
     }
 
     fun resetForMode(nextMode: String) {
@@ -87,6 +92,35 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                 FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
             }
         }
+        if (topics.isNotEmpty()) {
+            item {
+                Text("Khu vực IELTS · Chủ đề luyện tập", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                ) {
+                    (listOf("Tất cả chủ đề") + topics).forEach { topic ->
+                        FilterChip(
+                            selected = selectedTopic.equals(topic, ignoreCase = true),
+                            onClick = {
+                                selectedTopic = topic
+                                index = 0
+                                selectedId = null
+                                answerText = ""
+                                answered = false
+                                lastCorrect = null
+                            },
+                            label = { Text(topic) }
+                        )
+                    }
+                }
+                Text(
+                    if (selectedTopic == "Tất cả chủ đề") "Luyện trên toàn bộ sổ từ" else "Đang luyện chủ đề: $selectedTopic",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         if (mode == QUIZ_WEAK && weakWords.isEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
@@ -114,7 +148,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                     }
                 }
             }
-        } else if (words.size < 2 && mode in listOf(QUIZ_MEANING, QUIZ_RECALL)) {
+        } else if (scopedWords.size < 2 && mode in listOf(QUIZ_MEANING, QUIZ_RECALL)) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
