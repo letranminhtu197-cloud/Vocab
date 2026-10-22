@@ -338,10 +338,18 @@ fun QuizScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            if (word.example.isNotBlank() && mode !in listOf(QUIZ_CLOZE, QUIZ_SENTENCE)) Text("Ví dụ: ${word.example}")
+                            HorizontalDivider()
+                            Text("Ghi nhớ từ vựng", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(word.term, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            if (word.ipa.isNotBlank()) Text("Phiên âm: ${word.ipa}")
+                            if (word.partOfSpeech.isNotBlank()) Text("Từ loại: ${word.partOfSpeech}")
+                            if (word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}")
+                            if (word.topic.isNotBlank()) Text("Chủ đề IELTS: ${word.topic}")
+                            if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}")
                             if (word.collocations.isNotBlank()) Text("Collocations: ${word.collocations}")
                             if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
-                            if (mode == QUIZ_CLOZE && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}")
+                            if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
+                            if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}")
                         }
                         Button(
                             onClick = {
