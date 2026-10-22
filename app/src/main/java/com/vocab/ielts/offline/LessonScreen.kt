@@ -19,12 +19,13 @@ fun LessonScreen(
     sessionSize: Int = 5,
     onReview: (WordEntity, ReviewRating) -> Unit
 ) {
-    // Keep the randomized deck order stable, but always resolve current entities
-    // so edits to a word's meaning/example are reflected without reshuffling the lesson.
+    // Build a stable mixed deck: overdue/new/weak words rank ahead of mastered words.
+    // Freeze the IDs for this session so SRS updates never move the current question.
     val safeSessionSize = sessionSize.coerceIn(1, 50)
     val lessonIds = remember(words.map { it.id }, safeSessionSize) {
-        val newWords = words.filter { it.reviewCount == 0 || it.srsLevel == 0 }
-        (newWords.ifEmpty { words }).shuffled().take(safeSessionSize).map { it.id }
+        StudyQueueLogic.prioritize(words, System.currentTimeMillis())
+            .take(safeSessionSize)
+            .map { it.id }
     }
     val lessonDeck = lessonIds.mapNotNull { id -> words.firstOrNull { it.id == id } }
     var index by remember(lessonDeck.map { it.id }) { mutableIntStateOf(0) }
@@ -46,7 +47,7 @@ fun LessonScreen(
         item { Text("Bài học theo mục tiêu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item {
             Text(
-                "Học chủ động: tự nhớ nghĩa trước khi lật thẻ, rồi chọn mức độ nhớ để Vocab lên lịch ôn phù hợp.",
+                "Học chủ động + lặp lại ngắt quãng. Phiên học ưu tiên từ mới, từ đến hạn và từ từng quên; hãy cố tự nhớ trước khi lật thẻ.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
