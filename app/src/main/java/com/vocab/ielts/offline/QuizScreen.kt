@@ -319,13 +319,15 @@ fun QuizScreen(
                 Card(shape = RoundedCornerShape(24.dp)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Điểm phiên: $sessionScore / $sessionTotal", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        if (mode !in listOf(QUIZ_SENTENCE, QUIZ_TYPED, QUIZ_CLOZE)) {
-                            Text("Câu ${index + 1} trong ${activeWords.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            LinearProgressIndicator(
-                                progress = { (index + 1).toFloat() / activeWords.size.coerceAtLeast(1) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                        Text(
+                            "Câu ${index + 1} trong ${activeWords.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        LinearProgressIndicator(
+                            progress = { (index + 1).toFloat() / activeWords.size.coerceAtLeast(1) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         Text(
                             when (mode) {
                                 QUIZ_CLOZE -> "Điền từ còn thiếu"
@@ -471,8 +473,8 @@ fun QuizScreen(
                                 val correct = option.id == word.id
                                 val chosen = option.id == selectedId
                                 val fill = when {
-                                    answered && correct -> androidx.compose.ui.graphics.Color(0xFFDDF3E4)
-                                    answered && chosen -> androidx.compose.ui.graphics.Color(0xFFFFE3E0)
+                                    answered && correct -> MaterialTheme.colorScheme.primaryContainer
+                                    answered && chosen -> MaterialTheme.colorScheme.errorContainer
                                     else -> MaterialTheme.colorScheme.surfaceVariant
                                 }
                                 Surface(
@@ -496,7 +498,12 @@ fun QuizScreen(
                                             QUIZ_SYNONYMS -> option.synonyms
                                             else -> option.meaning
                                         },
-                                        Modifier.padding(14.dp)
+                                        Modifier.padding(14.dp),
+                                        color = when {
+                                            answered && correct -> MaterialTheme.colorScheme.onPrimaryContainer
+                                            answered && chosen -> MaterialTheme.colorScheme.onErrorContainer
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
                                     )
                                 }
                             }
