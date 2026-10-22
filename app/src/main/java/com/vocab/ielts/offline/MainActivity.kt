@@ -472,6 +472,7 @@ private fun VocabApp(dao: WordDao) {
                             settingsPrefs.edit().putInt("lesson_target", target).apply()
                         },
                         onStart = { topic -> learningPathTopic = topic; showPathLesson = true },
+                        onPractice = { showPathLesson = false; tab = 3 },
                         onOpenLibrary = { tab = 1 }
                     )
                 }
