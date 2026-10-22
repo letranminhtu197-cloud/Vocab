@@ -51,7 +51,7 @@ fun QuizScreen(
     val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
     val activeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
-        QUIZ_WEAK -> weakWords
+        QUIZ_WEAK -> weakWords.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.nextReviewAtMillis })
         QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
         QUIZ_COLLOCATIONS -> collocationWords
         QUIZ_FAMILY -> familyWords
@@ -63,7 +63,7 @@ fun QuizScreen(
         else -> scopedWords
     }
     val word = activeWords.getOrNull(if (activeWords.isEmpty()) 0 else index % activeWords.size)
-    val options = remember(word?.id, optionPool.map { it.id }, mode) {
+    val options = remember(word?.id, optionPool.map { it.id }, optionPool.map { QuizLogic.choiceLabel(it, mode) }, mode) {
         if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, optionPool, mode)
     }
 
@@ -288,12 +288,12 @@ fun QuizScreen(
                                 if (mode in listOf(QUIZ_COLLOCATIONS, QUIZ_FAMILY) && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (options.size < 2) {
-                            Text(
-                                "Chưa đủ đáp án khác nhau để tạo câu trắc nghiệm. Hãy bổ sung nghĩa, cụm từ hoặc họ từ khác nhau cho các mục trong phạm vi này.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        options.forEach { option ->
+                                Text(
+                                    "Chưa đủ đáp án khác nhau để tạo câu trắc nghiệm. Hãy bổ sung nghĩa, cụm từ hoặc họ từ khác nhau cho các mục trong phạm vi này.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            options.forEach { option ->
                                 val correct = option.id == word.id
                                 val chosen = option.id == selectedId
                                 val fill = when {
