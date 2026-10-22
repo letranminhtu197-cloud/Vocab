@@ -13,18 +13,40 @@ data class ReviewState(
 )
 object SrsScheduler {
     private val intervals = listOf(1L, 3L, 7L, 14L, 30L)
-    fun review(state: ReviewState, rating: ReviewRating, now: Instant): ReviewState {
-        val nextLevel = when (rating) {
-            ReviewRating.AGAIN -> 0
-            ReviewRating.HARD -> if (state.level == 0) 1 else state.level.coerceIn(1, 5)
-            ReviewRating.GOOD -> if (state.level == 0) 1 else (state.level + 1).coerceAtMost(5)
-            ReviewRating.EASY -> if (state.level == 0) 2 else (state.level + 2).coerceAtMost(5)
-        }
-        val delay = when (rating) {
+
+    private fun nextLevel(level: Int, rating: ReviewRating): Int = when (rating) {
+        ReviewRating.AGAIN -> 0
+        ReviewRating.HARD -> if (level == 0) 1 else level.coerceIn(1, 5)
+        ReviewRating.GOOD -> if (level == 0) 1 else (level + 1).coerceAtMost(5)
+        ReviewRating.EASY -> if (level == 0) 2 else (level + 2).coerceAtMost(5)
+    }
+
+    private fun delayFor(level: Int, rating: ReviewRating): Duration {
+        val targetLevel = nextLevel(level, rating)
+        return when (rating) {
             ReviewRating.AGAIN -> Duration.ofMinutes(10)
-            ReviewRating.HARD -> Duration.ofHours((intervals[(nextLevel - 1).coerceIn(0, 4)] * 24 / 2).coerceAtLeast(12))
-            ReviewRating.GOOD, ReviewRating.EASY -> Duration.ofDays(intervals[(nextLevel - 1).coerceIn(0, 4)])
+            ReviewRating.HARD -> Duration.ofHours(
+                (intervals[(targetLevel - 1).coerceIn(0, 4)] * 24 / 2).coerceAtLeast(12)
+            )
+            ReviewRating.GOOD, ReviewRating.EASY ->
+                Duration.ofDays(intervals[(targetLevel - 1).coerceIn(0, 4)])
         }
+    }
+
+    /** Preview the exact interval the learner will schedule for a rating. */
+    fun intervalLabel(level: Int, rating: ReviewRating): String {
+        val minutes = delayFor(level, rating).toMinutes()
+        if (minutes < 60) return "$minutes phút"
+        val hours = minutes / 60
+        if (hours < 24) return "$hours giờ"
+        val days = hours / 24
+        val remainingHours = hours % 24
+        return if (remainingHours == 0L) "$days ngày" else "$days ngày $remainingHours giờ"
+    }
+
+    fun review(state: ReviewState, rating: ReviewRating, now: Instant): ReviewState {
+        val nextLevel = nextLevel(state.level, rating)
+        val delay = delayFor(state.level, rating)
         return ReviewState(
             level = nextLevel,
             nextReviewAt = now.plus(delay),
@@ -33,7 +55,10 @@ object SrsScheduler {
             consecutiveSuccessfulReviews = if (rating == ReviewRating.AGAIN) 0 else state.consecutiveSuccessfulReviews + 1
         )
     }
-    fun isDue(state: ReviewState, now: Instant): Boolean = state.nextReviewAt?.let { !it.isAfter(now) } ?: true
+
+    fun isDue(state: ReviewState, now: Instant): Boolean =
+        state.nextReviewAt?.let { !it.isAfter(now) } ?: true
+
     fun goldenWindow(state: ReviewState, now: Instant): String {
         val due = state.nextReviewAt ?: return "NEW"
         return when {
