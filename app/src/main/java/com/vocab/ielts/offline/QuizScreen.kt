@@ -1,6 +1,8 @@
 package com.vocab.ielts.offline
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -73,7 +75,10 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
         item { Text("Luyện tập IELTS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item { Text("Luyện nhớ nghĩa, tự gọi lại từ theo ngữ cảnh hoặc tập trung vào các từ từng quên. Điểm của phiên được giữ khi đổi chế độ.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+            ) {
                 FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
                 FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
                 FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
@@ -234,7 +239,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                 answered = false
                                 lastCorrect = null
                             },
-                            enabled = answered,
+                            enabled = answered && (mode != QUIZ_SENTENCE || lastCorrect != null),
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Câu tiếp theo") }
                         TextButton(
