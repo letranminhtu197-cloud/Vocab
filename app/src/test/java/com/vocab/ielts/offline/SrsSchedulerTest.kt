@@ -29,6 +29,17 @@ class SrsSchedulerTest {
         assertEquals("OVERDUE", SrsScheduler.goldenWindow(state, now.plus(Duration.ofHours(13))))
     }
 
+    @Test fun goldenWindowStartsTwoHoursBeforeDueAndEndsTwelveHoursAfter() {
+        val due = now.plus(Duration.ofDays(1))
+        val state = ReviewState(level = 1, nextReviewAt = due)
+
+        assertEquals("UPCOMING", SrsScheduler.goldenWindow(state, due.minus(Duration.ofHours(2)).minusSeconds(1)))
+        assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due.minus(Duration.ofHours(2))))
+        assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due))
+        assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due.plus(Duration.ofHours(11)).plusMinutes(59)))
+        assertEquals("OVERDUE", SrsScheduler.goldenWindow(state, due.plus(Duration.ofHours(12))))
+    }
+
     @Test fun goodRatingFollowsTheOneThreeSevenFourteenThirtyDayLadder() {
         val levels = listOf(0, 1, 2, 3, 4, 5)
         val expectedDays = listOf(1L, 3L, 7L, 14L, 30L, 30L)
