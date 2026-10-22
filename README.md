@@ -14,7 +14,7 @@
 - Lưu cục bộ tổng số câu quiz, tỷ lệ đúng và điểm/số câu của phiên quiz hiện tại qua các lần mở ứng dụng; có thể đặt lại bộ đếm phiên mà không xóa thống kê tổng.
 - Thống kê hoạt động học theo từng ngày trong 7 ngày gần nhất và chuỗi ngày học liên tiếp; ghi nhận lượt trả lời quiz và lượt ôn SRS, hoàn toàn cục bộ.
 - Trang chủ có tổng quan số từ, từ đến hạn, số từ đã ôn và chuỗi ngày học; mục tiêu luyện tập hằng ngày tùy chỉnh 5/10/15/20/25/30 lượt được lưu cục bộ, có thanh tiến độ và lối tắt đến Sổ từ, Lộ trình, Thống kê.
-- Các dạng luyện: chọn nghĩa, chọn từ theo nghĩa, tự gõ từ tiếng Anh từ nghĩa tiếng Việt, điền từ còn thiếu trong câu ví dụ, viết câu với từ mục tiêu, nhận diện nhóm collocations/họ từ đã nhập và ôn từ yếu.
+- Các dạng luyện: chọn nghĩa, chọn từ theo nghĩa, tự gõ từ tiếng Anh từ nghĩa tiếng Việt, điền từ còn thiếu trong câu ví dụ, viết câu với từ mục tiêu, nhận diện nhóm collocations/từ đồng nghĩa/họ từ đã nhập và ôn từ yếu.
 - Luyện tập có thể giới hạn theo chủ đề IELTS tự nhập; không tự tạo hoặc tải bộ từ vựng.
 - Chấm đáp án tức thì với các dạng có đáp án xác định; dạng viết câu yêu cầu người học tự đánh giá và lưu kết quả tự đánh giá vào SRS. Đây không phải hệ thống chấm ngữ pháp tự động.
 - Quiz trắc nghiệm loại các lựa chọn có nội dung hiển thị trùng nhau, bỏ lựa chọn nhiễu rỗng và luôn giữ đáp án mục tiêu; nếu dữ liệu người dùng chưa đủ hai lựa chọn khác nhau, ứng dụng giải thích cách bổ sung dữ liệu thay vì tạo câu hỏi vô nghĩa.
