@@ -40,6 +40,11 @@ fun QuizScreen(
     var answerText by remember { mutableStateOf("") }
     var answered by remember { mutableStateOf(false) }
     var lastCorrect by remember { mutableStateOf<Boolean?>(null) }
+    var showSummary by remember { mutableStateOf(false) }
+    var retryWrongOnly by remember { mutableStateOf(false) }
+    var sessionAttempts by remember { mutableIntStateOf(0) }
+    var sessionCorrect by remember { mutableIntStateOf(0) }
+    val wrongWordIds = remember { mutableStateListOf<Long>() }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
@@ -49,7 +54,7 @@ fun QuizScreen(
     val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
     val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
     val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
-    val activeWords = when (mode) {
+    val modeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
         QUIZ_WEAK -> weakWords.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.nextReviewAtMillis })
         QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
@@ -57,6 +62,7 @@ fun QuizScreen(
         QUIZ_FAMILY -> familyWords
         else -> scopedWords
     }
+    val activeWords = if (retryWrongOnly) modeWords.filter { it.id in wrongWordIds } else modeWords
     val optionPool = when (mode) {
         QUIZ_COLLOCATIONS -> collocationWords
         QUIZ_FAMILY -> familyWords
@@ -67,33 +73,90 @@ fun QuizScreen(
         if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, optionPool, mode)
     }
 
-    fun resetForMode(nextMode: String) {
-        mode = nextMode
+    fun resetQuestionState() {
         index = 0
         selectedId = null
         answerText = ""
         answered = false
         lastCorrect = null
     }
+    fun resetForMode(nextMode: String) {
+        mode = nextMode
+        retryWrongOnly = false
+        showSummary = false
+        resetQuestionState()
+    }
+    fun recordAnswer(wordToRecord: WordEntity, correct: Boolean) {
+        sessionAttempts += 1
+        if (correct) sessionCorrect += 1
+        else if (wordToRecord.id !in wrongWordIds) wrongWordIds.add(wordToRecord.id)
+        onAnswerRecorded(wordToRecord, correct)
+    }
     fun submitTypedAnswer() {
         if (!answered && word != null && answerText.isNotBlank()) {
             val correct = QuizLogic.isCorrectAnswer(answerText, word.term)
             lastCorrect = correct
             answered = true
-            onAnswerRecorded(word, correct)
+            recordAnswer(word, correct)
         }
     }
     fun submitCloze() = submitTypedAnswer()
     fun rateSentence(usedCorrectly: Boolean) {
         if (mode == QUIZ_SENTENCE && answered && lastCorrect == null && word != null) {
             lastCorrect = usedCorrectly
-            onAnswerRecorded(word, usedCorrectly)
+            recordAnswer(word, usedCorrectly)
         }
     }
 
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("Luyện tập IELTS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item { Text("Luyện nhớ nghĩa, tự gọi lại từ theo ngữ cảnh hoặc tập trung vào các từ từng quên. Điểm của phiên được giữ khi đổi chế độ.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (showSummary) {
+            item {
+                Card(shape = RoundedCornerShape(24.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Tổng kết phiên học", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Đã trả lời: $sessionAttempts câu")
+                        Text("Đúng: $sessionCorrect câu")
+                        Text("Chưa đúng: ${(sessionAttempts - sessionCorrect).coerceAtLeast(0)} câu")
+                        val accuracy = if (sessionAttempts == 0) 0 else (sessionCorrect * 100 / sessionAttempts)
+                        Text("Độ chính xác: $accuracy%", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text("Số từ cần ôn lại: ${wrongWordIds.size}")
+                        if (wrongWordIds.isNotEmpty()) {
+                            Text("Từ cần ôn", fontWeight = FontWeight.SemiBold)
+                            words.filter { it.id in wrongWordIds }.forEach { wrong ->
+                                Text("• ${wrong.term} — ${wrong.meaning}")
+                            }
+                            Button(
+                                onClick = {
+                                    retryWrongOnly = true
+                                    showSummary = false
+                                    resetQuestionState()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Luyện lại ${wrongWordIds.size} từ sai") }
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                sessionAttempts = 0
+                                sessionCorrect = 0
+                                wrongWordIds.clear()
+                                retryWrongOnly = false
+                                showSummary = false
+                                resetQuestionState()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Bắt đầu phiên mới") }
+                    }
+                }
+            }
+        } else if (sessionAttempts > 0) {
+            item {
+                TextButton(onClick = { showSummary = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Xem tổng kết phiên")
+                }
+            }
+        }
         item {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -202,7 +265,7 @@ fun QuizScreen(
                     }
                 }
             }
-        } else if (word != null) {
+        } else if (word != null && !showSummary) {
             item {
                 Card(shape = RoundedCornerShape(24.dp)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -307,7 +370,7 @@ fun QuizScreen(
                                             selectedId = option.id
                                             lastCorrect = correct
                                             answered = true
-                                            onAnswerRecorded(word, correct)
+                                            recordAnswer(word, correct)
                                         }
                                     },
                                     color = fill,
@@ -353,7 +416,11 @@ fun QuizScreen(
                         }
                         Button(
                             onClick = {
-                                index = if (activeWords.isEmpty()) 0 else (index + 1) % activeWords.size
+                                if (index + 1 >= activeWords.size) {
+                                    showSummary = true
+                                } else {
+                                    index += 1
+                                }
                                 selectedId = null
                                 answerText = ""
                                 answered = false
@@ -361,9 +428,17 @@ fun QuizScreen(
                             },
                             enabled = answered && (mode != QUIZ_SENTENCE || lastCorrect != null),
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("Câu tiếp theo") }
+                        ) { Text(if (index + 1 >= activeWords.size) "Hoàn thành phiên" else "Câu tiếp theo") }
                         TextButton(
-                            onClick = { onSessionReset(); index = 0; selectedId = null; answerText = ""; answered = false; lastCorrect = null },
+                            onClick = {
+                                onSessionReset()
+                                sessionAttempts = 0
+                                sessionCorrect = 0
+                                wrongWordIds.clear()
+                                retryWrongOnly = false
+                                showSummary = false
+                                resetQuestionState()
+                            },
                             modifier = Modifier.align(Alignment.End)
                         ) { Text("Đặt lại điểm") }
                     }
