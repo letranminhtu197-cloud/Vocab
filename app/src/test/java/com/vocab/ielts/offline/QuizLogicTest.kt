@@ -27,6 +27,28 @@ class QuizLogicTest {
         )
     }
 
+    @Test fun multipleChoiceOptionsHaveUniqueVisibleAnswersAndIncludeTarget() {
+        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
+        val duplicate = WordEntity(id = 2, term = "assign", meaning = "phân bổ")
+        val other = WordEntity(id = 3, term = "sustainable", meaning = "bền vững")
+
+        val options = QuizLogic.multipleChoiceOptions(target, listOf(target, duplicate, other), "Chọn nghĩa")
+
+        assertTrue(options.any { it.id == target.id })
+        assertEquals(options.size, options.map { QuizLogic.normalizeAnswer(QuizLogic.choiceLabel(it, "Chọn nghĩa")) }.distinct().size)
+    }
+
+    @Test fun multipleChoiceOptionsRespectLimitAndIgnoreBlankDistractors() {
+        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
+        val blank = WordEntity(id = 2, term = "assign", meaning = "")
+        val other = WordEntity(id = 3, term = "sustainable", meaning = "bền vững")
+
+        val options = QuizLogic.multipleChoiceOptions(target, listOf(target, blank, other), "Chọn nghĩa", limit = 2)
+
+        assertEquals(2, options.size)
+        assertTrue(options.any { it.id == target.id })
+    }
+
     @Test fun blankAnswersAreNeverAccepted() {
         assertFalse(QuizLogic.isCorrectAnswer("", "sustainable"))
         assertFalse(QuizLogic.isCorrectAnswer("   ", "sustainable"))
