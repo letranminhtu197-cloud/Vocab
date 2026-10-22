@@ -252,7 +252,19 @@ private fun VocabApp(dao: WordDao) {
                                 dailyGoal = goal
                                 settingsPrefs.edit().putInt("daily_goal", goal).apply()
                             },
-                            onStartReview = { tab = 3 },
+                            onStartReview = {
+                                val dueNow = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
+                                when {
+                                    words.isEmpty() -> tab = 1
+                                    dueNow > 0 -> tab = 3
+                                    else -> {
+                                        tab = 0
+                                        dueOnly = false
+                                        currentIndex = 0
+                                        revealed = false
+                                    }
+                                }
+                            },
                             onOpenLibrary = { tab = 1 },
                             onOpenLearningPath = { tab = 2 },
                             onOpenStats = { tab = 4 }
