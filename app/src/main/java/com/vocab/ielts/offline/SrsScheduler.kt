@@ -38,8 +38,7 @@ object SrsScheduler {
         val due = state.nextReviewAt ?: return "NEW"
         return when {
             now.isBefore(due.minus(Duration.ofHours(2))) -> "UPCOMING"
-            !now.isBefore(due) && now.isBefore(due.plus(Duration.ofHours(12))) -> "GOLDEN"
-            now.isBefore(due) -> "UPCOMING"
+            now.isBefore(due.plus(Duration.ofHours(12))) -> "GOLDEN"
             else -> "OVERDUE"
         }
     }
