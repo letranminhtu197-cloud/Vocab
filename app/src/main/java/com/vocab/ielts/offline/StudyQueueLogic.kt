@@ -21,7 +21,7 @@ object StudyQueueLogic {
         return (if (isDue) 100 else 0) +
             (if (isNew) 55 else 0) +
             (overdueDays * 3).coerceAtMost(60) +
-            (lapseCount * 20).coerceAtMost(60) +
+            (lapseCount.coerceAtMost(3) * 20) +
             (if (word.reviewCount > 0 && word.srsLevel <= 1) 15 else 0)
     }
 
