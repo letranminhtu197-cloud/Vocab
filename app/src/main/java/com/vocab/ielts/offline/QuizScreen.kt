@@ -225,11 +225,13 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                 ) { Text(if (mode == QUIZ_RECALL) option.term else option.meaning, Modifier.padding(14.dp)) }
                             }
                         }
-                        if (answered) {
+                        if (answered && (mode != QUIZ_SENTENCE || lastCorrect != null)) {
                             Text(
-                                when (lastCorrect) {
-                                    true -> "Chính xác!"
-                                    false -> "Chưa đúng — đáp án: ${word.term} — ${word.meaning}"
+                                when {
+                                    mode == QUIZ_SENTENCE && lastCorrect == true -> "Đã ghi nhận: bạn tự đánh giá câu dùng từ đúng."
+                                    mode == QUIZ_SENTENCE && lastCorrect == false -> "Đã ghi nhận: câu này cần luyện thêm."
+                                    lastCorrect == true -> "Chính xác!"
+                                    lastCorrect == false -> "Chưa đúng — đáp án: ${word.term} — ${word.meaning}"
                                     else -> ""
                                 },
                                 fontWeight = FontWeight.Bold,
