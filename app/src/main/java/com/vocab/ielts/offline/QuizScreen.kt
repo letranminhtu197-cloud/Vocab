@@ -387,6 +387,22 @@ fun QuizScreen(
                                     "Chưa đủ đáp án khác nhau để tạo câu trắc nghiệm. Hãy bổ sung nghĩa, cụm từ hoặc họ từ khác nhau cho các mục trong phạm vi này.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                OutlinedButton(
+                                    onClick = {
+                                        if (index + 1 >= activeWords.size) {
+                                            showSummary = true
+                                        } else {
+                                            index += 1
+                                        }
+                                        selectedId = null
+                                        answerText = ""
+                                        answered = false
+                                        lastCorrect = null
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(if (index + 1 >= activeWords.size) "Bỏ qua và kết thúc phiên" else "Bỏ qua câu không thể trả lời")
+                                }
                             }
                             options.forEach { option ->
                                 val correct = option.id == word.id
