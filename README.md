@@ -1,6 +1,6 @@
-# Vocab 1.0.5 — IELTS Vocabulary Offline
+# Vocab 1.0.6 — IELTS Vocabulary Offline
 
-**Phiên bản ứng dụng:** `1.0.5` (`versionCode 105`). Đây là bản phát hành cá nhân ưu tiên ngoại tuyến; APK CI hiện là **debug-signed** để cài thử trực tiếp, chưa phải APK phát hành thương mại ký bằng khóa riêng.
+**Phiên bản ứng dụng:** `1.0.6` (`versionCode 106`). Đây là bản phát hành cá nhân ưu tiên ngoại tuyến; APK CI hiện là **debug-signed** để cài thử trực tiếp, chưa phải APK phát hành thương mại ký bằng khóa riêng.
 
 Ứng dụng Android cá nhân học từ vựng IELTS Academic, giao diện tiếng Việt, thiết kế cho dùng ngoại tuyến trên điện thoại Android. Ứng dụng không tự cài sẵn danh sách từ vựng; người dùng tự nhập từ, nhập CSV, hoặc chủ động thêm ba từ mẫu chỉ để thử tính năng.
 
@@ -24,11 +24,11 @@
 - Lộ trình học theo chủ đề do người dùng nhập: tổng quan tiến độ, phần trăm từ đã ôn, số từ đến hạn và từ yếu theo từng chủ đề; mỗi chặng mở bài học giới hạn đúng chủ đề đó. Từ không có chủ đề được gom riêng.
 - Tùy chọn mục tiêu 5/10/15/20 từ mỗi phiên học; lựa chọn được lưu cục bộ và áp dụng cho phiên học kế tiếp. Nếu chủ đề có ít từ hơn mục tiêu, phiên chỉ dùng số từ hiện có.
 - Phiên bài học có thể đặt mục tiêu 5/10/15/20 từ, ưu tiên từ chưa ôn; người học tự đánh giá nhớ/chưa nhớ để cập nhật tiến độ SRS.
-- Sao lưu/khôi phục ZIP cục bộ có phiên bản định dạng, bảo toàn nội dung và tiến độ SRS; khi khôi phục, chỉ thêm từ chưa có và bỏ qua từ trùng. File khôi phục bị từ chối nếu thiếu mục bắt buộc, lặp mục dữ liệu, sai phiên bản hoặc chứa UTF-8 lỗi; giới hạn kích thước nén và giải nén đều được áp dụng.
+- Sao lưu/khôi phục ZIP cục bộ có phiên bản định dạng, bảo toàn nội dung và tiến độ SRS; khi khôi phục, có màn hình xem trước và chỉ thêm từ chưa có, không ghi đè từ đang có. File khôi phục bị từ chối nếu thiếu mục bắt buộc, lặp mục dữ liệu, sai phiên bản hoặc chứa UTF-8 lỗi; giới hạn kích thước nén và giải nén đều được áp dụng.
 - CSV và ZIP giữ thời điểm tạo từ, lần ôn gần nhất, metadata SRS, collocations, word family, ghi chú và tags. Cơ sở dữ liệu được nâng từ schema 1 lên schema 2 mà không xóa từ đã lưu.
 - Nhắc ôn hằng ngày khoảng 19:00 bằng thông báo cục bộ; có công tắc bật/tắt, xin quyền thông báo theo Android và tự đăng ký lại sau khi khởi động máy. Android có thể dời thời điểm một chút để tiết kiệm pin.
 - Phát âm từ qua Text-to-Speech chỉ khi thiết bị có giọng tiếng Anh được đánh dấu là không cần mạng; nếu không có, ứng dụng hướng dẫn cài giọng offline và không gọi giọng mạng.
-- Nhập/xuất CSV qua Android file picker (Storage Access Framework); không cần quyền truy cập toàn bộ bộ nhớ.
+- Nhập/xuất CSV qua Android file picker (Storage Access Framework); không cần quyền truy cập toàn bộ bộ nhớ. CSV giới hạn 20 MB, kiểm tra UTF-8 nghiêm ngặt và có màn hình xem trước số từ mới/trùng/dòng lỗi trước khi xác nhận nhập.
 - Nhập CSV yêu cầu cột `term` (hoặc `word`) và `meaning` (hoặc `nghĩa`). Các cột `ipa`, `partOfSpeech`, `example`, `topic`, `collocations`, `wordFamily`, `notes`, `tags` tùy chọn. Có thể thêm các cột SRS trong mẫu để giữ tiến độ khi xuất/nhập lại.
 - Từ trùng được bỏ qua; dòng thiếu từ hoặc nghĩa được báo số lượng. CSV hỗ trợ trường đặt trong dấu ngoặc kép, dấu phẩy và xuống dòng bên trong trường; các dấu ngoặc kép đặt sai vị trí hoặc ký tự thừa sau dấu ngoặc kép đóng sẽ bị từ chối với thông báo lỗi. Metadata SRS có giá trị số không hợp lệ, cấp SRS ngoài 0–5 hoặc thời điểm âm sẽ khiến toàn bộ lượt nhập bị từ chối thay vì âm thầm đặt tiến độ về 0.
 - Không khai báo quyền `INTERNET`; không gọi dịch vụ mạng trong ứng dụng. Quyền thông báo và nhận sự kiện khởi động chỉ phục vụ nhắc ôn cục bộ.
@@ -52,12 +52,12 @@ gradle test
 gradle assembleDebug
 ```
 
-GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tạo artifact theo phiên bản khai báo trong `app/build.gradle.kts`. Ví dụ với `versionName = "1.0.5"`, artifact là `vocab-1.0.5-debug-apk` và file bên trong là `Vocab-1.0.5-debug.apk`; khi nâng phiên bản, tên tự đổi tương ứng. Mở [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions), chọn lượt build thành công gần nhất và tải artifact ở cuối trang. Artifact hết hạn theo chính sách lưu trữ GitHub Actions.
+GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tạo artifact theo phiên bản khai báo trong `app/build.gradle.kts`. Ví dụ với `versionName = "1.0.6"`, artifact là `vocab-1.0.6-debug-apk` và file bên trong là `Vocab-1.0.6-debug.apk`; khi nâng phiên bản, tên tự đổi tương ứng. Mở [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions), chọn lượt build thành công gần nhất và tải artifact ở cuối trang. Artifact hết hạn theo chính sách lưu trữ GitHub Actions.
 
 ## Quyền riêng tư
 Dữ liệu từ vựng lưu trong cơ sở dữ liệu cục bộ của ứng dụng. Android Auto Backup bị tắt; nên dùng Sao lưu ZIP hoặc Xuất CSV định kỳ nếu muốn giữ bản sao. Không cấp quyền mạng vì ứng dụng không cần Internet để học.
 
-## Phạm vi và lưu ý của bản 1.0.5
+## Phạm vi và lưu ý của bản 1.0.6
 - Không tự nạp bộ từ vựng; bạn tự nhập từ hoặc dùng file CSV của mình.
 - Phát âm dùng giọng Text-to-Speech offline có sẵn trên thiết bị; ứng dụng không đóng gói bộ âm thanh riêng. Nếu máy không có giọng tiếng Anh offline, chức năng phát âm có thể không hoạt động cho đến khi cài giọng ngoại tuyến trong cài đặt Android.
 - Nhắc hằng ngày dùng cơ chế lịch của Android; thời điểm thực tế có thể trễ do chế độ tiết kiệm pin hoặc giới hạn nền của hệ điều hành.
