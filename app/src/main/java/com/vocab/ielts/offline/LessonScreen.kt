@@ -16,13 +16,15 @@ import androidx.compose.ui.unit.sp
 fun LessonScreen(
     words: List<WordEntity>,
     modifier: Modifier = Modifier,
+    sessionSize: Int = 5,
     onReview: (WordEntity, ReviewRating) -> Unit
 ) {
     // Keep the randomized deck order stable, but always resolve current entities
     // so edits to a word's meaning/example are reflected without reshuffling the lesson.
-    val lessonIds = remember(words.map { it.id }) {
+    val safeSessionSize = sessionSize.coerceIn(1, 50)
+    val lessonIds = remember(words.map { it.id }, safeSessionSize) {
         val newWords = words.filter { it.reviewCount == 0 || it.srsLevel == 0 }
-        (newWords.ifEmpty { words }).shuffled().take(5).map { it.id }
+        (newWords.ifEmpty { words }).shuffled().take(safeSessionSize).map { it.id }
     }
     val lessonDeck = lessonIds.mapNotNull { id -> words.firstOrNull { it.id == id } }
     var index by remember(lessonDeck.map { it.id }) { mutableIntStateOf(0) }
@@ -33,8 +35,8 @@ fun LessonScreen(
     val completed = lessonDeck.isNotEmpty() && index >= lessonDeck.size
 
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("Bài học 5 từ", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-        item { Text("Một phiên ngắn dùng từ do bạn tự nhập. Vocab ưu tiên từ chưa ôn; nếu đã học hết từ mới, phiên sẽ lấy 5 từ trong sổ.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { Text("Bài học theo mục tiêu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item { Text("Một phiên ngắn dùng từ do bạn tự nhập, tối đa $safeSessionSize từ. Vocab ưu tiên từ chưa ôn; nếu đã học hết từ mới, phiên sẽ lấy từ trong sổ.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (words.isEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(22.dp)) {
@@ -59,7 +61,7 @@ fun LessonScreen(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Từ ${index + 1} / ${lessonDeck.size}", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    Text("Mục tiêu: 5 từ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Mục tiêu: ${lessonDeck.size} từ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 LinearProgressIndicator(progress = (index + 1).toFloat() / lessonDeck.size, modifier = Modifier.fillMaxWidth())
             }
@@ -110,6 +112,8 @@ fun LearningPathScreen(
     words: List<WordEntity>,
     modifier: Modifier = Modifier,
     onStart: (String?) -> Unit,
+    sessionSize: Int,
+    onSessionSizeChange: (Int) -> Unit,
     onOpenLibrary: () -> Unit
 ) {
     val now = System.currentTimeMillis()
@@ -130,6 +134,19 @@ fun LearningPathScreen(
                     Text("Tiến độ toàn bộ sổ từ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("${overall.learned}/${overall.total} từ đã được ôn ít nhất một lần • ${overall.percent}%", style = MaterialTheme.typography.bodyLarge)
                     LinearProgressIndicator(progress = { overall.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                    Text("Số từ mỗi phiên", fontWeight = FontWeight.SemiBold)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf(5, 10, 15, 20).forEach { target ->
+                            FilterChip(
+                                selected = sessionSize == target,
+                                onClick = { onSessionSizeChange(target) },
+                                label = { Text("$target") }
+                            )
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip(onClick = { onStart(null) }, label = { Text("Bắt đầu học") })
                         AssistChip(onClick = { onStart(null) }, label = { Text("Luyện tập") })
