@@ -67,6 +67,8 @@ private fun VocabApp(dao: WordDao) {
     val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
     var quizCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_correct", 0)) }
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
+    var quizSessionCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_correct", 0)) }
+    var quizSessionTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_total", 0)) }
     val scope = rememberCoroutineScope()
     val words by dao.observeAll().collectAsState(initial = emptyList())
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
@@ -448,13 +450,47 @@ private fun VocabApp(dao: WordDao) {
                 3 -> QuizScreen(
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    onAnswerRecorded = { correct ->
+                    sessionScore = quizSessionCorrect,
+                    sessionTotal = quizSessionTotal,
+                    onAnswerRecorded = { word, correct ->
                         StudyActivityTracker.recordEvent(statsPrefs)
                         quizTotal += 1
-                        if (correct) quizCorrect += 1
+                        quizSessionTotal += 1
+                        if (correct) {
+                            quizCorrect += 1
+                            quizSessionCorrect += 1
+                        }
                         statsPrefs.edit()
                             .putInt("quiz_total", quizTotal)
                             .putInt("quiz_correct", quizCorrect)
+                            .putInt("quiz_session_total", quizSessionTotal)
+                            .putInt("quiz_session_correct", quizSessionCorrect)
+                            .apply()
+                        val now = Instant.now()
+                        val previous = ReviewState(
+                            level = word.srsLevel,
+                            nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
+                            reviewCount = word.reviewCount,
+                            lapseCount = word.lapseCount
+                        )
+                        val rating = if (correct) ReviewRating.GOOD else ReviewRating.AGAIN
+                        val next = SrsScheduler.review(previous, rating, now)
+                        scope.launch {
+                            dao.update(word.copy(
+                                srsLevel = next.level,
+                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                reviewCount = next.reviewCount,
+                                lapseCount = next.lapseCount,
+                                lastReviewedAtMillis = now.toEpochMilli()
+                            ))
+                        }
+                    },
+                    onSessionReset = {
+                        quizSessionCorrect = 0
+                        quizSessionTotal = 0
+                        statsPrefs.edit()
+                            .putInt("quiz_session_total", 0)
+                            .putInt("quiz_session_correct", 0)
                             .apply()
                     }
                 )
