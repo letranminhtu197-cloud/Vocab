@@ -257,14 +257,10 @@ private fun VocabApp(dao: WordDao) {
                                 when {
                                     words.isEmpty() -> tab = 1
                                     dueNow > 0 -> tab = 3
-                                    else -> {
-                                        tab = 0
-                                        dueOnly = false
-                                        currentIndex = 0
-                                        revealed = false
-                                    }
+                                    else -> tab = 3
                                 }
                             },
+                            onOpenPractice = { tab = 3 },
                             onOpenLibrary = { tab = 1 },
                             onOpenLearningPath = { tab = 2 },
                             onOpenStats = { tab = 4 }
