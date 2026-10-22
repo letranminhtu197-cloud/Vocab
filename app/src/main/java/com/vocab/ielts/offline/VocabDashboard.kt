@@ -79,11 +79,28 @@ fun DashboardOverview(
                     DashboardMetric("Chuỗi ngày", "$activeStreak", Modifier.weight(1f))
                 }
                 Button(
-                    onClick = if (dueWords > 0) onStartReview else onOpenPractice,
+                    onClick = when {
+                        totalWords == 0 -> onOpenLibrary()
+                        dueWords > 0 -> onStartReview()
+                        else -> onOpenPractice()
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(if (dueWords > 0) Icons.Default.Refresh else Icons.Default.School, contentDescription = null)
-                    Text(if (dueWords > 0) "Ôn tập ngay · $dueWords từ" else "Mở khu luyện tập")
+                    Icon(
+                        when {
+                            totalWords == 0 -> Icons.Default.MenuBook
+                            dueWords > 0 -> Icons.Default.Refresh
+                            else -> Icons.Default.School
+                        },
+                        contentDescription = null
+                    )
+                    Text(
+                        when {
+                            totalWords == 0 -> "Thêm từ đầu tiên"
+                            dueWords > 0 -> "Ôn tập ngay · $dueWords từ"
+                            else -> "Mở khu luyện tập"
+                        }
+                    )
                 }
             }
         }
