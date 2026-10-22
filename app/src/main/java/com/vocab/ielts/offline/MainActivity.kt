@@ -96,13 +96,16 @@ private fun VocabApp(dao: WordDao) {
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
-                val importedText = runCatching {
+                val importedTextResult = runCatching {
                     withContext(Dispatchers.IO) {
-                        context.contentResolver.openInputStream(uri)?.use { CsvCodec.decodeUtf8(it.readBytes()) }
+                        context.contentResolver.openInputStream(uri)?.use { CsvCodec.readUtf8(it) }
+                            ?: error("Không mở được file CSV.")
                     }
-                }.getOrNull()
+                }
+                val importedText = importedTextResult.getOrNull()
                 if (importedText == null) {
-                    csvMessage = "Không đọc được file. Hãy chọn một file CSV hợp lệ."
+                    csvMessage = importedTextResult.exceptionOrNull()?.message
+                        ?: "Không đọc được file. Hãy chọn một file CSV UTF-8 hợp lệ."
                 } else {
                     val parsed = CsvCodec.parse(importedText)
                     if (parsed.error != null) {

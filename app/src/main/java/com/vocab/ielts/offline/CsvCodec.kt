@@ -1,5 +1,7 @@
 package com.vocab.ielts.offline
 
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -11,6 +13,24 @@ object CsvCodec {
         val invalidRows: Int,
         val error: String? = null
     )
+
+    const val MAX_IMPORT_BYTES: Int = 20 * 1024 * 1024
+
+    /** Read a CSV stream with a strict size cap before decoding UTF-8. */
+    fun readUtf8(input: InputStream, maxBytes: Int = MAX_IMPORT_BYTES): String {
+        require(maxBytes > 0) { "Giới hạn kích thước CSV không hợp lệ." }
+        val output = ByteArrayOutputStream(minOf(maxBytes, 8192))
+        val buffer = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            total += count
+            require(total <= maxBytes) { "File CSV vượt giới hạn ${maxBytes / (1024 * 1024)} MB." }
+            output.write(buffer, 0, count)
+        }
+        return decodeUtf8(output.toByteArray())
+    }
 
     /** Decode imported CSV without silently replacing malformed UTF-8 bytes. */
     fun decodeUtf8(bytes: ByteArray): String =
