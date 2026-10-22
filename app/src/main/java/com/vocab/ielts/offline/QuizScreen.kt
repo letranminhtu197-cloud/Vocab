@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private const val QUIZ_MEANING = "Chọn nghĩa"
+private const val QUIZ_RECALL = "Tìm từ"
 private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
 
@@ -63,6 +64,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                 FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
+                FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
                 FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
                 FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
             }
@@ -103,6 +105,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                             when (mode) {
                                 QUIZ_CLOZE -> "Điền từ còn thiếu"
                                 QUIZ_WEAK -> "Ôn từ từng quên"
+                                QUIZ_RECALL -> "Chọn từ khớp với nghĩa"
                                 else -> "Chọn nghĩa đúng"
                             },
                             fontWeight = FontWeight.SemiBold
@@ -121,9 +124,14 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                 Text("Kiểm tra đáp án")
                             }
                         } else {
-                            Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                            OfflineSpeakButton(text = word.term)
-                            word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            if (mode == QUIZ_RECALL) {
+                                Text(word.meaning, fontSize = 23.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
+                                if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                                OfflineSpeakButton(text = word.term)
+                                word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            }
                             options.forEach { option ->
                                 val correct = option.id == word.id
                                 val chosen = option.id == selectedId
@@ -146,7 +154,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                     color = fill,
                                     shape = RoundedCornerShape(14.dp),
                                     modifier = Modifier.fillMaxWidth()
-                                ) { Text(option.meaning, Modifier.padding(14.dp)) }
+                                ) { Text(if (mode == QUIZ_RECALL) option.term else option.meaning, Modifier.padding(14.dp)) }
                             }
                         }
                         if (answered) {
@@ -160,6 +168,8 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                 color = MaterialTheme.colorScheme.primary
                             )
                             if (word.example.isNotBlank() && mode != QUIZ_CLOZE) Text("Ví dụ: ${word.example}")
+                            if (word.collocations.isNotBlank()) Text("Collocations: ${word.collocations}")
+                            if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
                             if (mode == QUIZ_CLOZE && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}")
                         }
                         Button(

@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -50,6 +51,8 @@ class MainActivity : ComponentActivity() {
 private fun VocabApp(dao: WordDao) {
     var tab by remember { mutableIntStateOf(0) }
     var query by remember { mutableStateOf("") }
+    var libraryFilter by remember { mutableStateOf("Tất cả") }
+    var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
     var currentIndex by remember { mutableIntStateOf(0) }
     var revealed by remember { mutableStateOf(false) }
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
@@ -66,12 +69,19 @@ private fun VocabApp(dao: WordDao) {
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
     val scope = rememberCoroutineScope()
     val words by dao.observeAll().collectAsState(initial = emptyList())
-    val filtered = words.filter {
-        it.term.contains(query, true) || it.meaning.contains(query, true) ||
-            it.ipa.contains(query, true) || it.partOfSpeech.contains(query, true) ||
-            it.topic.contains(query, true) || it.example.contains(query, true) ||
-            it.collocations.contains(query, true) || it.wordFamily.contains(query, true) ||
-            it.notes.contains(query, true) || it.tags.contains(query, true)
+    val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
+    val filtered = words.filter { word ->
+        val matchesQuery = query.isBlank() || listOf(
+            word.term, word.meaning, word.ipa, word.partOfSpeech, word.topic, word.example,
+            word.collocations, word.wordFamily, word.notes, word.tags
+        ).any { it.contains(query.trim(), ignoreCase = true) }
+        val matchesMode = when (libraryFilter) {
+            "Đến hạn" -> word.nextReviewAtMillis == 0L || word.nextReviewAtMillis <= System.currentTimeMillis()
+            "Từ yếu" -> word.lapseCount > 0 || (word.reviewCount > 0 && word.srsLevel <= 1)
+            "Có thẻ" -> word.tags.isNotBlank()
+            else -> true
+        }
+        matchesQuery && matchesMode && (selectedTopic == "Mọi chủ đề" || word.topic.trim().equals(selectedTopic, ignoreCase = true))
     }
     val reviewDeck = if (dueOnly) words.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() } else words
     val current = reviewDeck.getOrNull(currentIndex.coerceIn(0, (reviewDeck.size - 1).coerceAtLeast(0)))
@@ -323,6 +333,38 @@ private fun VocabApp(dao: WordDao) {
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         singleLine = true
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Tất cả", "Đến hạn", "Từ yếu", "Có thẻ").forEach { option ->
+                            FilterChip(
+                                selected = libraryFilter == option,
+                                onClick = { libraryFilter = option },
+                                label = { Text(option) }
+                            )
+                        }
+                    }
+                    if (topics.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = selectedTopic == "Mọi chủ đề",
+                                onClick = { selectedTopic = "Mọi chủ đề" },
+                                label = { Text("Mọi chủ đề") }
+                            )
+                            topics.forEach { topic ->
+                                FilterChip(
+                                    selected = selectedTopic.equals(topic, ignoreCase = true),
+                                    onClick = { selectedTopic = topic },
+                                    label = { Text(topic) }
+                                )
+                            }
+                        }
+                    }
+                    Text("Hiển thị ${filtered.size}/${words.size} từ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         OutlinedButton(
                             onClick = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
