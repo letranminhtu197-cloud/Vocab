@@ -19,6 +19,7 @@ private const val QUIZ_TYPED = "Gõ từ"
 private const val QUIZ_SENTENCE = "Viết câu"
 private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
+private const val QUIZ_DUE = "Đến hạn"
 
 @Composable
 fun QuizScreen(
@@ -27,9 +28,10 @@ fun QuizScreen(
     sessionScore: Int,
     sessionTotal: Int,
     onAnswerRecorded: (WordEntity, Boolean) -> Unit,
-    onSessionReset: () -> Unit
+    onSessionReset: () -> Unit,
+    startWithDue: Boolean = false
 ) {
-    var mode by remember { mutableStateOf(QUIZ_MEANING) }
+    var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) QUIZ_DUE else QUIZ_MEANING) }
     var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
     var selectedId by remember { mutableStateOf<Long?>(null) }
@@ -41,10 +43,12 @@ fun QuizScreen(
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
     }
     val weakWords = scopedWords.filter { it.lapseCount > 0 }
+    val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
     val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
     val activeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
         QUIZ_WEAK -> weakWords
+        QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
         else -> scopedWords
     }
     val word = activeWords.getOrNull(if (activeWords.isEmpty()) 0 else index % activeWords.size)
@@ -90,6 +94,7 @@ fun QuizScreen(
                 FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
                 FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
                 FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
+                FilterChip(selected = mode == QUIZ_DUE, onClick = { resetForMode(QUIZ_DUE) }, label = { Text("$QUIZ_DUE (${dueWords.size})") })
             }
         }
         if (topics.isNotEmpty()) {
@@ -121,7 +126,16 @@ fun QuizScreen(
                 )
             }
         }
-        if (mode == QUIZ_WEAK && weakWords.isEmpty()) {
+        if (mode == QUIZ_DUE && dueWords.isEmpty() && words.isNotEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Bạn đã ôn hết từ đến hạn", fontWeight = FontWeight.Bold)
+                        Text("Chế độ này chỉ lấy từ chưa có lịch ôn hoặc đã đến hạn. Từ sắp đến hạn sẽ xuất hiện khi tới thời điểm ôn.")
+                    }
+                }
+            }
+        } else if (mode == QUIZ_WEAK && weakWords.isEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

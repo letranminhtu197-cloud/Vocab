@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun VocabApp(dao: WordDao) {
     var tab by remember { mutableIntStateOf(0) }
+    var learningPathTopic by remember { mutableStateOf<String?>(null) }
+    var showPathLesson by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var libraryFilter by remember { mutableStateOf("Tất cả") }
     var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
@@ -423,30 +425,47 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 }
-                2 -> LessonScreen(
-                    words = words,
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    onReview = { word, rating ->
-                        val now = Instant.now()
-                        val state = ReviewState(
-                            level = word.srsLevel,
-                            nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                            reviewCount = word.reviewCount,
-                            lapseCount = word.lapseCount
-                        )
-                        val next = SrsScheduler.review(state, rating, now)
-                        StudyActivityTracker.recordEvent(statsPrefs)
-                        scope.launch {
-                            dao.update(word.copy(
-                                srsLevel = next.level,
-                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                reviewCount = next.reviewCount,
-                                lapseCount = next.lapseCount,
-                                lastReviewedAtMillis = now.toEpochMilli()
-                            ))
+                2 -> if (showPathLesson) {
+                    Column(Modifier.fillMaxSize().padding(padding)) {
+                        TextButton(onClick = { showPathLesson = false }) { Text("← Quay lại lộ trình") }
+                        val pathWords = when (learningPathTopic) {
+                            null -> words
+                            "Chưa phân loại" -> words.filter { it.topic.isBlank() }
+                            else -> words.filter { it.topic.trim().equals(learningPathTopic, ignoreCase = true) }
                         }
+                        LessonScreen(
+                            words = pathWords,
+                            modifier = Modifier.fillMaxSize().weight(1f),
+                            onReview = { word, rating ->
+                                val now = Instant.now()
+                                val state = ReviewState(
+                                    level = word.srsLevel,
+                                    nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
+                                    reviewCount = word.reviewCount,
+                                    lapseCount = word.lapseCount
+                                )
+                                val next = SrsScheduler.review(state, rating, now)
+                                StudyActivityTracker.recordEvent(statsPrefs)
+                                scope.launch {
+                                    dao.update(word.copy(
+                                        srsLevel = next.level,
+                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                        reviewCount = next.reviewCount,
+                                        lapseCount = next.lapseCount,
+                                        lastReviewedAtMillis = now.toEpochMilli()
+                                    ))
+                                }
+                            }
+                        )
                     }
-                )
+                } else {
+                    LearningPathScreen(
+                        words = words,
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        onStart = { topic -> learningPathTopic = topic; showPathLesson = true },
+                        onOpenLibrary = { tab = 1 }
+                    )
+                }
                 3 -> QuizScreen(
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
@@ -492,7 +511,8 @@ private fun VocabApp(dao: WordDao) {
                             .putInt("quiz_session_total", 0)
                             .putInt("quiz_session_correct", 0)
                             .apply()
-                    }
+                    },
+                    startWithDue = true
                 )
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(16.dp),
@@ -524,6 +544,50 @@ private fun VocabApp(dao: WordDao) {
                                             modifier = Modifier.weight(1f).height(8.dp)
                                         )
                                         Text(day.activities.toString(), modifier = Modifier.width(24.dp), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        val topicProgress = LearningPathLogic.topics(words, System.currentTimeMillis()).take(5)
+                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Tiến độ theo chủ đề", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                if (topicProgress.isEmpty()) {
+                                    Text("Thêm từ và gán chủ đề IELTS để theo dõi tiến độ từng chủ đề.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    topicProgress.forEach { topic ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(topic.topic, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                                                Text("${topic.percent}%")
+                                            }
+                                            LinearProgressIndicator(progress = { topic.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                                            Text("${topic.learned}/${topic.total} đã ôn • ${topic.due} đến hạn • ${topic.weak} từ yếu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        val priorityWords = words.filter { it.lapseCount > 0 }.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.term.lowercase() }).take(5)
+                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Từ cần ưu tiên", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                if (priorityWords.isEmpty()) {
+                                    Text("Chưa có từ nào được ghi nhận là hay quên. Khi chọn “Lại” hoặc trả lời sai trong quiz, các từ cần luyện lại sẽ xuất hiện ở đây.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    priorityWords.forEach { word ->
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Text(word.term, fontWeight = FontWeight.SemiBold)
+                                                Text(word.meaning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Text("${word.lapseCount} lần quên", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                                        }
+                                        HorizontalDivider()
                                     }
                                 }
                             }
