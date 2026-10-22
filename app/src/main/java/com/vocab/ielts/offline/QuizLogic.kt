@@ -36,6 +36,12 @@ object QuizLogic {
         return (distractors + target).shuffled()
     }
 
+    /** Resolve a retry deck in its captured order, independent of changing due/weak filters. */
+    fun retryWords(words: List<WordEntity>, orderedIds: List<Long>): List<WordEntity> {
+        val wordsById = words.associateBy { it.id }
+        return orderedIds.distinct().mapNotNull { wordsById[it] }
+    }
+
     fun clozeSentence(example: String, term: String): String? {
         if (example.isBlank() || term.isBlank()) return null
         val pattern = Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(term) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE)
