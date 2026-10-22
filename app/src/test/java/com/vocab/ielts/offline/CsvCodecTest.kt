@@ -9,6 +9,21 @@ class CsvCodecTest {
         assertTrue(runCatching { CsvCodec.decodeUtf8(malformed) }.isFailure)
     }
 
+    @Test fun streamImportRejectsFilesOverConfiguredSizeLimit() {
+        val oversized = ByteArray(1025) { 'a'.code.toByte() }
+        val result = runCatching {
+            CsvCodec.readUtf8(java.io.ByteArrayInputStream(oversized), maxBytes = 1024)
+        }
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("vượt giới hạn"))
+    }
+
+    @Test fun streamImportAcceptsUtf8WithinSizeLimit() {
+        val input = "term,meaning\nimpact,tác động".toByteArray(Charsets.UTF_8)
+        val decoded = CsvCodec.readUtf8(java.io.ByteArrayInputStream(input), maxBytes = 1024)
+        assertEquals("term,meaning\nimpact,tác động", decoded)
+    }
+
     @Test fun importsFlexibleHeadersAndOptionalColumns() {
         val result = CsvCodec.parse("word,meaning,example,topic\nallocate,phân bổ,\"The city, however, must act\",Economy")
         assertNull(result.error)
