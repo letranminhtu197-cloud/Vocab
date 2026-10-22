@@ -11,7 +11,7 @@ class BackupCodecTest {
         val original = WordEntity(
             term = "allocate", ipa = "/ˈæləkeɪt/", partOfSpeech = "verb",
             meaning = "phân bổ", example = "Allocate funds, carefully.",
-            topic = "Economy", collocations = "allocate resources", wordFamily = "allocation; allocator", notes = "Use in Task 2", tags = "economy; education", srsLevel = 3, nextReviewAtMillis = 123456789L,
+            topic = "Economy", collocations = "allocate resources", synonyms = "assign; distribute", wordFamily = "allocation; allocator", notes = "Use in Task 2", tags = "economy; education", srsLevel = 3, nextReviewAtMillis = 123456789L,
             reviewCount = 7, lapseCount = 1, createdAtMillis = 111L, lastReviewedAtMillis = 222L
         )
         val restored = BackupCodec.restore(BackupCodec.create(listOf(original)))
@@ -20,6 +20,7 @@ class BackupCodecTest {
         assertEquals(original.term, copy.term)
         assertEquals(original.example, copy.example)
         assertEquals(original.collocations, copy.collocations)
+        assertEquals(original.synonyms, copy.synonyms)
         assertEquals(original.wordFamily, copy.wordFamily)
         assertEquals(original.notes, copy.notes)
         assertEquals(original.tags, copy.tags)

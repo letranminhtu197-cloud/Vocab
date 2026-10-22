@@ -86,4 +86,13 @@ class QuizLogicTest {
     @Test fun dueFlashcardIndexResetsToStart() {
         assertEquals(0, FlashcardLogic.nextIndexAfterRating(2, 3, true))
     }
+    @Test fun synonymModeUsesSynonymFieldForVisibleChoices() {
+        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ", synonyms = "assign; distribute")
+        val distractor = WordEntity(id = 2, term = "reduce", meaning = "giảm", synonyms = "decrease; lessen")
+        assertEquals("assign; distribute", QuizLogic.choiceLabel(target, "Từ đồng nghĩa"))
+        val options = QuizLogic.multipleChoiceOptions(target, listOf(target, distractor), "Từ đồng nghĩa")
+        assertEquals(2, options.size)
+        assertTrue(options.any { it.id == target.id })
+    }
+
 }

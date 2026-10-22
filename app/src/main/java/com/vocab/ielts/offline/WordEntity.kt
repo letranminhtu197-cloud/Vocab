@@ -14,6 +14,7 @@ data class WordEntity(
     val example: String = "",
     val topic: String = "",
     @ColumnInfo(defaultValue = "''") val collocations: String = "",
+    @ColumnInfo(defaultValue = "''") val synonyms: String = "",
     @ColumnInfo(defaultValue = "''") val wordFamily: String = "",
     @ColumnInfo(defaultValue = "''") val notes: String = "",
     @ColumnInfo(defaultValue = "''") val tags: String = "",

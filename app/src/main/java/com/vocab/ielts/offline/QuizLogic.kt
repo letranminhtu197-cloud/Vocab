@@ -12,6 +12,7 @@ object QuizLogic {
         "Tìm từ" -> word.term
         "Cụm từ" -> word.collocations
         "Họ từ" -> word.wordFamily
+        "Từ đồng nghĩa" -> word.synonyms
         else -> word.meaning
     }
 

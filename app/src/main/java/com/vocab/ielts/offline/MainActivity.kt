@@ -73,6 +73,9 @@ private fun VocabApp(dao: WordDao) {
     var lessonTarget by remember(settingsPrefs) {
         mutableIntStateOf(settingsPrefs.getInt("lesson_target", 5).let { if (it in listOf(5, 10, 15, 20)) it else 5 })
     }
+    var dailyGoal by remember(settingsPrefs) {
+        mutableIntStateOf(StudyGoalLogic.normalizeGoal(settingsPrefs.getInt("daily_goal", 10)))
+    }
     val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
     var quizCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_correct", 0)) }
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
@@ -84,7 +87,7 @@ private fun VocabApp(dao: WordDao) {
     val filtered = words.filter { word ->
         val matchesQuery = query.isBlank() || listOf(
             word.term, word.meaning, word.ipa, word.partOfSpeech, word.topic, word.example,
-            word.collocations, word.wordFamily, word.notes, word.tags
+            word.collocations, word.synonyms, word.wordFamily, word.notes, word.tags
         ).any { it.contains(query.trim(), ignoreCase = true) }
         val matchesMode = when (libraryFilter) {
             "Đến hạn" -> word.nextReviewAtMillis == 0L || word.nextReviewAtMillis <= System.currentTimeMillis()
@@ -156,17 +159,25 @@ private fun VocabApp(dao: WordDao) {
     MaterialTheme(
         colorScheme = if (darkTheme) {
             darkColorScheme(
-                primary = androidx.compose.ui.graphics.Color(0xFF9CCDBA),
-                secondary = androidx.compose.ui.graphics.Color(0xFFF2B544),
-                background = androidx.compose.ui.graphics.Color(0xFF101512),
-                surface = androidx.compose.ui.graphics.Color(0xFF171E1A)
+                primary = androidx.compose.ui.graphics.Color(0xFF9DD7BE),
+                onPrimary = androidx.compose.ui.graphics.Color(0xFF12382B),
+                primaryContainer = androidx.compose.ui.graphics.Color(0xFF234A3B),
+                onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFDDF3E8),
+                secondary = androidx.compose.ui.graphics.Color(0xFFF2C46D),
+                background = androidx.compose.ui.graphics.Color(0xFF101713),
+                surface = androidx.compose.ui.graphics.Color(0xFF18221C),
+                surfaceVariant = androidx.compose.ui.graphics.Color(0xFF26352C)
             )
         } else {
             lightColorScheme(
-                primary = androidx.compose.ui.graphics.Color(0xFF356859),
-                secondary = androidx.compose.ui.graphics.Color(0xFFF2B544),
-                background = androidx.compose.ui.graphics.Color(0xFFF6F8F5),
-                surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF)
+                primary = androidx.compose.ui.graphics.Color(0xFF2D6A58),
+                onPrimary = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
+                primaryContainer = androidx.compose.ui.graphics.Color(0xFFDDF3E8),
+                onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFF173F32),
+                secondary = androidx.compose.ui.graphics.Color(0xFFE6A23C),
+                background = androidx.compose.ui.graphics.Color(0xFFF4F8F5),
+                surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
+                surfaceVariant = androidx.compose.ui.graphics.Color(0xFFEAF1EC)
             )
         }
     ) {
@@ -230,17 +241,34 @@ private fun VocabApp(dao: WordDao) {
                 ) {
                     item { StudyReminderControl(onMessage = { csvMessage = it }) }
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                            shape = RoundedCornerShape(24.dp)
-                        ) {
-                            Column(Modifier.padding(20.dp)) {
-                                Text("Học theo nhịp của bạn", color = MaterialTheme.colorScheme.onPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(8.dp))
-                                Text("Từ trong sổ: ${words.size} • Đến hạn: ${words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }}", color = MaterialTheme.colorScheme.onPrimary)
-                                Text("Dữ liệu được lưu cục bộ trên thiết bị.", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
+                        DashboardOverview(
+                            totalWords = words.size,
+                            dueWords = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() },
+                            learnedWords = words.count { it.reviewCount > 0 },
+                            activeStreak = StudyActivityTracker.activeDayCount(statsPrefs),
+                            todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
+                            dailyGoal = dailyGoal,
+                            onGoalChange = { goal ->
+                                dailyGoal = goal
+                                settingsPrefs.edit().putInt("daily_goal", goal).apply()
+                            },
+                            onStartReview = {
+                                val dueNow = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
+                                when {
+                                    words.isEmpty() -> tab = 1
+                                    dueNow > 0 -> tab = 3
+                                    else -> {
+                                        tab = 0
+                                        dueOnly = false
+                                        currentIndex = 0
+                                        revealed = false
+                                    }
+                                }
+                            },
+                            onOpenLibrary = { tab = 1 },
+                            onOpenLearningPath = { tab = 2 },
+                            onOpenStats = { tab = 4 }
+                        )
                     }
                     item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Ôn flashcard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); FilterChip(selected = dueOnly, onClick = { dueOnly = !dueOnly; currentIndex = 0; revealed = false }, label = { Text(if (dueOnly) "Chỉ từ đến hạn" else "Tất cả từ") }) } }
                     if (current == null) {
@@ -278,6 +306,7 @@ private fun VocabApp(dao: WordDao) {
                                         }
                                         if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
                                         if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
+                                        if (current.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${current.synonyms}")
                                         if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
                                         if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
                                         if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -433,6 +462,7 @@ private fun VocabApp(dao: WordDao) {
                                     if (word.example.isNotBlank()) Text(word.example, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (word.topic.isNotBlank()) Text(word.topic, style = MaterialTheme.typography.labelSmall)
                                     if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
+                                    if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
                                     if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
                                     if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}", style = MaterialTheme.typography.labelSmall)
                                     if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -739,6 +769,7 @@ private fun WordEditorDialog(
     var example by remember(initial?.id) { mutableStateOf(initial?.example.orEmpty()) }
     var topic by remember(initial?.id) { mutableStateOf(initial?.topic.orEmpty()) }
     var collocations by remember(initial?.id) { mutableStateOf(initial?.collocations.orEmpty()) }
+    var synonyms by remember(initial?.id) { mutableStateOf(initial?.synonyms.orEmpty()) }
     var wordFamily by remember(initial?.id) { mutableStateOf(initial?.wordFamily.orEmpty()) }
     var notes by remember(initial?.id) { mutableStateOf(initial?.notes.orEmpty()) }
     var tags by remember(initial?.id) { mutableStateOf(initial?.tags.orEmpty()) }
@@ -759,6 +790,7 @@ private fun WordEditorDialog(
                 OutlinedTextField(example, { example = it }, label = { Text("Câu ví dụ") })
                 OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề IELTS") }, singleLine = true)
                 OutlinedTextField(collocations, { collocations = it }, label = { Text("Collocations / cụm từ đi kèm") }, minLines = 2)
+                OutlinedTextField(synonyms, { synonyms = it }, label = { Text("Synonyms / từ đồng nghĩa") }, minLines = 2)
                 OutlinedTextField(wordFamily, { wordFamily = it }, label = { Text("Word family / họ từ") }, minLines = 2)
                 OutlinedTextField(tags, { tags = it }, label = { Text("Tags / thẻ (phân tách bằng dấu phẩy)") }, minLines = 2)
                 OutlinedTextField(notes, { notes = it }, label = { Text("Ghi chú cá nhân") }, minLines = 2)
@@ -778,6 +810,7 @@ private fun WordEditorDialog(
                         example = example.trim(),
                         topic = topic.trim(),
                         collocations = collocations.trim(),
+                        synonyms = synonyms.trim(),
                         wordFamily = wordFamily.trim(),
                         notes = notes.trim(),
                         tags = tags.trim()

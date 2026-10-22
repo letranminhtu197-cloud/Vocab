@@ -22,6 +22,7 @@ private const val QUIZ_WEAK = "Từ yếu"
 private const val QUIZ_DUE = "Đến hạn"
 private const val QUIZ_COLLOCATIONS = "Cụm từ"
 private const val QUIZ_FAMILY = "Họ từ"
+private const val QUIZ_SYNONYMS = "Từ đồng nghĩa"
 
 @Composable
 fun QuizScreen(
@@ -59,12 +60,14 @@ fun QuizScreen(
     val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
     val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
     val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
+    val synonymWords = scopedWords.filter { it.synonyms.isNotBlank() }
     val modeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
         QUIZ_WEAK -> weakWords.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.nextReviewAtMillis })
         QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
         QUIZ_COLLOCATIONS -> collocationWords
         QUIZ_FAMILY -> familyWords
+        QUIZ_SYNONYMS -> synonymWords
         else -> scopedWords
     }
     val activeWords = if (retryWrongOnly) QuizLogic.retryWords(scopedWords, retryDeckIds.toList()) else modeWords
@@ -201,6 +204,7 @@ fun QuizScreen(
                 FilterChip(selected = mode == QUIZ_DUE, onClick = { resetForMode(QUIZ_DUE) }, label = { Text("$QUIZ_DUE (${dueWords.size})") })
                 FilterChip(selected = mode == QUIZ_COLLOCATIONS, onClick = { resetForMode(QUIZ_COLLOCATIONS) }, label = { Text("$QUIZ_COLLOCATIONS (${collocationWords.size})") })
                 FilterChip(selected = mode == QUIZ_FAMILY, onClick = { resetForMode(QUIZ_FAMILY) }, label = { Text("$QUIZ_FAMILY (${familyWords.size})") })
+                FilterChip(selected = mode == QUIZ_SYNONYMS, onClick = { resetForMode(QUIZ_SYNONYMS) }, label = { Text("$QUIZ_SYNONYMS (${synonymWords.size})") })
             }
         }
         if (topics.isNotEmpty()) {
@@ -261,6 +265,15 @@ fun QuizScreen(
                     }
                 }
             }
+        } else if (mode == QUIZ_SYNONYMS && synonymWords.size < 2 && words.isNotEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Chưa đủ dữ liệu từ đồng nghĩa", fontWeight = FontWeight.Bold)
+                        Text("Cần ít nhất hai mục từ có trường Synonyms khác nhau. Thêm từ đồng nghĩa trong phần sửa từ hoặc nhập qua CSV.")
+                    }
+                }
+            }
         } else if (mode == QUIZ_WEAK && weakWords.isEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
@@ -316,6 +329,7 @@ fun QuizScreen(
                                 QUIZ_RECALL -> "Chọn từ khớp với nghĩa"
                                 QUIZ_TYPED -> "Tự nhớ và gõ từ tiếng Anh"
                                 QUIZ_SENTENCE -> "Tự đặt câu với từ mục tiêu"
+                                QUIZ_SYNONYMS -> "Chọn nhóm từ đồng nghĩa phù hợp"
                                 else -> "Chọn nghĩa đúng"
                             },
                             fontWeight = FontWeight.SemiBold
@@ -380,7 +394,7 @@ fun QuizScreen(
                                 Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                                 OfflineSpeakButton(text = word.term)
                                 word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                if (mode in listOf(QUIZ_COLLOCATIONS, QUIZ_FAMILY) && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (mode in listOf(QUIZ_COLLOCATIONS, QUIZ_FAMILY, QUIZ_SYNONYMS) && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (options.size < 2) {
                                 Text(
@@ -430,6 +444,7 @@ fun QuizScreen(
                                             QUIZ_RECALL -> option.term
                                             QUIZ_COLLOCATIONS -> option.collocations
                                             QUIZ_FAMILY -> option.wordFamily
+                                            QUIZ_SYNONYMS -> option.synonyms
                                             else -> option.meaning
                                         },
                                         Modifier.padding(14.dp)
@@ -458,6 +473,7 @@ fun QuizScreen(
                             if (word.topic.isNotBlank()) Text("Chủ đề IELTS: ${word.topic}")
                             if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}")
                             if (word.collocations.isNotBlank()) Text("Collocations: ${word.collocations}")
+                            if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
                             if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
                             if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
                             if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}")
