@@ -2,7 +2,6 @@ package com.vocab.ielts.offline
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,9 +33,22 @@ fun LessonScreen(
     val current = lessonDeck.getOrNull(index)
     val completed = lessonDeck.isNotEmpty() && index >= lessonDeck.size
 
+    fun rateCurrent(rating: ReviewRating) {
+        val word = current ?: return
+        onReview(word, rating)
+        if (rating == ReviewRating.AGAIN) retry++ else remembered++
+        index++
+        revealed = false
+    }
+
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("Bài học theo mục tiêu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-        item { Text("Một phiên ngắn dùng từ do bạn tự nhập, tối đa $safeSessionSize từ. Vocab ưu tiên từ chưa ôn; nếu đã học hết từ mới, phiên sẽ lấy từ trong sổ.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item {
+            Text(
+                "Học chủ động: tự nhớ nghĩa trước khi lật thẻ, rồi chọn mức độ nhớ để Vocab lên lịch ôn phù hợp.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         if (words.isEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(22.dp)) {
@@ -86,114 +98,51 @@ fun LessonScreen(
                             if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (current.example.isNotBlank()) Text("Ví dụ: ${current.example}")
                             if (current.example.isBlank()) Text("Chưa có ví dụ. Bạn có thể bổ sung trong phần sửa từ hoặc qua CSV.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Bạn nhớ từ này đến mức nào?", fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                 OutlinedButton(
-                                    onClick = { onReview(current, ReviewRating.AGAIN); retry++; index++; revealed = false },
+                                    onClick = { rateCurrent(ReviewRating.AGAIN) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Lại")
+                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.AGAIN), style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                OutlinedButton(
+                                    onClick = { rateCurrent(ReviewRating.HARD) },
                                     modifier = Modifier.weight(1f)
-                                ) { Text("Chưa nhớ") }
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Khó")
+                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.HARD), style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                 Button(
-                                    onClick = { onReview(current, ReviewRating.GOOD); remembered++; index++; revealed = false },
+                                    onClick = { rateCurrent(ReviewRating.GOOD) },
                                     modifier = Modifier.weight(1f)
-                                ) { Text("Đã nhớ") }
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Tốt")
+                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.GOOD), style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                Button(
+                                    onClick = { rateCurrent(ReviewRating.EASY) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Dễ")
+                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.EASY), style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
                             }
                         } else {
-                            Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện nghĩa và ví dụ") }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-fun LearningPathScreen(
-    words: List<WordEntity>,
-    modifier: Modifier = Modifier,
-    onStart: (String?) -> Unit,
-    onPractice: () -> Unit,
-    sessionSize: Int,
-    onSessionSizeChange: (Int) -> Unit,
-    onOpenLibrary: () -> Unit
-) {
-    val now = System.currentTimeMillis()
-    val overall = LearningPathLogic.overall(words, now)
-    val topics = LearningPathLogic.topics(words, now)
-
-    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Text("Lộ trình học", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                "Theo dõi tiến độ bằng chính bộ từ bạn tự nhập. Mỗi chủ đề có số từ đã học, từ đến hạn và từ cần luyện lại.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        item {
-            Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Tiến độ toàn bộ sổ từ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("${overall.learned}/${overall.total} từ đã được ôn ít nhất một lần • ${overall.percent}%", style = MaterialTheme.typography.bodyLarge)
-                    LinearProgressIndicator(progress = { overall.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                    Text("Số từ mỗi phiên", fontWeight = FontWeight.SemiBold)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf(5, 10, 15, 20).forEach { target ->
-                            FilterChip(
-                                selected = sessionSize == target,
-                                onClick = { onSessionSizeChange(target) },
-                                label = { Text("$target") }
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip(onClick = { onStart(null) }, label = { Text("Bắt đầu học") })
-                        AssistChip(onClick = onPractice, label = { Text("Luyện tập") })
-                    }
-                }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Card(Modifier.weight(1f)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Đến hạn", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(overall.due.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                Card(Modifier.weight(1f)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Từ yếu", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(overall.weak.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-        }
-        if (words.isEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Lộ trình bắt đầu từ bộ từ của bạn", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Chưa có từ vựng nên chưa thể tạo tiến độ chủ đề. Thêm từ thủ công hoặc nhập CSV; ứng dụng không tự tải bộ từ.")
-                        Button(onClick = onOpenLibrary, modifier = Modifier.fillMaxWidth()) { Text("Mở sổ từ") }
-                    }
-                }
-            }
-        } else {
-            item { Text("Các chặng theo chủ đề", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-            items(topics, key = { it.topic }) { topic ->
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(topic.topic, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text("${topic.percent}%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        }
-                        LinearProgressIndicator(progress = { topic.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                        Text("${topic.learned}/${topic.total} từ đã ôn • ${topic.due} đến hạn • ${topic.weak} từ yếu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = { onStart(topic.topic) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (topic.topic == "Chưa phân loại") "Học từ chưa phân loại" else "Bắt đầu chặng này")
+                            Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Lật thẻ · hiện nghĩa và ví dụ") }
                         }
                     }
                 }
