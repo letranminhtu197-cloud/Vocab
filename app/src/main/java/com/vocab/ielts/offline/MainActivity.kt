@@ -511,7 +511,8 @@ private fun VocabApp(dao: WordDao) {
                             .putInt("quiz_session_total", 0)
                             .putInt("quiz_session_correct", 0)
                             .apply()
-                    }
+                    },
+                    startWithDue = true
                 )
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(16.dp),
