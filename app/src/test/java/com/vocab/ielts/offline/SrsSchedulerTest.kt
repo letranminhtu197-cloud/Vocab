@@ -36,7 +36,7 @@ class SrsSchedulerTest {
         assertEquals("UPCOMING", SrsScheduler.goldenWindow(state, due.minus(Duration.ofHours(2)).minusSeconds(1)))
         assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due.minus(Duration.ofHours(2))))
         assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due))
-        assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due.plus(Duration.ofHours(11)).plusMinutes(59)))
+        assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due.plus(Duration.ofHours(11)).plus(Duration.ofMinutes(59))))
         assertEquals("OVERDUE", SrsScheduler.goldenWindow(state, due.plus(Duration.ofHours(12))))
     }
 
