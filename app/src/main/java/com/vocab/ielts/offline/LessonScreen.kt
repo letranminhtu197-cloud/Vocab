@@ -2,6 +2,7 @@ package com.vocab.ielts.offline
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -173,7 +174,7 @@ fun LearningPathScreen(
                         }
                         LinearProgressIndicator(progress = { topic.percent / 100f }, modifier = Modifier.fillMaxWidth())
                         Text("${topic.learned}/${topic.total} từ đã ôn • ${topic.due} đến hạn • ${topic.weak} từ yếu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = { onStart(topic.topic.takeUnless { it == "Chưa phân loại" }) }, modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = { onStart(topic.topic) }, modifier = Modifier.fillMaxWidth()) {
                             Text(if (topic.topic == "Chưa phân loại") "Học từ chưa phân loại" else "Bắt đầu chặng này")
                         }
                     }
