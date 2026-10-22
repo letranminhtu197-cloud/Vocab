@@ -35,6 +35,20 @@ class BackupCodecTest {
         assertNotNull(BackupCodec.restore("not a zip".toByteArray()).error)
     }
 
+    @Test fun rejectsArchiveWhoseUnknownEntriesExceedExpandedSizeLimit() {
+        val oversized = ByteArray(20 * 1024 * 1024 + 1)
+        val archive = zipOf(
+            "unknown.bin" to oversized,
+            "vocab-backup.txt" to "format=VocabOfflineBackup\nversion=1\n".toByteArray(),
+            "words.csv" to "term,meaning\nword,nghĩa".toByteArray(Charsets.UTF_8)
+        )
+
+        val result = BackupCodec.restore(archive)
+
+        assertTrue(result.error.orEmpty().contains("Dữ liệu giải nén vượt giới hạn an toàn"))
+        assertTrue(result.words.isEmpty())
+    }
+
     @Test fun rejectsUnsupportedBackupVersion() {
         val archive = zipOf(
             "vocab-backup.txt" to "format=VocabOfflineBackup\nversion=99\n".toByteArray(),
