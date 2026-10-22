@@ -38,19 +38,20 @@ object BackupCodec {
             ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
-                    if (!entry.isDirectory && (entry.name == MANIFEST || entry.name == WORDS)) {
-                        if ((entry.name == MANIFEST && manifest != null) || (entry.name == WORDS && csv != null)) {
-                            return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu có mục dữ liệu bị lặp.")
-                        }
-                        val out = ByteArrayOutputStream()
-                        val buffer = ByteArray(8192)
-                        while (true) {
-                            val count = zip.read(buffer)
-                            if (count < 0) break
-                            expanded += count
-                            if (expanded > MAX_BYTES) return CsvCodec.ImportResult(emptyList(), 0, "Dữ liệu giải nén vượt giới hạn an toàn.")
-                            out.write(buffer, 0, count)
-                        }
+                    val required = !entry.isDirectory && (entry.name == MANIFEST || entry.name == WORDS)
+                    if (required && ((entry.name == MANIFEST && manifest != null) || (entry.name == WORDS && csv != null))) {
+                        return CsvCodec.ImportResult(emptyList(), 0, "File sao lưu có mục dữ liệu bị lặp.")
+                    }
+                    val out = if (required) ByteArrayOutputStream() else null
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        val count = zip.read(buffer)
+                        if (count < 0) break
+                        expanded += count
+                        if (expanded > MAX_BYTES) return CsvCodec.ImportResult(emptyList(), 0, "Dữ liệu giải nén vượt giới hạn an toàn.")
+                        out?.write(buffer, 0, count)
+                    }
+                    if (out != null) {
                         val value = decodeUtf8(out.toByteArray())
                         if (entry.name == MANIFEST) manifest = value
                         if (entry.name == WORDS) csv = value
