@@ -549,6 +549,50 @@ private fun VocabApp(dao: WordDao) {
                             }
                         }
                     }
+                    item {
+                        val topicProgress = LearningPathLogic.topics(words, System.currentTimeMillis()).take(5)
+                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Tiến độ theo chủ đề", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                if (topicProgress.isEmpty()) {
+                                    Text("Thêm từ và gán chủ đề IELTS để theo dõi tiến độ từng chủ đề.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    topicProgress.forEach { topic ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(topic.topic, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                                                Text("${topic.percent}%")
+                                            }
+                                            LinearProgressIndicator(progress = { topic.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                                            Text("${topic.learned}/${topic.total} đã ôn • ${topic.due} đến hạn • ${topic.weak} từ yếu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        val priorityWords = words.filter { it.lapseCount > 0 }.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.term.lowercase() }).take(5)
+                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Từ cần ưu tiên", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                if (priorityWords.isEmpty()) {
+                                    Text("Chưa có từ nào được ghi nhận là hay quên. Khi chọn “Lại” hoặc trả lời sai trong quiz, các từ cần luyện lại sẽ xuất hiện ở đây.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    priorityWords.forEach { word ->
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Text(word.term, fontWeight = FontWeight.SemiBold)
+                                                Text(word.meaning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Text("${word.lapseCount} lần quên", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                                        }
+                                        HorizontalDivider()
+                                    }
+                                }
+                            }
+                        }
+                    }
                     item { StatCard("Chế độ hoạt động", "Ngoại tuyến") }
                 }
             }
