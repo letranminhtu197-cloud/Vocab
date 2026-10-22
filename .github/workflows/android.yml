@@ -36,19 +36,33 @@ jobs:
       - name: Verify APK and offline manifest
         shell: bash
         run: |
+          set -euo pipefail
           test -s app/build/outputs/apk/debug/app-debug.apk
           ! grep -R 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions app/build/outputs/apk/debug/app-debug.apk | tee /tmp/vocab-permissions.txt
           ! grep -q 'android.permission.INTERNET' /tmp/vocab-permissions.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | tee /tmp/vocab-badging.txt
-          grep -q "versionCode='100' versionName='1.0.0'" /tmp/vocab-badging.txt
+          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n 1)
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+          grep -q "versionCode='$VERSION_CODE' versionName='$VERSION_NAME'" /tmp/vocab-badging.txt
           sha256sum app/build/outputs/apk/debug/app-debug.apk
       - name: Prepare versioned APK
+        shell: bash
         run: |
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+          test -n "$VERSION_NAME"
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/Vocab-1.0.0-debug.apk
+          APK_NAME="Vocab-${VERSION_NAME}-debug.apk"
+          ARTIFACT_NAME="vocab-${VERSION_NAME}-debug-apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/${APK_NAME}"
+          echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
+          echo "APK_NAME=${APK_NAME}" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: vocab-1.0.0-debug-apk
-          path: dist/Vocab-1.0.0-debug.apk
+          name: ${{ env.ARTIFACT_NAME }}
+          path: dist/${{ env.APK_NAME }}
           if-no-files-found: error
