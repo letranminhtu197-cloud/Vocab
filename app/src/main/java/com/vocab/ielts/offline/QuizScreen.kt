@@ -45,6 +45,8 @@ fun QuizScreen(
     var sessionAttempts by remember { mutableIntStateOf(0) }
     var sessionCorrect by remember { mutableIntStateOf(0) }
     val wrongWordIds = remember { mutableStateListOf<Long>() }
+    val modeAttempts = remember { mutableStateMapOf<String, Int>() }
+    val modeCorrect = remember { mutableStateMapOf<String, Int>() }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
@@ -88,8 +90,14 @@ fun QuizScreen(
     }
     fun recordAnswer(wordToRecord: WordEntity, correct: Boolean) {
         sessionAttempts += 1
-        if (correct) sessionCorrect += 1
-        else if (wordToRecord.id !in wrongWordIds) wrongWordIds.add(wordToRecord.id)
+        modeAttempts[mode] = (modeAttempts[mode] ?: 0) + 1
+        if (correct) {
+            sessionCorrect += 1
+            modeCorrect[mode] = (modeCorrect[mode] ?: 0) + 1
+            if (retryWrongOnly) wrongWordIds.remove(wordToRecord.id)
+        } else if (wordToRecord.id !in wrongWordIds) {
+            wrongWordIds.add(wordToRecord.id)
+        }
         onAnswerRecorded(wordToRecord, correct)
     }
     fun submitTypedAnswer() {
@@ -122,6 +130,14 @@ fun QuizScreen(
                         val accuracy = if (sessionAttempts == 0) 0 else (sessionCorrect * 100 / sessionAttempts)
                         Text("Độ chính xác: $accuracy%", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Text("Số từ cần ôn lại: ${wrongWordIds.size}")
+                        if (modeAttempts.isNotEmpty()) {
+                            Text("Kết quả theo chế độ", fontWeight = FontWeight.SemiBold)
+                            modeAttempts.forEach { (modeName, attempts) ->
+                                val correctInMode = modeCorrect[modeName] ?: 0
+                                val modeAccuracy = if (attempts == 0) 0 else correctInMode * 100 / attempts
+                                Text("$modeName: $correctInMode/$attempts đúng ($modeAccuracy%)")
+                            }
+                        }
                         if (wrongWordIds.isNotEmpty()) {
                             Text("Từ cần ôn", fontWeight = FontWeight.SemiBold)
                             words.filter { it.id in wrongWordIds }.forEach { wrong ->
@@ -141,6 +157,8 @@ fun QuizScreen(
                                 sessionAttempts = 0
                                 sessionCorrect = 0
                                 wrongWordIds.clear()
+                                modeAttempts.clear()
+                                modeCorrect.clear()
                                 retryWrongOnly = false
                                 showSummary = false
                                 resetQuestionState()
@@ -435,6 +453,8 @@ fun QuizScreen(
                                 sessionAttempts = 0
                                 sessionCorrect = 0
                                 wrongWordIds.clear()
+                                modeAttempts.clear()
+                                modeCorrect.clear()
                                 retryWrongOnly = false
                                 showSummary = false
                                 resetQuestionState()
