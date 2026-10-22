@@ -61,9 +61,8 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
     }
     fun submitCloze() = submitTypedAnswer()
     fun rateSentence(usedCorrectly: Boolean) {
-        if (!answered && word != null) {
+        if (mode == QUIZ_SENTENCE && answered && lastCorrect == null && word != null) {
             lastCorrect = usedCorrectly
-            answered = true
             total++
             if (usedCorrectly) score++
             onAnswerRecorded(usedCorrectly)
