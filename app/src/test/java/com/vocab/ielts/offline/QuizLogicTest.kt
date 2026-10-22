@@ -38,6 +38,20 @@ class QuizLogicTest {
         assertEquals(options.size, options.map { QuizLogic.normalizeAnswer(QuizLogic.choiceLabel(it, "Chọn nghĩa")) }.distinct().size)
     }
 
+    @Test fun duplicateVisibleLabelsCannotProduceMeaningfulDistractors() {
+        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
+        val duplicateOne = WordEntity(id = 2, term = "assign", meaning = "phân bổ")
+        val duplicateTwo = WordEntity(id = 3, term = "distribute", meaning = "phân bổ")
+
+        val options = QuizLogic.multipleChoiceOptions(
+            target,
+            listOf(target, duplicateOne, duplicateTwo),
+            "Chọn nghĩa"
+        )
+
+        assertEquals(listOf(target.id), options.map { it.id })
+    }
+
     @Test fun multipleChoiceOptionsRespectLimitAndIgnoreBlankDistractors() {
         val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
         val blank = WordEntity(id = 2, term = "assign", meaning = "")
