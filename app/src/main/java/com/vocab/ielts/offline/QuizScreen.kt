@@ -317,7 +317,7 @@ fun QuizScreen(
                 Card(shape = RoundedCornerShape(24.dp)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Điểm phiên: $sessionScore / $sessionTotal", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        if (mode !in listOf(QUIZ_SENTENCE, QUIZ_TYPED, QUIZ_LISTENING, QUIZ_CLOZE)) {
+                        if (mode !in listOf(QUIZ_SENTENCE, QUIZ_TYPED, QUIZ_CLOZE)) {
                             Text("Câu ${index + 1} trong ${activeWords.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             LinearProgressIndicator(
                                 progress = { (index + 1).toFloat() / activeWords.size.coerceAtLeast(1) },
