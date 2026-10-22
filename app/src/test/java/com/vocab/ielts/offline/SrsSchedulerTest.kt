@@ -32,7 +32,6 @@ class SrsSchedulerTest {
     @Test fun goldenWindowStartsTwoHoursBeforeDueAndEndsTwelveHoursAfter() {
         val due = now.plus(Duration.ofDays(1))
         val state = ReviewState(level = 1, nextReviewAt = due)
-
         assertEquals("UPCOMING", SrsScheduler.goldenWindow(state, due.minus(Duration.ofHours(2)).minusSeconds(1)))
         assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due.minus(Duration.ofHours(2))))
         assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, due))
@@ -63,4 +62,11 @@ class SrsSchedulerTest {
         assertEquals(failed.nextReviewAt!!.plus(Duration.ofDays(1)), recovered.nextReviewAt)
     }
 
+    @Test fun ratingLabelsMatchTheIntervalsUsedByTheScheduler() {
+        assertEquals("10 phút", SrsScheduler.intervalLabel(0, ReviewRating.AGAIN))
+        assertEquals("12 giờ", SrsScheduler.intervalLabel(0, ReviewRating.HARD))
+        assertEquals("1 ngày", SrsScheduler.intervalLabel(0, ReviewRating.GOOD))
+        assertEquals("3 ngày", SrsScheduler.intervalLabel(0, ReviewRating.EASY))
+        assertEquals("1 ngày 12 giờ", SrsScheduler.intervalLabel(2, ReviewRating.HARD))
+    }
 }
