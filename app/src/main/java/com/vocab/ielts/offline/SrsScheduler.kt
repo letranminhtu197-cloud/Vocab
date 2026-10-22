@@ -15,7 +15,7 @@ object SrsScheduler {
     private val intervals = listOf(1L, 3L, 7L, 14L, 30L)
     fun review(state: ReviewState, rating: ReviewRating, now: Instant): ReviewState {
         val nextLevel = when (rating) {
-            ReviewRating.AGAIN -> 1
+            ReviewRating.AGAIN -> 0
             ReviewRating.HARD -> if (state.level == 0) 1 else state.level.coerceIn(1, 5)
             ReviewRating.GOOD -> if (state.level == 0) 1 else (state.level + 1).coerceAtMost(5)
             ReviewRating.EASY -> if (state.level == 0) 2 else (state.level + 2).coerceAtMost(5)
