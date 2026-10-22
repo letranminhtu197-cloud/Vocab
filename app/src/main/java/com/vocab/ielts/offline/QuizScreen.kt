@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.sp
 
 private const val QUIZ_MEANING = "Chọn nghĩa"
 private const val QUIZ_RECALL = "Tìm từ"
+private const val QUIZ_TYPED = "Gõ từ"
+private const val QUIZ_SENTENCE = "Viết câu"
 private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
 
@@ -47,7 +49,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
         answered = false
         lastCorrect = null
     }
-    fun submitCloze() {
+    fun submitTypedAnswer() {
         if (!answered && word != null && answerText.isNotBlank()) {
             val correct = QuizLogic.isCorrectAnswer(answerText, word.term)
             lastCorrect = correct
@@ -55,6 +57,16 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
             total++
             if (correct) score++
             onAnswerRecorded(correct)
+        }
+    }
+    fun submitCloze() = submitTypedAnswer()
+    fun rateSentence(usedCorrectly: Boolean) {
+        if (!answered && word != null) {
+            lastCorrect = usedCorrectly
+            answered = true
+            total++
+            if (usedCorrectly) score++
+            onAnswerRecorded(usedCorrectly)
         }
     }
 
@@ -65,7 +77,9 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                 FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
                 FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
+                FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
                 FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
+                FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
                 FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
             }
         }
@@ -87,7 +101,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                     }
                 }
             }
-        } else if (words.size < 2 && mode != QUIZ_CLOZE) {
+        } else if (words.size < 2 && mode in listOf(QUIZ_MEANING, QUIZ_RECALL)) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -106,6 +120,8 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                 QUIZ_CLOZE -> "Điền từ còn thiếu"
                                 QUIZ_WEAK -> "Ôn từ từng quên"
                                 QUIZ_RECALL -> "Chọn từ khớp với nghĩa"
+                                QUIZ_TYPED -> "Tự nhớ và gõ từ tiếng Anh"
+                                QUIZ_SENTENCE -> "Tự đặt câu với từ mục tiêu"
                                 else -> "Chọn nghĩa đúng"
                             },
                             fontWeight = FontWeight.SemiBold
@@ -122,6 +138,45 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                             )
                             Button(onClick = { submitCloze() }, enabled = !answered && answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
                                 Text("Kiểm tra đáp án")
+                            }
+                        } else if (mode == QUIZ_TYPED) {
+                            Text(word.meaning, fontSize = 23.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
+                            if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Tự gõ từ/cụm từ tiếng Anh") },
+                                singleLine = true
+                            )
+                            Button(onClick = { submitTypedAnswer() }, enabled = !answered && answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                                Text("Kiểm tra đáp án")
+                            }
+                        } else if (mode == QUIZ_SENTENCE) {
+                            Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                            OfflineSpeakButton(text = word.term)
+                            Text("Hãy tự viết một câu tiếng Anh tự nhiên có sử dụng từ mục tiêu.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}")
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Câu tiếng Anh của bạn") },
+                                minLines = 3,
+                                maxLines = 5
+                            )
+                            if (!answered) {
+                                Button(onClick = { if (answerText.isNotBlank()) answered = true }, enabled = answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                                    Text("Xem ví dụ và tự đánh giá")
+                                }
+                            } else if (lastCorrect == null) {
+                                if (word.example.isNotBlank()) Text("Ví dụ tham khảo: ${word.example}")
+                                if (word.collocations.isNotBlank()) Text("Collocations: ${word.collocations}")
+                                Text("Tự đánh giá câu của bạn:", fontWeight = FontWeight.SemiBold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(onClick = { rateSentence(false) }, modifier = Modifier.weight(1f)) { Text("Cần luyện") }
+                                    Button(onClick = { rateSentence(true) }, modifier = Modifier.weight(1f)) { Text("Dùng đúng") }
+                                }
                             }
                         } else {
                             if (mode == QUIZ_RECALL) {
@@ -167,7 +222,7 @@ fun QuizScreen(words: List<WordEntity>, modifier: Modifier = Modifier, onAnswerR
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            if (word.example.isNotBlank() && mode != QUIZ_CLOZE) Text("Ví dụ: ${word.example}")
+                            if (word.example.isNotBlank() && mode !in listOf(QUIZ_CLOZE, QUIZ_SENTENCE)) Text("Ví dụ: ${word.example}")
                             if (word.collocations.isNotBlank()) Text("Collocations: ${word.collocations}")
                             if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
                             if (mode == QUIZ_CLOZE && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}")
