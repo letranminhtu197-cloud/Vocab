@@ -20,6 +20,8 @@ private const val QUIZ_SENTENCE = "Viết câu"
 private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
 private const val QUIZ_DUE = "Đến hạn"
+private const val QUIZ_COLLOCATIONS = "Cụm từ"
+private const val QUIZ_FAMILY = "Họ từ"
 
 @Composable
 fun QuizScreen(
@@ -45,15 +47,24 @@ fun QuizScreen(
     val weakWords = scopedWords.filter { it.lapseCount > 0 }
     val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
     val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
+    val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
+    val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
     val activeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
         QUIZ_WEAK -> weakWords
         QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
+        QUIZ_COLLOCATIONS -> collocationWords
+        QUIZ_FAMILY -> familyWords
+        else -> scopedWords
+    }
+    val optionPool = when (mode) {
+        QUIZ_COLLOCATIONS -> collocationWords
+        QUIZ_FAMILY -> familyWords
         else -> scopedWords
     }
     val word = activeWords.getOrNull(if (activeWords.isEmpty()) 0 else index % activeWords.size)
-    val options = remember(word?.id, scopedWords.map { it.id }) {
-        if (word == null) emptyList() else (scopedWords.filter { it.id != word.id }.shuffled().take(3) + word).shuffled()
+    val options = remember(word?.id, optionPool.map { it.id }, mode) {
+        if (word == null) emptyList() else (optionPool.filter { it.id != word.id }.shuffled().take(3) + word).shuffled()
     }
 
     fun resetForMode(nextMode: String) {
@@ -95,6 +106,8 @@ fun QuizScreen(
                 FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
                 FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
                 FilterChip(selected = mode == QUIZ_DUE, onClick = { resetForMode(QUIZ_DUE) }, label = { Text("$QUIZ_DUE (${dueWords.size})") })
+                FilterChip(selected = mode == QUIZ_COLLOCATIONS, onClick = { resetForMode(QUIZ_COLLOCATIONS) }, label = { Text("$QUIZ_COLLOCATIONS (${collocationWords.size})") })
+                FilterChip(selected = mode == QUIZ_FAMILY, onClick = { resetForMode(QUIZ_FAMILY) }, label = { Text("$QUIZ_FAMILY (${familyWords.size})") })
             }
         }
         if (topics.isNotEmpty()) {
@@ -132,6 +145,24 @@ fun QuizScreen(
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Bạn đã ôn hết từ đến hạn", fontWeight = FontWeight.Bold)
                         Text("Chế độ này chỉ lấy từ chưa có lịch ôn hoặc đã đến hạn. Từ sắp đến hạn sẽ xuất hiện khi tới thời điểm ôn.")
+                    }
+                }
+            }
+        } else if (mode == QUIZ_COLLOCATIONS && collocationWords.size < 2 && words.isNotEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Chưa đủ dữ liệu collocations", fontWeight = FontWeight.Bold)
+                        Text("Cần ít nhất hai từ trong phạm vi đã chọn có trường Collocations. Bạn có thể thêm cụm từ đi kèm trong Sổ từ hoặc CSV.")
+                    }
+                }
+            }
+        } else if (mode == QUIZ_FAMILY && familyWords.size < 2 && words.isNotEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Chưa đủ dữ liệu họ từ", fontWeight = FontWeight.Bold)
+                        Text("Cần ít nhất hai từ trong phạm vi đã chọn có trường Word family. Thêm họ từ vào các mục từ vựng của bạn để luyện phân biệt.")
                     }
                 }
             }
@@ -247,6 +278,7 @@ fun QuizScreen(
                                 Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                                 OfflineSpeakButton(text = word.term)
                                 word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                if (mode in listOf(QUIZ_COLLOCATIONS, QUIZ_FAMILY) && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             options.forEach { option ->
                                 val correct = option.id == word.id
@@ -268,7 +300,17 @@ fun QuizScreen(
                                     color = fill,
                                     shape = RoundedCornerShape(14.dp),
                                     modifier = Modifier.fillMaxWidth()
-                                ) { Text(if (mode == QUIZ_RECALL) option.term else option.meaning, Modifier.padding(14.dp)) }
+                                ) {
+                                    Text(
+                                        when (mode) {
+                                            QUIZ_RECALL -> option.term
+                                            QUIZ_COLLOCATIONS -> option.collocations
+                                            QUIZ_FAMILY -> option.wordFamily
+                                            else -> option.meaning
+                                        },
+                                        Modifier.padding(14.dp)
+                                    )
+                                }
                             }
                         }
                         if (answered && (mode != QUIZ_SENTENCE || lastCorrect != null)) {
