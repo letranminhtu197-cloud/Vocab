@@ -28,9 +28,10 @@ fun QuizScreen(
     sessionScore: Int,
     sessionTotal: Int,
     onAnswerRecorded: (WordEntity, Boolean) -> Unit,
-    onSessionReset: () -> Unit
+    onSessionReset: () -> Unit,
+    startWithDue: Boolean = false
 ) {
-    var mode by remember { mutableStateOf(QUIZ_MEANING) }
+    var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) QUIZ_DUE else QUIZ_MEANING) }
     var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
     var selectedId by remember { mutableStateOf<Long?>(null) }
@@ -47,7 +48,7 @@ fun QuizScreen(
     val activeWords = when (mode) {
         QUIZ_CLOZE -> clozeWords
         QUIZ_WEAK -> weakWords
-        QUIZ_DUE -> dueWords
+        QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
         else -> scopedWords
     }
     val word = activeWords.getOrNull(if (activeWords.isEmpty()) 0 else index % activeWords.size)
