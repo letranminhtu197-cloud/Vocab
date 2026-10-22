@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MenuBook
@@ -57,6 +59,8 @@ private fun VocabApp(dao: WordDao) {
     var dueOnly by remember { mutableStateOf(false) }
     var csvMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
+    var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", false)) }
     val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
     var quizCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_correct", 0)) }
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
@@ -127,20 +131,43 @@ private fun VocabApp(dao: WordDao) {
     }
 
     MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = androidx.compose.ui.graphics.Color(0xFF356859),
-            secondary = androidx.compose.ui.graphics.Color(0xFFF2B544),
-            background = androidx.compose.ui.graphics.Color(0xFFF6F8F5)
-        )
+        colorScheme = if (darkTheme) {
+            darkColorScheme(
+                primary = androidx.compose.ui.graphics.Color(0xFF9CCDBA),
+                secondary = androidx.compose.ui.graphics.Color(0xFFF2B544),
+                background = androidx.compose.ui.graphics.Color(0xFF101512),
+                surface = androidx.compose.ui.graphics.Color(0xFF171E1A)
+            )
+        } else {
+            lightColorScheme(
+                primary = androidx.compose.ui.graphics.Color(0xFF356859),
+                secondary = androidx.compose.ui.graphics.Color(0xFFF2B544),
+                background = androidx.compose.ui.graphics.Color(0xFFF6F8F5),
+                surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF)
+            )
+        }
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(title = {
-                    Column {
-                        Text("Vocab", fontWeight = FontWeight.Bold)
-                        Text("IELTS Vocabulary • Offline", fontSize = 12.sp)
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("Vocab", fontWeight = FontWeight.Bold)
+                            Text("IELTS Vocabulary • Offline", fontSize = 12.sp)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            darkTheme = !darkTheme
+                            settingsPrefs.edit().putBoolean("dark_theme", darkTheme).apply()
+                        }) {
+                            Icon(
+                                imageVector = if (darkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                contentDescription = if (darkTheme) "Chuyển sang giao diện sáng" else "Chuyển sang giao diện tối"
+                            )
+                        }
                     }
-                })
+                )
             },
             floatingActionButton = {
                 if (tab == 1) {
@@ -151,7 +178,7 @@ private fun VocabApp(dao: WordDao) {
             },
             bottomBar = {
                 NavigationBar {
-                    listOf("Trang chủ", "Sổ từ", "Bài học", "Luyện tập", "Thống kê").forEachIndexed { i, label ->
+                    listOf("Trang chủ", "Sổ từ", "Lộ trình", "Ôn tập", "Thống kê").forEachIndexed { i, label ->
                         NavigationBarItem(
                             selected = tab == i,
                             onClick = { tab = i },

@@ -43,7 +43,7 @@ gradle test
 gradle assembleDebug
 ```
 
-GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tải artifact `vocab-1.0.0-debug-apk` với tên file `Vocab-1.0.0-debug.apk`. Mở [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions), chọn lượt build thành công gần nhất và tải artifact ở cuối trang. Artifact hết hạn theo chính sách lưu trữ GitHub Actions.
+GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tạo artifact theo phiên bản khai báo trong `app/build.gradle.kts`. Ví dụ với `versionName = "1.0.0"`, artifact là `vocab-1.0.0-debug-apk` và file bên trong là `Vocab-1.0.0-debug.apk`; khi nâng phiên bản, tên tự đổi tương ứng. Mở [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions), chọn lượt build thành công gần nhất và tải artifact ở cuối trang. Artifact hết hạn theo chính sách lưu trữ GitHub Actions.
 
 ## Quyền riêng tư
 Dữ liệu từ vựng lưu trong cơ sở dữ liệu cục bộ của ứng dụng. Android Auto Backup bị tắt; nên dùng Sao lưu ZIP hoặc Xuất CSV định kỳ nếu muốn giữ bản sao. Không cấp quyền mạng vì ứng dụng không cần Internet để học.
