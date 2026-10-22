@@ -12,7 +12,14 @@ data class ReviewState(
     val consecutiveSuccessfulReviews: Int = 0
 )
 object SrsScheduler {
-    private val intervals = listOf(1L, 3L, 7L, 14L, 30L)
+    // Five core intervals requested for this personal IELTS workflow: 4h, 1d, 3d, 7d, 30d.
+    private val intervals = listOf(
+        Duration.ofHours(4),
+        Duration.ofHours(24),
+        Duration.ofHours(72),
+        Duration.ofHours(168),
+        Duration.ofHours(720)
+    )
 
     private fun nextLevel(level: Int, rating: ReviewRating): Int = when (rating) {
         ReviewRating.AGAIN -> 0
@@ -25,11 +32,12 @@ object SrsScheduler {
         val targetLevel = nextLevel(level, rating)
         return when (rating) {
             ReviewRating.AGAIN -> Duration.ofMinutes(10)
-            ReviewRating.HARD -> Duration.ofHours(
-                (intervals[(targetLevel - 1).coerceIn(0, 4)] * 24 / 2).coerceAtLeast(12)
+            ReviewRating.HARD -> maxOf(
+                intervals[(targetLevel - 1).coerceIn(0, 4)].dividedBy(2),
+                Duration.ofHours(1)
             )
             ReviewRating.GOOD, ReviewRating.EASY ->
-                Duration.ofDays(intervals[(targetLevel - 1).coerceIn(0, 4)])
+                intervals[(targetLevel - 1).coerceIn(0, 4)]
         }
     }
 

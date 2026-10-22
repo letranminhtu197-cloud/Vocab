@@ -44,6 +44,7 @@ fun DashboardOverview(
     dailyGoal: Int,
     onGoalChange: (Int) -> Unit,
     onStartReview: () -> Unit,
+    onOpenPractice: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenLearningPath: () -> Unit,
     onOpenStats: () -> Unit
@@ -77,9 +78,31 @@ fun DashboardOverview(
                     DashboardMetric("Đã ôn", learnedWords.toString(), Modifier.weight(1f))
                     DashboardMetric("Chuỗi ngày", "$activeStreak", Modifier.weight(1f))
                 }
-                Button(onClick = onStartReview, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Text(if (dueWords > 0) "Ôn tập ngay · $dueWords từ" else "Mở khu luyện tập")
+                Button(
+                    onClick = {
+                        when {
+                            totalWords == 0 -> onOpenLibrary()
+                            dueWords > 0 -> onStartReview()
+                            else -> onOpenPractice()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        when {
+                            totalWords == 0 -> Icons.Default.MenuBook
+                            dueWords > 0 -> Icons.Default.Refresh
+                            else -> Icons.Default.School
+                        },
+                        contentDescription = null
+                    )
+                    Text(
+                        when {
+                            totalWords == 0 -> "Thêm từ đầu tiên"
+                            dueWords > 0 -> "Ôn tập ngay · $dueWords từ"
+                            else -> "Mở khu luyện tập"
+                        }
+                    )
                 }
             }
         }

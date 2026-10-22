@@ -1,6 +1,6 @@
-# Vocab 1.0.7 — IELTS Vocabulary Offline
+# Vocab 1.0.8 — IELTS Vocabulary Offline
 
-**Phiên bản ứng dụng:** `1.0.7` (`versionCode 107`). Đây là bản phát hành cá nhân ưu tiên ngoại tuyến; APK CI hiện là **debug-signed** để cài thử trực tiếp, chưa phải APK phát hành thương mại ký bằng khóa riêng.
+**Phiên bản ứng dụng:** `1.0.8` (`versionCode 108`). Đây là bản phát hành cá nhân ưu tiên ngoại tuyến; APK CI hiện là **debug-signed** để cài thử trực tiếp, chưa phải APK phát hành thương mại ký bằng khóa riêng.
 
 Ứng dụng Android cá nhân học từ vựng IELTS Academic, giao diện tiếng Việt, thiết kế cho dùng ngoại tuyến trên điện thoại Android. Ứng dụng không tự cài sẵn danh sách từ vựng; người dùng tự nhập từ, nhập CSV, hoặc chủ động thêm ba từ mẫu chỉ để thử tính năng.
 
@@ -8,13 +8,13 @@
 - Kotlin, Jetpack Compose, Material 3.
 - Room database cục bộ: từ vựng và tiến độ vẫn còn sau khi đóng/mở ứng dụng.
 - Thêm, sửa, xóa, tìm kiếm từ; flashcard; thống kê cơ bản. Mỗi từ hỗ trợ IPA, từ loại, nghĩa, ví dụ, chủ đề IELTS, collocations, từ đồng nghĩa, word family, ghi chú cá nhân và tags. Khi thêm/sửa sẽ chặn từ trùng không phân biệt chữ hoa/thường; thao tác xóa cần xác nhận và tìm kiếm có trạng thái rỗng rõ ràng.
-- Ôn SRS 5 cấp, đánh giá Lại/Khó/Tốt/Dễ; lưu cấp độ, lịch ôn, số lượt ôn và số lần quên. Khi trả lời sai, từ quay về giai đoạn học lại và được hẹn ôn sau 10 phút; lần trả lời đúng tiếp theo bắt đầu lại lịch 1 ngày, sau đó tiến dần theo mốc 3/7/14/30 ngày.
+- Ôn SRS 5 cấp, đánh giá Lại/Khó/Tốt/Dễ; lịch cơ sở lần lượt 4 giờ, 24 giờ, 72 giờ, 168 giờ và 720 giờ. “Khó” lên lịch bằng một nửa khoảng của cấp mục tiêu (tối thiểu 1 giờ); “Lại” đặt ôn lại sau 10 phút và ghi nhận lần quên. Tiến độ/lịch đã lưu được giữ nguyên; lịch mới được áp dụng khi đánh giá từ tiếp theo.
 - Kết quả của các dạng quiz cũng cập nhật SRS cho đúng từ đang luyện, không chỉ tăng thống kê tổng.
 - Hiển thị trạng thái SRS: từ mới, sắp đến hạn, thời điểm vàng hoặc quá hạn.
 - Lưu cục bộ tổng số câu quiz, tỷ lệ đúng và điểm/số câu của phiên quiz hiện tại qua các lần mở ứng dụng; có thể đặt lại bộ đếm phiên mà không xóa thống kê tổng.
 - Thống kê hoạt động học theo từng ngày trong 7 ngày gần nhất và chuỗi ngày học liên tiếp; ghi nhận lượt trả lời quiz và lượt ôn SRS, hoàn toàn cục bộ.
 - Trang chủ có tổng quan số từ, từ đến hạn, số từ đã ôn và chuỗi ngày học; mục tiêu luyện tập hằng ngày tùy chỉnh 5/10/15/20/25/30 lượt được lưu cục bộ, có thanh tiến độ và lối tắt đến Sổ từ, Lộ trình, Thống kê.
-- Các dạng luyện: chọn nghĩa, chọn từ theo nghĩa, tự gõ từ tiếng Anh từ nghĩa tiếng Việt, điền từ còn thiếu trong câu ví dụ, viết câu với từ mục tiêu, nhận diện nhóm collocations/từ đồng nghĩa/họ từ đã nhập và ôn từ yếu.
+- Các dạng luyện: chọn nghĩa, chọn từ theo nghĩa, tự gõ từ tiếng Anh từ nghĩa tiếng Việt, **nghe phát âm offline rồi gõ từ**, điền từ còn thiếu trong câu ví dụ, viết câu với từ mục tiêu, nhận diện nhóm collocations/từ đồng nghĩa/họ từ đã nhập và ôn từ yếu.
 - Luyện tập có thể giới hạn theo chủ đề IELTS tự nhập; không tự tạo hoặc tải bộ từ vựng.
 - Chấm đáp án tức thì với các dạng có đáp án xác định; dạng viết câu yêu cầu người học tự đánh giá và lưu kết quả tự đánh giá vào SRS. Đây không phải hệ thống chấm ngữ pháp tự động.
 - Quiz trắc nghiệm loại các lựa chọn có nội dung hiển thị trùng nhau, bỏ lựa chọn nhiễu rỗng và luôn giữ đáp án mục tiêu; nếu dữ liệu người dùng chưa đủ hai lựa chọn khác nhau, ứng dụng giải thích cách bổ sung dữ liệu thay vì tạo câu hỏi vô nghĩa.
@@ -53,12 +53,12 @@ gradle test
 gradle assembleDebug
 ```
 
-GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tạo artifact theo phiên bản khai báo trong `app/build.gradle.kts`. Ví dụ với `versionName = "1.0.7"`, artifact là `vocab-1.0.7-debug-apk` và file bên trong là `Vocab-1.0.7-debug.apk`; khi nâng phiên bản, tên tự đổi tương ứng. Mở [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions), chọn lượt build thành công gần nhất và tải artifact ở cuối trang. Artifact hết hạn theo chính sách lưu trữ GitHub Actions.
+GitHub Actions chạy unit tests, build debug APK, kiểm tra APK không có quyền Internet và tạo artifact theo phiên bản khai báo trong `app/build.gradle.kts`. Ví dụ với `versionName = "1.0.8"`, artifact là `vocab-1.0.8-debug-apk` và file bên trong là `Vocab-1.0.8-debug.apk`; khi nâng phiên bản, tên tự đổi tương ứng. Mở [Actions](https://github.com/letranminhtu197-cloud/Vocab/actions), chọn lượt build thành công gần nhất và tải artifact ở cuối trang. Artifact hết hạn theo chính sách lưu trữ GitHub Actions.
 
 ## Quyền riêng tư
 Dữ liệu từ vựng lưu trong cơ sở dữ liệu cục bộ của ứng dụng. Android Auto Backup bị tắt; nên dùng Sao lưu ZIP hoặc Xuất CSV định kỳ nếu muốn giữ bản sao. Không cấp quyền mạng vì ứng dụng không cần Internet để học.
 
-## Phạm vi và lưu ý của bản 1.0.7
+## Phạm vi và lưu ý của bản 1.0.8
 - Không tự nạp bộ từ vựng; bạn tự nhập từ hoặc dùng file CSV của mình.
 - Phát âm dùng giọng Text-to-Speech offline có sẵn trên thiết bị; ứng dụng không đóng gói bộ âm thanh riêng. Nếu máy không có giọng tiếng Anh offline, chức năng phát âm có thể không hoạt động cho đến khi cài giọng ngoại tuyến trong cài đặt Android.
 - Nhắc hằng ngày dùng cơ chế lịch của Android; thời điểm thực tế có thể trễ do chế độ tiết kiệm pin hoặc giới hạn nền của hệ điều hành.

@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun VocabApp(dao: WordDao) {
     var tab by remember { mutableIntStateOf(0) }
+    var quizStartWithDue by remember { mutableStateOf(true) }
     var learningPathTopic by remember { mutableStateOf<String?>(null) }
     var showPathLesson by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -215,7 +216,10 @@ private fun VocabApp(dao: WordDao) {
                     listOf("Trang chủ", "Sổ từ", "Lộ trình", "Ôn tập", "Thống kê").forEachIndexed { i, label ->
                         NavigationBarItem(
                             selected = tab == i,
-                            onClick = { tab = i },
+                            onClick = {
+                                tab = i
+                                if (i == 3) quizStartWithDue = true
+                            },
                             icon = {
                                 Icon(
                                     when (i) {
@@ -253,17 +257,12 @@ private fun VocabApp(dao: WordDao) {
                                 settingsPrefs.edit().putInt("daily_goal", goal).apply()
                             },
                             onStartReview = {
-                                val dueNow = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
-                                when {
-                                    words.isEmpty() -> tab = 1
-                                    dueNow > 0 -> tab = 3
-                                    else -> {
-                                        tab = 0
-                                        dueOnly = false
-                                        currentIndex = 0
-                                        revealed = false
-                                    }
-                                }
+                                quizStartWithDue = true
+                                tab = if (words.isEmpty()) 1 else 3
+                            },
+                            onOpenPractice = {
+                                quizStartWithDue = false
+                                tab = 3
                             },
                             onOpenLibrary = { tab = 1 },
                             onOpenLearningPath = { tab = 2 },
@@ -516,7 +515,7 @@ private fun VocabApp(dao: WordDao) {
                             settingsPrefs.edit().putInt("lesson_target", target).apply()
                         },
                         onStart = { topic -> learningPathTopic = topic; showPathLesson = true },
-                        onPractice = { showPathLesson = false; tab = 3 },
+                        onPractice = { showPathLesson = false; quizStartWithDue = false; tab = 3 },
                         onOpenLibrary = { tab = 1 }
                     )
                 }
@@ -566,7 +565,7 @@ private fun VocabApp(dao: WordDao) {
                             .putInt("quiz_session_correct", 0)
                             .apply()
                     },
-                    startWithDue = true
+                    startWithDue = quizStartWithDue
                 )
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(16.dp),
