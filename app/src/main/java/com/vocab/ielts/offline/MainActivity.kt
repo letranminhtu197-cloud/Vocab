@@ -65,7 +65,9 @@ private fun VocabApp(dao: WordDao) {
     val filtered = words.filter {
         it.term.contains(query, true) || it.meaning.contains(query, true) ||
             it.ipa.contains(query, true) || it.partOfSpeech.contains(query, true) ||
-            it.topic.contains(query, true) || it.example.contains(query, true)
+            it.topic.contains(query, true) || it.example.contains(query, true) ||
+            it.collocations.contains(query, true) || it.wordFamily.contains(query, true) ||
+            it.notes.contains(query, true) || it.tags.contains(query, true)
     }
     val reviewDeck = if (dueOnly) words.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() } else words
     val current = reviewDeck.getOrNull(currentIndex.coerceIn(0, (reviewDeck.size - 1).coerceAtLeast(0)))
@@ -224,7 +226,11 @@ private fun VocabApp(dao: WordDao) {
                                             Spacer(Modifier.height(10.dp))
                                             Text(current.example)
                                         }
-                                        if (current.topic.isNotBlank()) Text(current.topic, style = MaterialTheme.typography.labelMedium)
+                                        if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
+                                        if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
+                                        if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
+                                        if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
+                                        if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Spacer(Modifier.height(16.dp))
                                     OutlinedButton(onClick = { revealed = !revealed }) {
@@ -266,7 +272,7 @@ private fun VocabApp(dao: WordDao) {
                                                     lastReviewedAtMillis = now.toEpochMilli()
                                                 ))
                                             }
-                                            currentIndex = if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
+                                            currentIndex = if (dueOnly) currentIndex else if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
                                             revealed = false
                                         },
                                         enabled = revealed,
@@ -286,7 +292,7 @@ private fun VocabApp(dao: WordDao) {
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Tìm từ, nghĩa, ví dụ hoặc chủ đề") },
+                        label = { Text("Tìm từ, nghĩa, ví dụ, cụm từ, ghi chú, thẻ…") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         singleLine = true
                     )
@@ -336,6 +342,10 @@ private fun VocabApp(dao: WordDao) {
                                     Text(word.meaning)
                                     if (word.example.isNotBlank()) Text(word.example, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (word.topic.isNotBlank()) Text(word.topic, style = MaterialTheme.typography.labelSmall)
+                                    if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
+                                    if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
+                                    if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}", style = MaterialTheme.typography.labelSmall)
+                                    if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("SRS cấp ${word.srsLevel}/5 • Đã ôn ${word.reviewCount} lần", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
@@ -497,6 +507,10 @@ private fun WordEditorDialog(
     var meaning by remember(initial?.id) { mutableStateOf(initial?.meaning.orEmpty()) }
     var example by remember(initial?.id) { mutableStateOf(initial?.example.orEmpty()) }
     var topic by remember(initial?.id) { mutableStateOf(initial?.topic.orEmpty()) }
+    var collocations by remember(initial?.id) { mutableStateOf(initial?.collocations.orEmpty()) }
+    var wordFamily by remember(initial?.id) { mutableStateOf(initial?.wordFamily.orEmpty()) }
+    var notes by remember(initial?.id) { mutableStateOf(initial?.notes.orEmpty()) }
+    var tags by remember(initial?.id) { mutableStateOf(initial?.tags.orEmpty()) }
     val canSave = term.isNotBlank() && meaning.isNotBlank()
 
     AlertDialog(
@@ -512,7 +526,11 @@ private fun WordEditorDialog(
                 OutlinedTextField(ipa, { ipa = it }, label = { Text("Phiên âm IPA") }, singleLine = true)
                 OutlinedTextField(pos, { pos = it }, label = { Text("Từ loại") }, singleLine = true)
                 OutlinedTextField(example, { example = it }, label = { Text("Câu ví dụ") })
-                OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề") }, singleLine = true)
+                OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề IELTS") }, singleLine = true)
+                OutlinedTextField(collocations, { collocations = it }, label = { Text("Collocations / cụm từ đi kèm") }, minLines = 2)
+                OutlinedTextField(wordFamily, { wordFamily = it }, label = { Text("Word family / họ từ") }, minLines = 2)
+                OutlinedTextField(tags, { tags = it }, label = { Text("Tags / thẻ (phân tách bằng dấu phẩy)") }, minLines = 2)
+                OutlinedTextField(notes, { notes = it }, label = { Text("Ghi chú cá nhân") }, minLines = 2)
                 Text("* Bắt buộc", style = MaterialTheme.typography.labelSmall)
             }
         },
@@ -527,7 +545,11 @@ private fun WordEditorDialog(
                         partOfSpeech = pos.trim(),
                         meaning = meaning.trim(),
                         example = example.trim(),
-                        topic = topic.trim()
+                        topic = topic.trim(),
+                        collocations = collocations.trim(),
+                        wordFamily = wordFamily.trim(),
+                        notes = notes.trim(),
+                        tags = tags.trim()
                     ))
                 }
             ) { Text("Lưu") }

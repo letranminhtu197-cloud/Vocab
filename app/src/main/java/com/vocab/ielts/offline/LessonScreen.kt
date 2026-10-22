@@ -77,6 +77,10 @@ fun LessonScreen(
                             HorizontalDivider()
                             Text(current.meaning, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                             if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}")
+                            if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
+                            if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
+                            if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
+                            if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (current.example.isNotBlank()) Text("Ví dụ: ${current.example}")
                             if (current.example.isBlank()) Text("Chưa có ví dụ. Bạn có thể bổ sung trong phần sửa từ hoặc qua CSV.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

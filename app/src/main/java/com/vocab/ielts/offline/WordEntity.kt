@@ -1,5 +1,6 @@
 package com.vocab.ielts.offline
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -12,6 +13,10 @@ data class WordEntity(
     val meaning: String,
     val example: String = "",
     val topic: String = "",
+    @ColumnInfo(defaultValue = "''") val collocations: String = "",
+    @ColumnInfo(defaultValue = "''") val wordFamily: String = "",
+    @ColumnInfo(defaultValue = "''") val notes: String = "",
+    @ColumnInfo(defaultValue = "''") val tags: String = "",
     val srsLevel: Int = 0,
     val nextReviewAtMillis: Long = 0L,
     val reviewCount: Int = 0,

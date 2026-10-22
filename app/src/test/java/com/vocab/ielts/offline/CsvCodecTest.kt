@@ -52,13 +52,32 @@ class CsvCodecTest {
         assertTrue(result.words.isEmpty())
     }
 
+    @Test fun importsAndExportsRichIeltsVocabularyFields() {
+        val result = CsvCodec.parse("term,meaning,collocations,wordFamily,notes,tags\nimpact,tác động,\"have an impact on\",\"impactful; impactfully\",\"Use in Task 2\",\"environment; society\"")
+        assertNull(result.error)
+        val word = result.words.single()
+        assertEquals("have an impact on", word.collocations)
+        assertEquals("impactful; impactfully", word.wordFamily)
+        assertEquals("Use in Task 2", word.notes)
+        assertEquals("environment; society", word.tags)
+        val restored = CsvCodec.parse(CsvCodec.export(listOf(word))).words.single()
+        assertEquals(word.collocations, restored.collocations)
+        assertEquals(word.wordFamily, restored.wordFamily)
+        assertEquals(word.notes, restored.notes)
+        assertEquals(word.tags, restored.tags)
+    }
+
     @Test fun exportCanBeImportedWithoutLosingFields() {
-        val original = WordEntity(term = "impact", ipa = "/ˈɪmpækt/", partOfSpeech = "noun", meaning = "tác động", example = "A, B and C", topic = "Society", srsLevel = 2, reviewCount = 3)
+        val original = WordEntity(term = "impact", ipa = "/ˈɪmpækt/", partOfSpeech = "noun", meaning = "tác động", example = "A, B and C", topic = "Society", collocations = "have an impact on", wordFamily = "impactful", notes = "Essay use", tags = "environment, society", srsLevel = 2, reviewCount = 3)
         val restored = CsvCodec.parse(CsvCodec.export(listOf(original))).words.single()
         assertEquals(original.term, restored.term)
         assertEquals(original.ipa, restored.ipa)
         assertEquals(original.meaning, restored.meaning)
         assertEquals(original.example, restored.example)
+        assertEquals(original.collocations, restored.collocations)
+        assertEquals(original.wordFamily, restored.wordFamily)
+        assertEquals(original.notes, restored.notes)
+        assertEquals(original.tags, restored.tags)
         assertEquals(original.srsLevel, restored.srsLevel)
         assertEquals(original.reviewCount, restored.reviewCount)
     }
