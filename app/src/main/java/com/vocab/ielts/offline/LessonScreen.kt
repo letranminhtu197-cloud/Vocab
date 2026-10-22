@@ -112,6 +112,7 @@ fun LearningPathScreen(
     words: List<WordEntity>,
     modifier: Modifier = Modifier,
     onStart: (String?) -> Unit,
+    onPractice: () -> Unit,
     sessionSize: Int,
     onSessionSizeChange: (Int) -> Unit,
     onOpenLibrary: () -> Unit
@@ -149,7 +150,7 @@ fun LearningPathScreen(
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip(onClick = { onStart(null) }, label = { Text("Bắt đầu học") })
-                        AssistChip(onClick = { onStart(null) }, label = { Text("Luyện tập") })
+                        AssistChip(onClick = onPractice, label = { Text("Luyện tập") })
                     }
                 }
             }
