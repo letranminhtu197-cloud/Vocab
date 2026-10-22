@@ -444,6 +444,7 @@ fun QuizScreen(
                                             QUIZ_RECALL -> option.term
                                             QUIZ_COLLOCATIONS -> option.collocations
                                             QUIZ_FAMILY -> option.wordFamily
+                                            QUIZ_SYNONYMS -> option.synonyms
                                             else -> option.meaning
                                         },
                                         Modifier.padding(14.dp)
