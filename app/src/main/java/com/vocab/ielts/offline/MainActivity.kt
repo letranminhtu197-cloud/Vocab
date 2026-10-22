@@ -57,6 +57,7 @@ private fun VocabApp(dao: WordDao) {
     var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
     var currentIndex by remember { mutableIntStateOf(0) }
     var revealed by remember { mutableStateOf(false) }
+    val ratingInProgress = remember { mutableStateOf(false) }
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var wordToDelete by remember { mutableStateOf<WordEntity?>(null) }
@@ -277,7 +278,7 @@ private fun VocabApp(dao: WordDao) {
                                         if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Spacer(Modifier.height(16.dp))
-                                    OutlinedButton(onClick = { revealed = !revealed }) {
+                                    OutlinedButton(onClick = { revealed = !revealed }, enabled = !ratingInProgress.value) {
                                         Text(if (revealed) "Ẩn đáp án" else "Hiện đáp án")
                                     }
                                 }
@@ -286,10 +287,12 @@ private fun VocabApp(dao: WordDao) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(
                                     onClick = { currentIndex = (currentIndex - 1 + reviewDeck.size) % reviewDeck.size; revealed = false },
+                                    enabled = !ratingInProgress.value,
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Trước") }
                                 Button(
                                     onClick = { currentIndex = (currentIndex + 1) % reviewDeck.size; revealed = false },
+                                    enabled = !ratingInProgress.value,
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Tiếp theo") }
                             }
@@ -307,19 +310,25 @@ private fun VocabApp(dao: WordDao) {
                                             )
                                             val next = SrsScheduler.review(state, rating, now)
                                             StudyActivityTracker.recordEvent(statsPrefs)
+                                            if (ratingInProgress.value) return@Button
+                                            ratingInProgress.value = true
                                             scope.launch {
-                                                dao.update(current.copy(
-                                                    srsLevel = next.level,
-                                                    nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                                    reviewCount = next.reviewCount,
-                                                    lapseCount = next.lapseCount,
-                                                    lastReviewedAtMillis = now.toEpochMilli()
-                                                ))
+                                                try {
+                                                    dao.update(current.copy(
+                                                        srsLevel = next.level,
+                                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                                        reviewCount = next.reviewCount,
+                                                        lapseCount = next.lapseCount,
+                                                        lastReviewedAtMillis = now.toEpochMilli()
+                                                    ))
+                                                    currentIndex = FlashcardLogic.nextIndexAfterRating(currentIndex, reviewDeck.size, dueOnly)
+                                                    revealed = false
+                                                } finally {
+                                                    ratingInProgress.value = false
+                                                }
                                             }
-                                            currentIndex = if (dueOnly) currentIndex else if (reviewDeck.size > 1) (currentIndex + 1) % reviewDeck.size else 0
-                                            revealed = false
                                         },
-                                        enabled = revealed,
+                                        enabled = revealed && !ratingInProgress.value,
                                         modifier = Modifier.weight(1f),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                                     ) { Text(label, fontSize = 12.sp) }

@@ -69,4 +69,7 @@ class QuizLogicTest {
         assertTrue(QuizLogic.isCorrectAnswer("  SUSTAINABLE! ", "sustainable"))
         assertFalse(QuizLogic.isCorrectAnswer("sustain", "sustainable"))
     }
+    @Test fun dueFlashcardIndexResetsToStart() {
+        assertEquals(0, FlashcardLogic.nextIndexAfterRating(2, 3, true))
+    }
 }
