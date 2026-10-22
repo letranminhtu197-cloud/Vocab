@@ -64,6 +64,9 @@ private fun VocabApp(dao: WordDao) {
     var showSamplesConfirm by remember { mutableStateOf(false) }
     var dueOnly by remember { mutableStateOf(false) }
     var csvMessage by remember { mutableStateOf<String?>(null) }
+    var pendingCsvWords by remember { mutableStateOf<List<WordEntity>?>(null) }
+    var pendingCsvDuplicates by remember { mutableIntStateOf(0) }
+    var pendingCsvInvalidRows by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
     var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", false)) }
@@ -117,13 +120,12 @@ private fun VocabApp(dao: WordDao) {
                             if (existingTerms.add(word.term.trim().lowercase())) true
                             else { duplicateCount++; false }
                         }
-                        val insertError = runCatching {
-                            if (uniqueWords.isNotEmpty()) withContext(Dispatchers.IO) { dao.insertAll(uniqueWords) }
-                        }.exceptionOrNull()
-                        csvMessage = if (insertError != null) {
-                            "Nhập file thất bại: ${insertError.message ?: "lỗi dữ liệu"}"
+                        if (uniqueWords.isEmpty()) {
+                            csvMessage = "Không có từ mới để nhập. Bỏ qua ${duplicateCount} từ trùng và ${parsed.invalidRows} dòng thiếu từ/nghĩa."
                         } else {
-                            "Đã nhập ${uniqueWords.size} từ. Bỏ qua ${duplicateCount} từ trùng và ${parsed.invalidRows} dòng thiếu từ/nghĩa."
+                            pendingCsvWords = uniqueWords
+                            pendingCsvDuplicates = duplicateCount
+                            pendingCsvInvalidRows = parsed.invalidRows
                         }
                     }
                 }
@@ -621,6 +623,44 @@ private fun VocabApp(dao: WordDao) {
         }
     }
 
+    pendingCsvWords?.let { previewWords ->
+        AlertDialog(
+            onDismissRequest = { pendingCsvWords = null },
+            title = { Text("Xác nhận nhập CSV") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Sẽ thêm ${previewWords.size} từ mới vào sổ. Không ghi đè từ hiện có.")
+                    Text("Bỏ qua ${pendingCsvDuplicates} từ trùng và ${pendingCsvInvalidRows} dòng thiếu từ/nghĩa.")
+                    Text("Xem trước", fontWeight = FontWeight.SemiBold)
+                    previewWords.take(5).forEach { item ->
+                        Text("• ${item.term} — ${item.meaning}")
+                    }
+                    if (previewWords.size > 5) Text("… và ${previewWords.size - 5} từ khác")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val wordsToInsert = previewWords
+                    val duplicates = pendingCsvDuplicates
+                    val invalidRows = pendingCsvInvalidRows
+                    pendingCsvWords = null
+                    scope.launch {
+                        val result = runCatching {
+                            withContext(Dispatchers.IO) { dao.insertAll(wordsToInsert) }
+                        }
+                        csvMessage = if (result.isFailure) {
+                            "Nhập file thất bại: ${result.exceptionOrNull()?.message ?: "lỗi dữ liệu"}"
+                        } else {
+                            "Đã nhập ${wordsToInsert.size} từ. Bỏ qua ${duplicates} từ trùng và ${invalidRows} dòng thiếu từ/nghĩa."
+                        }
+                    }
+                }) { Text("Nhập ${previewWords.size} từ") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCsvWords = null }) { Text("Hủy") }
+            }
+        )
+    }
     if (csvMessage != null) {
         AlertDialog(
             onDismissRequest = { csvMessage = null },
