@@ -17,6 +17,7 @@ private const val QUIZ_MEANING = "Chọn nghĩa"
 private const val QUIZ_RECALL = "Tìm từ"
 private const val QUIZ_TYPED = "Gõ từ"
 private const val QUIZ_LISTENING = "Nghe & gõ"
+private const val QUIZ_SPEAKING = "Nói từ"
 private const val QUIZ_SENTENCE = "Viết câu"
 private const val QUIZ_CLOZE = "Điền từ"
 private const val QUIZ_WEAK = "Từ yếu"
@@ -200,6 +201,7 @@ fun QuizScreen(
                 FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
                 FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
                 FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
+                FilterChip(selected = mode == QUIZ_SPEAKING, onClick = { resetForMode(QUIZ_SPEAKING) }, label = { Text(QUIZ_SPEAKING) })
                 FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
                 FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
                 FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
@@ -331,6 +333,7 @@ fun QuizScreen(
                                 QUIZ_RECALL -> "Chọn từ khớp với nghĩa"
                                 QUIZ_TYPED -> "Tự nhớ và gõ từ tiếng Anh"
                                 QUIZ_LISTENING -> "Nghe phát âm ngoại tuyến rồi gõ từ"
+                                QUIZ_SPEAKING -> "Nói từ tiếng Anh bằng nhận diện ngoại tuyến"
                                 QUIZ_SENTENCE -> "Tự đặt câu với từ mục tiêu"
                                 QUIZ_SYNONYMS -> "Chọn nhóm từ đồng nghĩa phù hợp"
                                 else -> "Chọn nghĩa đúng"
@@ -384,6 +387,28 @@ fun QuizScreen(
                                 enabled = !answered && answerText.isNotBlank(),
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("Kiểm tra chính tả") }
+                        } else if (mode == QUIZ_SPEAKING) {
+                            Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                            if (word.ipa.isNotBlank()) Text(word.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OfflineSpeakButton(text = word.term, label = "Nghe phát âm mẫu (offline)")
+                            Text(
+                                "Đọc từ thành tiếng. Vocab chỉ kiểm tra từ mà bộ nhận diện nghe được, không chấm giọng hay trọng âm.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OfflineSpeechInput(
+                                enabled = !answered,
+                                onRecognized = { recognized ->
+                                    if (!answered) {
+                                        answerText = recognized
+                                        val correct = QuizLogic.isCorrectAnswer(recognized, word.term)
+                                        lastCorrect = correct
+                                        answered = true
+                                        recordAnswer(word, correct)
+                                    }
+                                }
+                            )
+                            if (answerText.isNotBlank()) Text("Bản nhận diện: $answerText", style = MaterialTheme.typography.bodyMedium)
                         } else if (mode == QUIZ_SENTENCE) {
                             Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                             OfflineSpeakButton(text = word.term)
