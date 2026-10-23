@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WordEntity::class, LearningAttemptEntity::class], version = 6, exportSchema = false)
+@Database(entities = [WordEntity::class, LearningAttemptEntity::class, LearningSessionEntity::class], version = 6, exportSchema = false)
 abstract class VocabDatabase : RoomDatabase() {
     abstract fun wordDao(): WordDao
 
@@ -46,6 +46,7 @@ abstract class VocabDatabase : RoomDatabase() {
                     "CREATE TABLE IF NOT EXISTS learning_attempts (" +
                         "attemptId TEXT NOT NULL PRIMARY KEY, " +
                         "wordId INTEGER NOT NULL, " +
+                        "sessionId TEXT NOT NULL, " +
                         "exerciseType TEXT NOT NULL, " +
                         "isCorrect INTEGER NOT NULL, " +
                         "isSrsReview INTEGER NOT NULL, " +
@@ -53,6 +54,18 @@ abstract class VocabDatabase : RoomDatabase() {
                 )
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_learning_attempts_wordId ON learning_attempts(wordId)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_learning_attempts_answeredAtMillis ON learning_attempts(answeredAtMillis)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_learning_attempts_sessionId ON learning_attempts(sessionId)")
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS learning_sessions (" +
+                        "sessionId TEXT NOT NULL PRIMARY KEY, " +
+                        "startedAtMillis INTEGER NOT NULL, " +
+                        "endedAtMillis INTEGER NOT NULL DEFAULT 0, " +
+                        "questionCount INTEGER NOT NULL DEFAULT 0, " +
+                        "uniqueWordCount INTEGER NOT NULL DEFAULT 0, " +
+                        "isSrsReview INTEGER NOT NULL, " +
+                        "completed INTEGER NOT NULL DEFAULT 0)"
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_learning_sessions_startedAtMillis ON learning_sessions(startedAtMillis)")
             }
         }
 
