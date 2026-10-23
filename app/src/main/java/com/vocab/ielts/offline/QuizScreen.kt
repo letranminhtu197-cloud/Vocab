@@ -60,6 +60,7 @@ fun QuizScreen(
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var answerText by remember { mutableStateOf("") }
     var answered by remember { mutableStateOf(false) }
+    var answerRecordedForQuestion by remember { mutableStateOf(false) }
     var lastCorrect by remember { mutableStateOf<Boolean?>(null) }
     var showSummary by remember { mutableStateOf(false) }
     var retryWrongOnly by remember { mutableStateOf(false) }
@@ -137,6 +138,7 @@ fun QuizScreen(
         selectedId = null
         answerText = ""
         answered = false
+        answerRecordedForQuestion = false
         lastCorrect = null
     }
     fun resetForMode(nextMode: String) {
@@ -147,6 +149,10 @@ fun QuizScreen(
         resetQuestionState()
     }
     fun recordAnswer(wordToRecord: WordEntity, correct: Boolean) {
+        // UI callbacks can be triggered more than once by rapid taps/recomposition.
+        // Treat the first committed answer for this question as authoritative.
+        if (answerRecordedForQuestion) return
+        answerRecordedForQuestion = true
         sessionAttempts += 1
         val updatedAttempts = (modeAttempts[mode] ?: 0) + 1
         val now = System.currentTimeMillis()
@@ -341,6 +347,8 @@ fun QuizScreen(
                                 retryDeckIds.clear()
                                 modeAttempts.clear()
                                 modeCorrect.clear()
+                                modeLastUsedAt.clear()
+                                exerciseStats.edit().clear().apply()
                                 retryWrongOnly = false
                                 retryDeckIds.clear()
                                 showSummary = false
@@ -712,6 +720,7 @@ fun QuizScreen(
                                 selectedId = null
                                 answerText = ""
                                 answered = false
+                                answerRecordedForQuestion = false
                                 lastCorrect = null
                             },
                             enabled = answered && (mode != QUIZ_SENTENCE || lastCorrect != null),
