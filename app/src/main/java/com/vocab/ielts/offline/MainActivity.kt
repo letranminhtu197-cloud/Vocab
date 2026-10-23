@@ -612,7 +612,7 @@ private fun VocabApp(dao: WordDao) {
                     modifier = Modifier.fillMaxSize().padding(padding),
                     sessionScore = quizSessionCorrect,
                     sessionTotal = quizSessionTotal,
-                    onAnswerRecorded = { word, correct ->
+                    onAnswerRecorded = { word, correct, applySrs ->
                         StudyActivityTracker.recordEvent(statsPrefs)
                         quizTotal += 1
                         quizSessionTotal += 1
@@ -626,16 +626,27 @@ private fun VocabApp(dao: WordDao) {
                             .putInt("quiz_session_total", quizSessionTotal)
                             .putInt("quiz_session_correct", quizSessionCorrect)
                             .apply()
-                        val now = Instant.now()
-                        val previous = ReviewState(
-                            level = word.srsLevel,
-                            nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                            reviewCount = word.reviewCount,
-                            lapseCount = word.lapseCount
-                        )
-                        val rating = if (correct) ReviewRating.GOOD else ReviewRating.AGAIN
-                        val next = SrsScheduler.review(previous, rating, now)
-                        scope.launch {
+                        if (applySrs) {
+                            val now = Instant.now()
+                            val previous = ReviewState(
+                                level = word.srsLevel,
+                                nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
+                                reviewCount = word.reviewCount,
+                                lapseCount = word.lapseCount
+                            )
+                            val rating = if (correct) ReviewRating.GOOD else ReviewRating.AGAIN
+                            val next = SrsScheduler.review(previous, rating, now)
+                            scope.launch {
+                                dao.update(word.copy(
+                                    srsLevel = next.level,
+                                    nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                    reviewCount = next.reviewCount,
+                                    lapseCount = next.lapseCount,
+                                    lastReviewedAtMillis = now.toEpochMilli()
+                                ))
+                            }
+                        }
+                    },                        scope.launch {
                             dao.update(word.copy(
                                 srsLevel = next.level,
                                 nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
