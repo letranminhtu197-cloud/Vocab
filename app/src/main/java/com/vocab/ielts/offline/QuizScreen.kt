@@ -44,18 +44,26 @@ fun QuizScreen(
     val exerciseLastUsed = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Long>() }
 
     // Freeze the SRS deck for this session: updating a due date must not skip the next card.
-    val srsDeck = remember(isSrsReview) {
+    val srsDeckIds = remember(isSrsReview, words.map { it.id }) {
         val now = System.currentTimeMillis()
         words.filter { !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= now) }
+            .map { it.id }.toSet()
     }
+    val srsDeck = words.filter { it.id in srsDeckIds && !it.excludedFromReview }
     val newWords = words.filter { it.reviewCount == 0 && it.srsLevel == 0 && !it.excludedFromReview }
+    val choicePool = words.filter { !it.excludedFromReview }
     val practiceWords = if (isSrsReview) srsDeck else when (mode) {
         MODE_NEW -> newWords
-        else -> words.filterNot { it.excludedFromReview }
+        MODE_LISTEN -> choicePool.filter { it.term.isNotBlank() }
+        MODE_CLOZE -> choicePool.filter { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }
+        MODE_MC -> choicePool.filter { candidate ->
+            val candidateOptions = QuizLogic.multipleChoiceOptions(candidate, choicePool, "Chọn nghĩa")
+            ActiveLearningLogic.hasFourValidChoices(candidateOptions.map { it.meaning }, candidate.meaning)
+        }
+        else -> choicePool
     }
     val targetDeck = if (isSrsReview) srsDeck else practiceWords
     val word = targetDeck.getOrNull(if (targetDeck.isEmpty()) 0 else index % targetDeck.size)
-    val choicePool = words.filter { !it.excludedFromReview }
     val options = remember(word?.id, choicePool.map { it.id }, mode) {
         if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, choicePool, "Chọn nghĩa")
     }
