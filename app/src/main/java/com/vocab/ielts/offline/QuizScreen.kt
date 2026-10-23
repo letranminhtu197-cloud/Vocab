@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.UUID
 
 private const val MODE_NEW = "Flashcard · từ mới"
 private const val MODE_MC = "Trắc nghiệm"
@@ -23,7 +24,7 @@ fun QuizScreen(
     modifier: Modifier = Modifier,
     sessionScore: Int,
     sessionTotal: Int,
-    onAnswerRecorded: (WordEntity, Boolean, Boolean) -> Unit,
+    onAnswerRecorded: (WordEntity, Boolean, Boolean, String, ActiveExerciseType) -> Unit,
     onNewWordIntroduced: (WordEntity) -> Unit,
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
@@ -136,7 +137,7 @@ fun QuizScreen(
         if (!isCorrect) exerciseErrors[type] = (exerciseErrors[type] ?: 0) + 1
         exerciseLastUsed[type] = System.currentTimeMillis()
         lastType = type
-        onAnswerRecorded(target, isCorrect, isSrsReview)
+        onAnswerRecorded(target, isCorrect, isSrsReview, UUID.randomUUID().toString(), type)
     }
 
     Column(
