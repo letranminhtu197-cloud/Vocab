@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -30,22 +31,22 @@ fun QuizScreen(
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
 ) {
-    var isSrsReview by remember(startWithDue) { mutableStateOf(startWithDue) }
-    var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) MODE_MC else MODE_NEW) }
-    var index by remember(startWithDue) { mutableIntStateOf(0) }
-    var deckGeneration by remember(startWithDue) { mutableIntStateOf(0) }
-    var answerText by remember(startWithDue) { mutableStateOf("") }
-    var selectedOptionId by remember(startWithDue) { mutableStateOf<Long?>(null) }
-    var answered by remember(startWithDue) { mutableStateOf(false) }
-    var revealed by remember(startWithDue) { mutableStateOf(false) }
-    var correct by remember(startWithDue) { mutableStateOf<Boolean?>(null) }
+    var isSrsReview by rememberSaveable(startWithDue) { mutableStateOf(startWithDue) }
+    var mode by rememberSaveable(startWithDue) { mutableStateOf(if (startWithDue) MODE_MC else MODE_NEW) }
+    var index by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var deckGeneration by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var answerText by rememberSaveable(startWithDue) { mutableStateOf("") }
+    var selectedOptionId by rememberSaveable(startWithDue) { mutableStateOf<Long?>(null) }
+    var answered by rememberSaveable(startWithDue) { mutableStateOf(false) }
+    var revealed by rememberSaveable(startWithDue) { mutableStateOf(false) }
+    var correct by rememberSaveable(startWithDue) { mutableStateOf<Boolean?>(null) }
     var showMatch by remember { mutableStateOf(false) }
-    var attempts by remember(startWithDue) { mutableIntStateOf(0) }
-    var correctCount by remember(startWithDue) { mutableIntStateOf(0) }
-    var lastType by remember(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
-    var overrideType by remember(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
-    var audioReady by remember(startWithDue) { mutableStateOf(false) }
-    var audioStatus by remember(startWithDue) { mutableStateOf("Đang kiểm tra giọng đọc ngoại tuyến…") }
+    var attempts by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var correctCount by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var lastType by rememberSaveable(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
+    var overrideType by rememberSaveable(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
+    var audioReady by rememberSaveable(startWithDue) { mutableStateOf(false) }
+    var audioStatus by rememberSaveable(startWithDue) { mutableStateOf("Đang kiểm tra giọng đọc ngoại tuyến…") }
     val exerciseCounts = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
     val exerciseErrors = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
     val exerciseLastUsed = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Long>() }
