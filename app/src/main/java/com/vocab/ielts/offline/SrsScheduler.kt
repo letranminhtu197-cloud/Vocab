@@ -11,22 +11,28 @@ data class ReviewState(
     val lapseCount: Int = 0,
     val consecutiveSuccessfulReviews: Int = 0
 )
+
 object SrsScheduler {
-    // Original five-level review ladder: 1, 3, 7, 14, and 30 days.
-    // Existing scheduled timestamps are preserved; these intervals apply to new ratings.
+    /**
+     * Five-level "golden time" ladder used for new ratings:
+     * Level 1 = 2 hours; Level 2 = 1 day; Level 3 = 3 days;
+     * Level 4 = 7 days; Level 5 = 15 days.
+     * Level 0 is retained as the internal "not yet successfully learned" state.
+     */
     private val intervals = listOf(
-        Duration.ofDays(1),
-        Duration.ofDays(3),
-        Duration.ofDays(7),
-        Duration.ofDays(14),
-        Duration.ofDays(30)
+        Duration.ofHours(2),
+        Duration.ofHours(24),
+        Duration.ofHours(72),
+        Duration.ofHours(168),
+        Duration.ofHours(360)
     )
 
     private fun nextLevel(level: Int, rating: ReviewRating): Int = when (rating) {
-        ReviewRating.AGAIN -> 0
-        ReviewRating.HARD -> if (level == 0) 1 else level.coerceIn(1, 5)
-        ReviewRating.GOOD -> if (level == 0) 1 else (level + 1).coerceAtMost(5)
-        ReviewRating.EASY -> if (level == 0) 2 else (level + 2).coerceAtMost(5)
+        // A failed answer drops straight to Level 1, then retries after ten minutes.
+        ReviewRating.AGAIN -> 1
+        ReviewRating.HARD -> if (level <= 0) 1 else level.coerceIn(1, 5)
+        ReviewRating.GOOD -> if (level <= 0) 1 else (level + 1).coerceAtMost(5)
+        ReviewRating.EASY -> if (level <= 0) 2 else (level + 2).coerceAtMost(5)
     }
 
     private fun delayFor(level: Int, rating: ReviewRating): Duration {
@@ -35,7 +41,7 @@ object SrsScheduler {
             ReviewRating.AGAIN -> Duration.ofMinutes(10)
             ReviewRating.HARD -> maxOf(
                 intervals[(targetLevel - 1).coerceIn(0, 4)].dividedBy(2),
-                Duration.ofHours(1)
+                Duration.ofMinutes(10)
             )
             ReviewRating.GOOD, ReviewRating.EASY ->
                 intervals[(targetLevel - 1).coerceIn(0, 4)]
@@ -68,6 +74,7 @@ object SrsScheduler {
     fun isDue(state: ReviewState, now: Instant): Boolean =
         state.nextReviewAt?.let { !it.isAfter(now) } ?: true
 
+    /** The golden window begins two hours before due time and ends twelve hours after it. */
     fun goldenWindow(state: ReviewState, now: Instant): String {
         val due = state.nextReviewAt ?: return "NEW"
         return when {
