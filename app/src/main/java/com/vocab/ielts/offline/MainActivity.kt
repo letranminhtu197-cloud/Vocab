@@ -489,6 +489,7 @@ private fun VocabApp(database: VocabDatabase) {
                                     LearningAttemptEntity(
                                         attemptId = attemptId,
                                         wordId = word.id,
+                                        sessionId = sessionId,
                                         exerciseType = exerciseType.name,
                                         isCorrect = correct,
                                         isSrsReview = applySrs,
