@@ -84,7 +84,15 @@ private fun VocabApp(database: VocabDatabase) {
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
     var quizSessionCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_correct", 0)) }
     var quizSessionTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_total", 0)) }
+    var exerciseAnalytics by remember { mutableStateOf<Map<String, Pair<Int, Int>>>(emptyMap()) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(dao, quizTotal) {
+        exerciseAnalytics = withContext(Dispatchers.IO) {
+            ActiveExerciseType.values().associate { type ->
+                type.name to (dao.countAttemptsForType(type.name) to dao.countCorrectForType(type.name))
+            }
+        }
+    }
     val words by dao.observeAll().collectAsState(initial = emptyList())
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val filtered = words.filter { word ->
@@ -642,6 +650,37 @@ private fun VocabApp(database: VocabDatabase) {
                                     StatsMini("Tổng lượt ôn", words.sumOf { it.reviewCount }.toString(), Modifier.weight(1f))
                                     StatsMini("Chuỗi hiện tại", "${StudyActivityTracker.activeDayCount(statsPrefs)} ngày", Modifier.weight(1f))
                                 }
+                            }
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Độ chính xác theo dạng bài", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                                Text("Chỉ tính câu đã gửi đáp án. Trò chơi ghép cặp và lỗi kỹ thuật không được gộp vào điểm quiz.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                listOf(
+                                    ActiveExerciseType.MULTIPLE_CHOICE to "Trắc nghiệm",
+                                    ActiveExerciseType.LISTEN_AND_TYPE to "Nghe và gõ",
+                                    ActiveExerciseType.CLOZE to "Điền ngữ cảnh"
+                                ).forEach { (type, label) ->
+                                    val values = exerciseAnalytics[type.name] ?: (0 to 0)
+                                    val total = values.first
+                                    val correctCount = values.second
+                                    val percent = if (total == 0) 0 else correctCount * 100 / total
+                                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                                            Text(if (total == 0) "Chưa có dữ liệu" else "$correctCount/$total · $percent%",
+                                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        LinearProgressIndicator(
+                                            progress = { percent / 100f },
+                                            modifier = Modifier.fillMaxWidth().height(7.dp)
+                                        )
+                                    }
+                                }
+                                StatsMini("Lượt phát âm", statsPrefs.getInt("audio_replay_count", 0).toString(), Modifier.fillMaxWidth())
                             }
                         }
                     }
