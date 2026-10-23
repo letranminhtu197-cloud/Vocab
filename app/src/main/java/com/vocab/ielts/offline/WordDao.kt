@@ -59,6 +59,12 @@ interface WordDao {
     @Query("SELECT COUNT(*) FROM learning_attempts WHERE isSrsReview = 1")
     suspend fun countSrsAttempts(): Int
 
+    @Query("SELECT COUNT(DISTINCT wordId) FROM learning_attempts WHERE isSrsReview = 0")
+    suspend fun countUniquePracticeWords(): Int
+
+    @Query("SELECT COUNT(DISTINCT wordId) FROM learning_attempts WHERE isSrsReview = 1")
+    suspend fun countUniqueSrsWords(): Int
+
     @Query("SELECT COUNT(*) FROM learning_attempts WHERE exerciseType = :type")
     suspend fun countAttemptsForType(type: String): Int
 
