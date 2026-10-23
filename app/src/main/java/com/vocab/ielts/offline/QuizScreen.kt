@@ -25,8 +25,10 @@ fun QuizScreen(
     modifier: Modifier = Modifier,
     sessionScore: Int,
     sessionTotal: Int,
-    onAnswerRecorded: (WordEntity, Boolean, Boolean, String, ActiveExerciseType) -> Unit,
+    onAnswerRecorded: (WordEntity, Boolean, Boolean, String, String, ActiveExerciseType) -> Unit,
     onAudioReplay: () -> Unit = {},
+    onSessionStarted: (String, Long, Boolean) -> Unit = { _, _, _ -> },
+    onSessionCompleted: (String, Long, Long, Int, Int, Boolean) -> Unit = { _, _, _, _, _, _ -> },
     onNewWordIntroduced: (WordEntity) -> Unit,
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
@@ -47,6 +49,9 @@ fun QuizScreen(
     var overrideType by rememberSaveable(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
     var audioReady by rememberSaveable(startWithDue) { mutableStateOf(false) }
     var audioStatus by rememberSaveable(startWithDue) { mutableStateOf("Đang kiểm tra giọng đọc ngoại tuyến…") }
+    var sessionId by rememberSaveable(startWithDue) { mutableStateOf(UUID.randomUUID().toString()) }
+    var sessionStartedAtMillis by rememberSaveable(startWithDue) { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
+    var sessionCompleted by rememberSaveable(startWithDue) { mutableStateOf(false) }
     val exerciseCounts = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
     val exerciseErrors = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
     val exerciseLastUsed = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Long>() }
@@ -112,6 +117,19 @@ fun QuizScreen(
             ?: available.firstOrNull()
     }
 
+    LaunchedEffect(sessionId) {
+        onSessionStarted(sessionId, sessionStartedAtMillis, isSrsReview)
+    }
+
+    LaunchedEffect(sessionId, index, targetDeck.size, mode) {
+        if (targetDeck.isNotEmpty() && index >= targetDeck.size && !sessionCompleted) {
+            sessionCompleted = true
+            val completedItems = if (!isSrsReview && mode == MODE_NEW) index else attempts
+            val endedAt = System.currentTimeMillis()
+            onSessionCompleted(sessionId, sessionStartedAtMillis, endedAt, completedItems, completedItems, isSrsReview)
+        }
+    }
+
     fun resetAnswerState() {
         answerText = ""
         selectedOptionId = null
@@ -132,6 +150,9 @@ fun QuizScreen(
         attempts = 0
         correctCount = 0
         resetAnswerState()
+        sessionId = UUID.randomUUID().toString()
+        sessionStartedAtMillis = System.currentTimeMillis()
+        sessionCompleted = false
         onSessionReset()
     }
 
@@ -145,7 +166,7 @@ fun QuizScreen(
         if (!isCorrect) exerciseErrors[type] = (exerciseErrors[type] ?: 0) + 1
         exerciseLastUsed[type] = System.currentTimeMillis()
         lastType = type
-        onAnswerRecorded(target, isCorrect, isSrsReview, UUID.randomUUID().toString(), type)
+        onAnswerRecorded(target, isCorrect, isSrsReview, UUID.randomUUID().toString(), sessionId, type)
     }
 
     Column(
