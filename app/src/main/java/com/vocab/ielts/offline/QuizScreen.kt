@@ -63,7 +63,7 @@ fun QuizScreen(
     var audioReady by rememberSaveable(startWithDue) { mutableStateOf(false) }
     var audioStatus by rememberSaveable(startWithDue) { mutableStateOf("Đang kiểm tra giọng đọc ngoại tuyến…") }
     var sessionId by rememberSaveable(startWithDue) { mutableStateOf(UUID.randomUUID().toString()) }
-    var sessionStartedAtMillis by rememberSaveable(startWithDue) { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
+    var sessionStartedAtMillis by rememberSaveable(startWithDue) { mutableStateOf(System.currentTimeMillis()) }
     var sessionCompleted by rememberSaveable(startWithDue) { mutableStateOf(false) }
     val exerciseCounts = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
     val exerciseErrors = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
