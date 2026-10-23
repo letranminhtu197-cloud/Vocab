@@ -68,6 +68,7 @@ object CsvCodec {
         val lapseIndex = index("lapsecount", "lapses")
         val createdIndex = index("createdatmillis", "createdat")
         val lastReviewedIndex = index("lastreviewedatmillis", "lastreviewed")
+        val excludedIndex = index("excludedfromreview", "skipreview", "khongon", "khôngôn")
         val result = mutableListOf<WordEntity>()
         var invalid = 0
         var metadataError: String? = null
@@ -124,7 +125,8 @@ object CsvCodec {
                     reviewCount = reviews!!,
                     lapseCount = lapses!!,
                     createdAtMillis = created!!,
-                    lastReviewedAtMillis = lastReviewed!!
+                    lastReviewedAtMillis = lastReviewed!!,
+                    excludedFromReview = value(excludedIndex).let { it == "1" || it.equals("true", ignoreCase = true) || it.equals("yes", ignoreCase = true) }
                 )
             }
         }
@@ -134,11 +136,11 @@ object CsvCodec {
 
     fun export(words: List<WordEntity>): String {
         val rows = mutableListOf(
-            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "collocations", "synonyms", "wordFamily", "notes", "tags", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis")
+            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "collocations", "synonyms", "wordFamily", "notes", "tags", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis", "excludedFromReview")
         )
         words.forEach { w ->
             rows += listOf(w.term, w.ipa, w.partOfSpeech, w.meaning, w.example, w.topic, w.collocations, w.synonyms, w.wordFamily, w.notes, w.tags,
-                w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString(), w.createdAtMillis.toString(), w.lastReviewedAtMillis.toString())
+                w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString(), w.createdAtMillis.toString(), w.lastReviewedAtMillis.toString(), if (w.excludedFromReview) "true" else "false")
         }
         return rows.joinToString("\r\n") { row -> row.joinToString(",") { escape(it) } } + "\r\n"
     }
