@@ -15,9 +15,9 @@ data class MatchPair(val wordId: Long, val term: String, val meaning: String)
 
 object ActiveLearningLogic {
     private val targetShare = mapOf(
-        ActiveExerciseType.MULTIPLE_CHOICE to 25,
-        ActiveExerciseType.LISTEN_AND_TYPE to 35,
-        ActiveExerciseType.CLOZE to 40
+        ActiveExerciseType.MULTIPLE_CHOICE to 20,
+        ActiveExerciseType.LISTEN_AND_TYPE to 30,
+        ActiveExerciseType.CLOZE to 50
     )
 
     /** Picks among valid exercises; invalid/missing source data is never replaced with invented data. */
