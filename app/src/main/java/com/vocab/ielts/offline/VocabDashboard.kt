@@ -55,12 +55,24 @@ fun DashboardOverview(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             shape = RoundedCornerShape(30.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF6741D9),
+                                Color(0xFF8B5CE6),
+                                Color(0xFFF58C82)
+                            )
+                        ),
+                        shape = RoundedCornerShape(30.dp)
+                    )
+                    .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Row(
@@ -96,12 +108,12 @@ fun DashboardOverview(
                     else "Bạn đang xây dựng thói quen tốt.",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = Color.White
                 )
                 if (totalWords == 0) {
-                    Text("Thêm những từ bạn muốn ghi nhớ.", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("Thêm những từ bạn muốn ghi nhớ.", color = Color.White.copy(alpha = 0.94f))
                 } else if (dueWords > 0) {
-                    Text("$dueWords từ đang chờ bạn.", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("$dueWords từ đang chờ bạn.", color = Color.White.copy(alpha = 0.94f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     DashboardMetric("📚", "Cần ôn", dueWords.toString(), Modifier.weight(1f))
@@ -154,12 +166,12 @@ fun DashboardOverview(
 private fun DashboardMetric(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        color = Color.White.copy(alpha = 0.94f),
         shape = RoundedCornerShape(18.dp)
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(icon, fontSize = 20.sp)
-            Text(value, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+            Text(value, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF6741D9))
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
