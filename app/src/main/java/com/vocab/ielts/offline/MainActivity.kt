@@ -169,6 +169,7 @@ private fun VocabApp(database: VocabDatabase) {
         }
     }
 
+    val tabStateHolder = rememberSaveableStateHolder()
     MaterialTheme(
         colorScheme = if (darkTheme) {
             darkColorScheme(
