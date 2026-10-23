@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WordEntity::class], version = 3, exportSchema = false)
+@Database(entities = [WordEntity::class], version = 4, exportSchema = false)
 abstract class VocabDatabase : RoomDatabase() {
     abstract fun wordDao(): WordDao
 
@@ -27,6 +27,12 @@ abstract class VocabDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE words ADD COLUMN excludedFromReview INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         @Volatile private var INSTANCE: VocabDatabase? = null
 
         fun getInstance(context: Context): VocabDatabase =
@@ -35,7 +41,7 @@ abstract class VocabDatabase : RoomDatabase() {
                     context.applicationContext,
                     VocabDatabase::class.java,
                     "vocab-local.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { INSTANCE = it }
             }
     }
 }
