@@ -25,14 +25,30 @@ object QuizLogic {
         if (limit < 2) return listOf(target)
         val targetLabel = normalizeAnswer(choiceLabel(target, mode))
         if (targetLabel.isBlank()) return emptyList()
-        val distractors = pool.asSequence()
+
+        fun variants(raw: String): Set<String> = raw
+            .split(',', ';', '|', '\n')
+            .map(::normalizeAnswer)
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        val targetVariants = variants(target.synonyms) + normalizeAnswer(target.term)
+        val eligible = pool.asSequence()
             .filter { it.id != target.id }
-            .shuffled()
             .filter { normalizeAnswer(choiceLabel(it, mode)).isNotBlank() }
-            .distinctBy { normalizeAnswer(choiceLabel(it, mode)) }
             .filter { normalizeAnswer(choiceLabel(it, mode)) != targetLabel }
-            .take(limit - 1)
+            .filter { normalizeAnswer(it.term) !in targetVariants }
+            .filter { normalizeAnswer(target.term) !in variants(it.synonyms) }
+            .distinctBy { normalizeAnswer(choiceLabel(it, mode)) }
             .toList()
+
+        // Prefer the same part of speech; use other categories only if necessary.
+        val samePartOfSpeech = eligible.filter {
+            target.partOfSpeech.isNotBlank() &&
+                it.partOfSpeech.trim().equals(target.partOfSpeech.trim(), ignoreCase = true)
+        }.shuffled()
+        val remaining = eligible.filterNot { candidate -> samePartOfSpeech.any { it.id == candidate.id } }.shuffled()
+        val distractors = (samePartOfSpeech + remaining).take(limit - 1)
         return (distractors + target).shuffled()
     }
 
