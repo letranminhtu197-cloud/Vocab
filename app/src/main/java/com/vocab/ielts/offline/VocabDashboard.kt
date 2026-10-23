@@ -1,6 +1,7 @@
 package com.vocab.ielts.offline
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,22 +63,32 @@ fun DashboardOverview(
                 modifier = Modifier.fillMaxWidth().padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Text(
-                            "🌟  HÀNH TRÌNH HÔM NAY",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF6C4CE3),
+                                    Color(0xFF9A64E8),
+                                    Color(0xFFFF9A76)
+                                )
+                            ),
+                            shape = RoundedCornerShape(22.dp)
                         )
-                    }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🌟", fontSize = 21.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "HÀNH TRÌNH HÔM NAY",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                     Spacer(Modifier.weight(1f))
-                    Text("🚀", style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.secondary)
+                    Text("🚀", fontSize = 29.sp)
                 }
                 Text(
                     if (totalWords == 0) "Bắt đầu hành trình của bạn"
@@ -141,8 +154,8 @@ fun DashboardOverview(
 private fun DashboardMetric(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
-        shape = RoundedCornerShape(16.dp)
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(18.dp)
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(icon, fontSize = 20.sp)
@@ -170,7 +183,12 @@ private fun DailyGoalCard(activities: Int, goal: Int, onGoalChange: (Int) -> Uni
                 Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(10.dp),
+                color = Color(0xFF7655E8),
+                trackColor = Color(0xFFE9E2FF)
+            )
             Text(
                 if (activities >= safeGoal) "🏆 Hoàn thành mục tiêu!"
                 else "⚡ Còn ${StudyGoalLogic.remaining(activities, safeGoal)} lượt",
