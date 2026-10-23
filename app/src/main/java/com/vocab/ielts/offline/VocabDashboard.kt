@@ -66,7 +66,7 @@ fun DashboardOverview(
                         shape = RoundedCornerShape(50)
                     ) {
                         Text(
-                            "✦  HÔM NAY",
+                            "🌟  HÀNH TRÌNH HÔM NAY",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
@@ -74,7 +74,7 @@ fun DashboardOverview(
                         )
                     }
                     Spacer(Modifier.weight(1f))
-                    Text("✧", style = MaterialTheme.typography.headlineMedium,
+                    Text("🚀", style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.secondary)
                 }
                 Text(
@@ -91,9 +91,9 @@ fun DashboardOverview(
                     Text("$dueWords từ đang chờ bạn.", color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    DashboardMetric("Cần ôn", dueWords.toString(), Modifier.weight(1f))
-                    DashboardMetric("Đã học", learnedWords.toString(), Modifier.weight(1f))
-                    DashboardMetric("Ngày liền", "$activeStreak", Modifier.weight(1f))
+                    DashboardMetric("📚", "Cần ôn", dueWords.toString(), Modifier.weight(1f))
+                    DashboardMetric("✨", "Đã học", learnedWords.toString(), Modifier.weight(1f))
+                    DashboardMetric("🔥", "Ngày liền", "$activeStreak", Modifier.weight(1f))
                 }
                 Button(
                     onClick = {
@@ -138,14 +138,15 @@ fun DashboardOverview(
 }
 
 @Composable
-private fun DashboardMetric(label: String, value: String, modifier: Modifier = Modifier) {
+private fun DashboardMetric(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(icon, fontSize = 20.sp)
+            Text(value, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -162,7 +163,7 @@ private fun DailyGoalCard(activities: Int, goal: Int, onGoalChange: (Int) -> Uni
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("✦  Mục tiêu hôm nay", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("🎯  Mục tiêu hôm nay", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("$activities / $safeGoal lượt luyện và ôn", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -171,8 +172,8 @@ private fun DailyGoalCard(activities: Int, goal: Int, onGoalChange: (Int) -> Uni
             }
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp))
             Text(
-                if (activities >= safeGoal) "Hoàn thành mục tiêu!"
-                else "Còn ${StudyGoalLogic.remaining(activities, safeGoal)} lượt",
+                if (activities >= safeGoal) "🏆 Hoàn thành mục tiêu!"
+                else "⚡ Còn ${StudyGoalLogic.remaining(activities, safeGoal)} lượt",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -184,7 +185,7 @@ private fun DailyGoalCard(activities: Int, goal: Int, onGoalChange: (Int) -> Uni
                     FilterChip(
                         selected = safeGoal == option,
                         onClick = { onGoalChange(option) },
-                        label = { Text("$option") }
+                        label = { Text("🎯 $option") }
                     )
                 }
             }
@@ -211,7 +212,25 @@ private fun DashboardAction(
             verticalArrangement = Arrangement.spacedBy(7.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Surface(
+                color = when (title) {
+                    "Sổ từ" -> MaterialTheme.colorScheme.primaryContainer
+                    "Lộ trình" -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.tertiaryContainer
+                },
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = title,
+                    tint = when (title) {
+                        "Sổ từ" -> MaterialTheme.colorScheme.onPrimaryContainer
+                        "Lộ trình" -> MaterialTheme.colorScheme.onSecondaryContainer
+                        else -> MaterialTheme.colorScheme.onTertiaryContainer
+                    },
+                    modifier = Modifier.padding(11.dp)
+                )
+            }
             Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
             if (subtitle.isNotBlank()) {
                 Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
