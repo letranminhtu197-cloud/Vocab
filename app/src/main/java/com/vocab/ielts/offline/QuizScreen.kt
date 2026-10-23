@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -47,16 +48,19 @@ fun QuizScreen(
     modifier: Modifier = Modifier,
     sessionScore: Int,
     sessionTotal: Int,
-    onAnswerRecorded: (WordEntity, Boolean) -> Unit,
+    onAnswerRecorded: (WordEntity, Boolean, Boolean) -> Unit,
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
 ) {
+    var isSrsReview by remember(startWithDue) { mutableStateOf(startWithDue) }
+    var showMatchGame by remember { mutableStateOf(false) }
     var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) QUIZ_DUE else QUIZ_MEANING) }
     var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var answerText by remember { mutableStateOf("") }
     var answered by remember { mutableStateOf(false) }
+    var answerRecordedForQuestion by remember { mutableStateOf(false) }
     var lastCorrect by remember { mutableStateOf<Boolean?>(null) }
     var showSummary by remember { mutableStateOf(false) }
     var retryWrongOnly by remember { mutableStateOf(false) }
@@ -66,15 +70,46 @@ fun QuizScreen(
     // Freeze the replay deck for the duration of a retry session. The unresolved set can shrink
     // after a correct answer, but changing the rendered deck mid-question would skip items.
     val retryDeckIds = remember { mutableStateListOf<Long>() }
-    val modeAttempts = remember { mutableStateMapOf<String, Int>() }
-    val modeCorrect = remember { mutableStateMapOf<String, Int>() }
+    val context = LocalContext.current
+    val exerciseStats = remember(context) { context.getSharedPreferences("vocab_exercise_history", 0) }
+    // Persist per-exercise history across process death/relaunch; only compact aggregate values
+    // are stored, so this remains fully offline and independent of vocabulary import/export.
+    val modeAttempts = remember(exerciseStats) {
+        mutableStateMapOf<String, Int>().apply {
+            exerciseStats.all.filterKeys { it.startsWith("attempts:") }.forEach { (key, value) ->
+                (value as? Int)?.let { put(key.removePrefix("attempts:"), it) }
+            }
+        }
+    }
+    val modeCorrect = remember(exerciseStats) {
+        mutableStateMapOf<String, Int>().apply {
+            exerciseStats.all.filterKeys { it.startsWith("correct:") }.forEach { (key, value) ->
+                (value as? Int)?.let { put(key.removePrefix("correct:"), it) }
+            }
+        }
+    }
+    val modeLastUsedAt = remember(exerciseStats) {
+        mutableStateMapOf<String, Long>().apply {
+            exerciseStats.all.filterKeys { it.startsWith("last_used:") }.forEach { (key, value) ->
+                (value as? Long)?.let { put(key.removePrefix("last_used:"), it) }
+            }
+        }
+    }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
-    val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
+    val topicScopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
     }
+    // Freeze the eligible SRS deck for this session. Updating a reviewed word's due date must
+    // not remove it from the rendered list and accidentally skip the next question.
+    val scopedWords = if (isSrsReview) remember(isSrsReview, selectedTopic) {
+        val nowForQueue = System.currentTimeMillis()
+        topicScopedWords.filter {
+            !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= nowForQueue)
+        }
+    } else topicScopedWords
     val weakWords = scopedWords.filter { it.lapseCount > 0 }
     val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
-    val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
+    val clozeWords = scopedWords.filter { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }
     val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
     val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
     val synonymWords = scopedWords.filter { it.synonyms.isNotBlank() }
@@ -103,6 +138,7 @@ fun QuizScreen(
         selectedId = null
         answerText = ""
         answered = false
+        answerRecordedForQuestion = false
         lastCorrect = null
     }
     fun resetForMode(nextMode: String) {
@@ -113,8 +149,15 @@ fun QuizScreen(
         resetQuestionState()
     }
     fun recordAnswer(wordToRecord: WordEntity, correct: Boolean) {
+        // UI callbacks can be triggered more than once by rapid taps/recomposition.
+        // Treat the first committed answer for this question as authoritative.
+        if (answerRecordedForQuestion) return
+        answerRecordedForQuestion = true
         sessionAttempts += 1
-        modeAttempts[mode] = (modeAttempts[mode] ?: 0) + 1
+        val updatedAttempts = (modeAttempts[mode] ?: 0) + 1
+        val now = System.currentTimeMillis()
+        modeAttempts[mode] = updatedAttempts
+        modeLastUsedAt[mode] = now
         if (correct) {
             sessionCorrect += 1
             modeCorrect[mode] = (modeCorrect[mode] ?: 0) + 1
@@ -122,7 +165,12 @@ fun QuizScreen(
         } else if (wordToRecord.id !in wrongWordIds) {
             wrongWordIds.add(wordToRecord.id)
         }
-        onAnswerRecorded(wordToRecord, correct)
+        exerciseStats.edit()
+            .putInt("attempts:$mode", modeAttempts[mode] ?: 0)
+            .putInt("correct:$mode", modeCorrect[mode] ?: 0)
+            .putLong("last_used:$mode", now)
+            .apply()
+        onAnswerRecorded(wordToRecord, correct, isSrsReview)
     }
     fun submitTypedAnswer() {
         if (!answered && word != null && answerText.isNotBlank()) {
@@ -137,6 +185,45 @@ fun QuizScreen(
         if (mode == QUIZ_SENTENCE && answered && lastCorrect == null && word != null) {
             lastCorrect = usedCorrectly
             recordAnswer(word, usedCorrectly)
+        }
+    }
+    fun suggestNextExercise() {
+        val evidence = buildList {
+            val mcValid = scopedWords.any { candidate ->
+                QuizLogic.multipleChoiceOptions(candidate, scopedWords, QUIZ_MEANING).size == 4
+            }
+            if (mcValid) add(ExerciseEvidence(
+                ActiveExerciseType.MULTIPLE_CHOICE, true,
+                modeAttempts[QUIZ_MEANING] ?: 0,
+                ((modeAttempts[QUIZ_MEANING] ?: 0) - (modeCorrect[QUIZ_MEANING] ?: 0)).coerceAtLeast(0),
+                modeLastUsedAt[QUIZ_MEANING] ?: 0L
+            ))
+            if (scopedWords.any { it.term.isNotBlank() }) add(ExerciseEvidence(
+                ActiveExerciseType.LISTEN_AND_TYPE, true,
+                modeAttempts[QUIZ_LISTENING] ?: 0,
+                ((modeAttempts[QUIZ_LISTENING] ?: 0) - (modeCorrect[QUIZ_LISTENING] ?: 0)).coerceAtLeast(0),
+                modeLastUsedAt[QUIZ_LISTENING] ?: 0L
+            ))
+            if (scopedWords.any { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }) add(ExerciseEvidence(
+                ActiveExerciseType.CLOZE, true,
+                modeAttempts[QUIZ_CLOZE] ?: 0,
+                ((modeAttempts[QUIZ_CLOZE] ?: 0) - (modeCorrect[QUIZ_CLOZE] ?: 0)).coerceAtLeast(0),
+                modeLastUsedAt[QUIZ_CLOZE] ?: 0L
+            ))
+        }
+        val next = ActiveLearningLogic.chooseNext(
+            evidence, System.currentTimeMillis(),
+            mapOf(
+                ActiveExerciseType.MULTIPLE_CHOICE to (modeAttempts[QUIZ_MEANING] ?: 0),
+                ActiveExerciseType.LISTEN_AND_TYPE to (modeAttempts[QUIZ_LISTENING] ?: 0),
+                ActiveExerciseType.CLOZE to (modeAttempts[QUIZ_CLOZE] ?: 0)
+            )
+        )
+        when (next) {
+            ActiveExerciseType.MULTIPLE_CHOICE -> resetForMode(QUIZ_MEANING)
+            ActiveExerciseType.LISTEN_AND_TYPE -> resetForMode(QUIZ_LISTENING)
+            ActiveExerciseType.CLOZE -> resetForMode(QUIZ_CLOZE)
+            else -> Unit
         }
     }
 
@@ -167,6 +254,50 @@ fun QuizScreen(
                 QuizQuickStat("✅", "Đúng", "$sessionScore", Modifier.weight(1f))
                 QuizQuickStat("🎯", "Mục tiêu", "$sessionTotal", Modifier.weight(1f))
                 QuizQuickStat("🧠", "Cần ôn", "${wrongWordIds.size}", Modifier.weight(1f))
+            }
+        }
+        item {
+            Card(shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Chế độ học", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = isSrsReview,
+                            onClick = {
+                                if (!isSrsReview) {
+                                    isSrsReview = true
+                                    mode = QUIZ_DUE
+                                    selectedTopic = "Tất cả chủ đề"
+                                    retryWrongOnly = false
+                                    retryDeckIds.clear()
+                                    showSummary = false
+                                    resetQuestionState()
+                                }
+                            },
+                            label = { Text("Ôn SRS · chỉ từ đến hạn") }
+                        )
+                        FilterChip(
+                            selected = !isSrsReview,
+                            onClick = {
+                                if (isSrsReview) {
+                                    isSrsReview = false
+                                    mode = QUIZ_MEANING
+                                    retryWrongOnly = false
+                                    retryDeckIds.clear()
+                                    showSummary = false
+                                    resetQuestionState()
+                                }
+                            },
+                            label = { Text("Luyện tập tự do") }
+                        )
+                    }
+                    Text(
+                        if (isSrsReview) "Câu trả lời đã nộp sẽ cập nhật lịch SRS đúng một lần. Câu chưa trả lời không bị tính sai."
+                        else "Luyện tập tự do chỉ ghi thống kê và phản hồi; không đổi lịch ôn, cấp SRS hoặc chuỗi ôn.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         if (showSummary) {
@@ -216,6 +347,8 @@ fun QuizScreen(
                                 retryDeckIds.clear()
                                 modeAttempts.clear()
                                 modeCorrect.clear()
+                                modeLastUsedAt.clear()
+                                exerciseStats.edit().clear().apply()
                                 retryWrongOnly = false
                                 retryDeckIds.clear()
                                 showSummary = false
@@ -239,6 +372,8 @@ fun QuizScreen(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
             ) {
                 FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
+                FilterChip(selected = false, onClick = { showMatchGame = true }, label = { Text("🎮 Ghép cặp") })
+                FilterChip(selected = false, onClick = { suggestNextExercise() }, label = { Text("✨ Gợi ý bài tiếp") })
                 FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
                 FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
                 FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
@@ -384,7 +519,7 @@ fun QuizScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         if (mode == QUIZ_CLOZE) {
-                            Text(QuizLogic.clozeSentence(word.example, word.term).orEmpty(), fontSize = 20.sp, lineHeight = 28.sp)
+                            Text(ActiveLearningLogic.validatedCloze(word.example, word.term).orEmpty(), fontSize = 20.sp, lineHeight = 28.sp)
                             if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             OutlinedTextField(
                                 value = answerText,
@@ -488,9 +623,9 @@ fun QuizScreen(
                                 word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                 if (mode in listOf(QUIZ_COLLOCATIONS, QUIZ_FAMILY, QUIZ_SYNONYMS) && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            if (options.size < 2) {
+                            if (options.size < 4) {
                                 Text(
-                                    "Chưa đủ đáp án khác nhau để tạo câu trắc nghiệm. Hãy bổ sung nghĩa, cụm từ hoặc họ từ khác nhau cho các mục trong phạm vi này.",
+                                    "Chưa đủ 4 lựa chọn phân biệt để tạo câu trắc nghiệm hợp lệ. Câu này sẽ được bỏ qua thay vì dùng đáp án thiếu hoặc mơ hồ.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 OutlinedButton(
@@ -520,7 +655,7 @@ fun QuizScreen(
                                 }
                                 Surface(
                                     onClick = {
-                                        if (!answered && options.size >= 2) {
+                                        if (!answered && options.size == 4) {
                                             selectedId = option.id
                                             lastCorrect = correct
                                             answered = true
@@ -585,6 +720,7 @@ fun QuizScreen(
                                 selectedId = null
                                 answerText = ""
                                 answered = false
+                                answerRecordedForQuestion = false
                                 lastCorrect = null
                             },
                             enabled = answered && (mode != QUIZ_SENTENCE || lastCorrect != null),
@@ -609,4 +745,5 @@ fun QuizScreen(
             }
         }
     }
+    if (showMatchGame) MatchGameDialog(words = words, onDismiss = { showMatchGame = false })
 }
