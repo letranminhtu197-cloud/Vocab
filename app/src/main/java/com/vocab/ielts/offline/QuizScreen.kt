@@ -52,6 +52,7 @@ fun QuizScreen(
     startWithDue: Boolean = false
 ) {
     var isSrsReview by remember(startWithDue) { mutableStateOf(startWithDue) }
+    var showMatchGame by remember { mutableStateOf(false) }
     var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) QUIZ_DUE else QUIZ_MEANING) }
     var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
@@ -288,6 +289,7 @@ fun QuizScreen(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
             ) {
                 FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
+                FilterChip(selected = false, onClick = { showMatchGame = true }, label = { Text("🎮 Ghép cặp") })
                 FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
                 FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
                 FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
@@ -658,4 +660,5 @@ fun QuizScreen(
             }
         }
     }
+    if (showMatchGame) MatchGameDialog(words = words, onDismiss = { showMatchGame = false })
 }
