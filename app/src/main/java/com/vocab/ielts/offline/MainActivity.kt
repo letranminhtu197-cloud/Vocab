@@ -81,12 +81,17 @@ private fun VocabApp(database: VocabDatabase) {
     var quizSessionCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_correct", 0)) }
     var quizSessionTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_total", 0)) }
     var exerciseAnalytics by remember { mutableStateOf<Map<String, Pair<Int, Int>>>(emptyMap()) }
+    var uniqueWordAnalytics by remember { mutableStateOf(0 to 0) }
+    var sessionAnalytics by remember { mutableStateOf(0 to 0L) }
+    var completedSessionCount by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(dao, quizTotal) {
-        exerciseAnalytics = withContext(Dispatchers.IO) {
-            ActiveExerciseType.values().associate { type ->
+    LaunchedEffect(dao, quizTotal, completedSessionCount) {
+        withContext(Dispatchers.IO) {
+            exerciseAnalytics = ActiveExerciseType.values().associate { type ->
                 type.name to (dao.countAttemptsForType(type.name) to dao.countCorrectForType(type.name))
             }
+            uniqueWordAnalytics = dao.countUniquePracticeWords() to dao.countUniqueSrsWords()
+            sessionAnalytics = dao.countCompletedSessions() to dao.totalCompletedSessionDurationMillis()
         }
     }
     val words by dao.observeAll().collectAsState(initial = emptyList())
