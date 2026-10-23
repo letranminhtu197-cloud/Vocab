@@ -8,6 +8,7 @@ class LearningAttemptEntityTest {
         val attempt = LearningAttemptEntity(
             attemptId = "attempt-123",
             wordId = 42L,
+            sessionId = "session-456",
             exerciseType = ActiveExerciseType.CLOZE.name,
             isCorrect = true,
             isSrsReview = false,
