@@ -48,10 +48,10 @@ fun QuizScreen(
     // Freeze the SRS deck for this session: updating a due date must not skip the next card.
     val srsDeckIds = remember(isSrsReview, words.map { it.id }, deckGeneration) {
         val now = System.currentTimeMillis()
-        words.filter { !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= now) }
+        words.filter { !it.isNew && !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= now) }
             .map { it.id }.toSet()
     }
-    val srsDeck = words.filter { it.id in srsDeckIds && !it.excludedFromReview }
+    val srsDeck = words.filter { it.id in srsDeckIds && !it.isNew && !it.excludedFromReview }
     val newWordIds = remember(words.map { it.id }, deckGeneration) {
         words.filter { it.isNew && !it.excludedFromReview }.map { it.id }.toSet()
     }
