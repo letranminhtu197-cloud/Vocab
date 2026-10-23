@@ -15,19 +15,15 @@ import androidx.compose.ui.unit.sp
 import java.util.UUID
 
 private const val MODE_NEW = "Flashcard · từ mới"
-private const val MODE_MC = "Trắc nghiệm"
+private const val MODE_RECALL = "Gõ từ theo nghĩa"
 private const val MODE_LISTEN = "Nghe và gõ"
 private const val MODE_CLOZE = "Điền vào ngữ cảnh"
 
 private fun defaultPracticeMode(words: List<WordEntity>): String {
     val pool = words.filterNot { it.excludedFromReview }
     if (pool.any { it.isNew }) return MODE_NEW
-    val hasMultipleChoice = pool.any { target ->
-        val options = QuizLogic.multipleChoiceOptions(target, pool, "Chọn nghĩa")
-        ActiveLearningLogic.hasFourValidChoices(options.map { it.meaning }, target.meaning)
-    }
-    if (hasMultipleChoice) return MODE_MC
     if (pool.any { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }) return MODE_CLOZE
+    if (pool.any { it.term.isNotBlank() && it.meaning.isNotBlank() }) return MODE_RECALL
     if (pool.any { it.term.isNotBlank() }) return MODE_LISTEN
     return MODE_NEW
 }
@@ -47,11 +43,10 @@ fun QuizScreen(
     startWithDue: Boolean = false
 ) {
     var isSrsReview by rememberSaveable(startWithDue) { mutableStateOf(startWithDue) }
-    var mode by rememberSaveable(startWithDue, words.map { it.id }) { mutableStateOf(if (startWithDue) MODE_MC else defaultPracticeMode(words)) }
+    var mode by rememberSaveable(startWithDue, words.map { it.id }) { mutableStateOf(if (startWithDue) MODE_RECALL else defaultPracticeMode(words)) }
     var index by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
     var deckGeneration by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
     var answerText by rememberSaveable(startWithDue) { mutableStateOf("") }
-    var selectedOptionId by rememberSaveable(startWithDue) { mutableStateOf<Long?>(null) }
     var answered by rememberSaveable(startWithDue) { mutableStateOf(false) }
     var revealed by rememberSaveable(startWithDue) { mutableStateOf(false) }
     var correct by rememberSaveable(startWithDue) { mutableStateOf<Boolean?>(null) }
@@ -84,32 +79,18 @@ fun QuizScreen(
     val practiceWords = if (isSrsReview) srsDeck else when (mode) {
         MODE_NEW -> newWords
         MODE_LISTEN -> choicePool.filter { it.term.isNotBlank() }
+        MODE_RECALL -> choicePool.filter { it.term.isNotBlank() && it.meaning.isNotBlank() }
         MODE_CLOZE -> choicePool.filter { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }
-        MODE_MC -> choicePool.filter { candidate ->
-            val candidateOptions = QuizLogic.multipleChoiceOptions(candidate, choicePool, "Chọn nghĩa")
-            ActiveLearningLogic.hasFourValidChoices(candidateOptions.map { it.meaning }, candidate.meaning)
-        }
         else -> choicePool
     }
     val targetDeck = if (isSrsReview) srsDeck else practiceWords
     val word = targetDeck.getOrNull(index)
-    val options = remember(word?.id, choicePool.map { it.id to it.meaning }, mode) {
-        if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, choicePool, "Chọn nghĩa")
-    }
     val clozeText = word?.let { ActiveLearningLogic.validatedCloze(it.example, it.term) }
-    val mcAvailable = word != null && ActiveLearningLogic.hasFourValidChoices(
-        options.map { it.meaning }, word.meaning
-    )
-    val clozeAvailable = word != null && clozeText != null
-    val listenAvailable = word?.term?.isNotBlank() == true
 
     fun availableTypes(target: WordEntity?): List<ActiveExerciseType> {
         if (target == null) return emptyList()
-        val pool = words.filterNot { it.excludedFromReview }
-        val validMc = QuizLogic.multipleChoiceOptions(target, pool, "Chọn nghĩa")
-            .let { list -> ActiveLearningLogic.hasFourValidChoices(list.map { it.meaning }, target.meaning) }
         return buildList {
-            if (validMc) add(ActiveExerciseType.MULTIPLE_CHOICE)
+            if (target.term.isNotBlank() && target.meaning.isNotBlank()) add(ActiveExerciseType.DEFINITION_TO_TERM)
             if (target.term.isNotBlank()) add(ActiveExerciseType.LISTEN_AND_TYPE)
             if (ActiveLearningLogic.validatedCloze(target.example, target.term) != null) add(ActiveExerciseType.CLOZE)
         }
@@ -145,7 +126,6 @@ fun QuizScreen(
 
     fun resetAnswerState() {
         answerText = ""
-        selectedOptionId = null
         answered = false
         revealed = false
         correct = null
@@ -230,7 +210,7 @@ fun QuizScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = isSrsReview,
-                        onClick = { if (!isSrsReview) changeMode(MODE_MC, true) },
+                        onClick = { if (!isSrsReview) changeMode(MODE_RECALL, true) },
                         label = { Text("Ôn SRS") }
                     )
                     FilterChip(
@@ -252,7 +232,7 @@ fun QuizScreen(
             Text("Chọn dạng bài", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = mode == MODE_NEW, onClick = { changeMode(MODE_NEW) }, label = { Text("Từ mới") })
-                FilterChip(selected = mode == MODE_MC, onClick = { changeMode(MODE_MC) }, label = { Text("Trắc nghiệm") })
+                FilterChip(selected = mode == MODE_RECALL, onClick = { changeMode(MODE_RECALL) }, label = { Text("Gõ từ theo nghĩa") })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = mode == MODE_LISTEN, onClick = { changeMode(MODE_LISTEN) }, label = { Text("Nghe & gõ") })
@@ -314,12 +294,12 @@ fun QuizScreen(
             }
         } else if (word != null) {
             val activeType = if (!isSrsReview && mode == MODE_NEW) null else overrideType ?: if (isSrsReview) {
-                if (answered) lastType ?: pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
+                if (answered) lastType ?: pickSrsExercise(word) ?: ActiveExerciseType.DEFINITION_TO_TERM
                 else pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
             } else when (mode) {
                 MODE_LISTEN -> ActiveExerciseType.LISTEN_AND_TYPE
+                MODE_RECALL -> ActiveExerciseType.DEFINITION_TO_TERM
                 MODE_CLOZE -> ActiveExerciseType.CLOZE
-                MODE_MC -> ActiveExerciseType.MULTIPLE_CHOICE
                 else -> null
             }
 
@@ -372,35 +352,38 @@ fun QuizScreen(
                             Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện nghĩa và ví dụ") }
                         }
                     } else when (activeType) {
-                        ActiveExerciseType.MULTIPLE_CHOICE -> {
-                            Text("Chọn nghĩa chính xác", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(word.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-                            if (word.ipa.isNotBlank()) Text(word.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (!mcAvailable) {
-                                Text("Không tạo câu hỏi trắc nghiệm: cần 4 nghĩa khác nhau trong dữ liệu đã nhập.", color = MaterialTheme.colorScheme.error)
-                            } else {
-                                options.forEach { option ->
-                                    val isTarget = option.id == word.id
-                                    val wasChosenWrong = answered && selectedOptionId == option.id && correct == false
-                                    OutlinedButton(
-                                        onClick = {
-                                            selectedOptionId = option.id
-                                            submitAnswer(word, isTarget, ActiveExerciseType.MULTIPLE_CHOICE)
-                                        },
-                                        enabled = !answered,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = when {
-                                                answered && isTarget -> MaterialTheme.colorScheme.primaryContainer
-                                                wasChosenWrong -> MaterialTheme.colorScheme.errorContainer
-                                                else -> MaterialTheme.colorScheme.surface
-                                            }
-                                        )
-                                    ) {
-                                        Text(option.meaning, modifier = Modifier.fillMaxWidth())
-                                    }
+                        ActiveExerciseType.DEFINITION_TO_TERM -> {
+                            Text("Gợi nhớ chủ động · viết đáp án", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Đọc nghĩa, nhớ lại từ tiếng Anh rồi tự gõ — không có đáp án gợi ý.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("NGHĨA / ĐỊNH NGHĨA", style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Text(word.meaning, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    if (word.partOfSpeech.isNotBlank()) Text(word.partOfSpeech,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}",
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
                                 }
                             }
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Gõ từ tiếng Anh") },
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.DEFINITION_TO_TERM) },
+                                enabled = !answered && answerText.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Kiểm tra đáp án") }
                         }
                         ActiveExerciseType.LISTEN_AND_TYPE -> {
                             Text("Nghe và gõ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
