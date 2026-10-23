@@ -490,6 +490,10 @@ private fun VocabApp(database: VocabDatabase) {
                     modifier = Modifier.fillMaxSize().padding(padding),
                     sessionScore = quizSessionCorrect,
                     sessionTotal = quizSessionTotal,
+                    onAudioReplay = {
+                        val replays = statsPrefs.getInt("audio_replay_count", 0) + 1
+                        statsPrefs.edit().putInt("audio_replay_count", replays).apply()
+                    },
                     onAnswerRecorded = { word, correct, applySrs, attemptId, exerciseType ->
                         val answeredAt = System.currentTimeMillis()
                         scope.launch {
