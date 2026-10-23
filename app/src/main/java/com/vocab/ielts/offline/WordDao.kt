@@ -38,6 +38,21 @@ interface WordDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAttempt(attempt: LearningAttemptEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSession(session: LearningSessionEntity): Long
+
+    @Query("UPDATE learning_sessions SET endedAtMillis = :endedAtMillis, questionCount = :questionCount, uniqueWordCount = :uniqueWordCount, completed = 1 WHERE sessionId = :sessionId AND completed = 0")
+    suspend fun completeSession(sessionId: String, endedAtMillis: Long, questionCount: Int, uniqueWordCount: Int): Int
+
+    @Query("SELECT COUNT(*) FROM learning_sessions WHERE completed = 1")
+    suspend fun countCompletedSessions(): Int
+
+    @Query("SELECT COALESCE(SUM(endedAtMillis - startedAtMillis), 0) FROM learning_sessions WHERE completed = 1")
+    suspend fun totalCompletedSessionDurationMillis(): Long
+
+    @Query("SELECT COALESCE(SUM(uniqueWordCount), 0) FROM learning_sessions WHERE completed = 1")
+    suspend fun countSessionWordExposures(): Int
+
     @Query("SELECT COUNT(*) FROM learning_attempts")
     suspend fun countLearningAttempts(): Int
 
