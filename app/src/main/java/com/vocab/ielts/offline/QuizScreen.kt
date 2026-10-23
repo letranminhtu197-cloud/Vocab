@@ -197,7 +197,7 @@ fun QuizScreen(
                     )
                 }
                 Text(
-                    if (isSrsReview) "Chỉ từ mới hoặc từ đã đến hạn được đưa vào hàng đợi. Mỗi câu được ghi nhận một lần."
+                    if (isSrsReview) "Chỉ từ đã được giới thiệu và đến hạn mới vào hàng đợi SRS. Mỗi câu được ghi nhận một lần."
                     else "Flashcard chỉ dùng để làm quen từ mới; luyện tập tự do không thay đổi lịch SRS.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
