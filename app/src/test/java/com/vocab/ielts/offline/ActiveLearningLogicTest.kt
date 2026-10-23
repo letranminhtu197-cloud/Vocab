@@ -32,6 +32,13 @@ class ActiveLearningLogicTest {
         assertNull(ActiveLearningLogic.validatedCloze("No target here.", "allocate"))
     }
 
+    @Test fun typedAnswerNormalizationPreservesMeaningfulPunctuation() {
+        assertTrue(QuizLogic.isCorrectAnswer("  take   off ", "take off"))
+        assertFalse(QuizLogic.isCorrectAnswer("well-being", "well being"))
+        assertFalse(QuizLogic.isCorrectAnswer("can't", "cant"))
+        assertFalse(QuizLogic.isCorrectAnswer("allocate!", "allocate"))
+    }
+
     @Test fun selectorNeverReturnsAnUnavailableExercise() {
         assertNull(ActiveLearningLogic.chooseNext(emptyList(), 100L))
         assertEquals(
