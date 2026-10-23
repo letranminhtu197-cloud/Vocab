@@ -261,144 +261,20 @@ private fun VocabApp(dao: WordDao) {
             }
         ) { padding ->
             when (tab) {
-                0 -> LazyColumn(
-                    Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item { StudyReminderControl(onMessage = { csvMessage = it }) }
-                    item {
-                        DashboardOverview(
-                            totalWords = words.size,
-                            dueWords = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() },
-                            learnedWords = words.count { it.reviewCount > 0 },
-                            activeStreak = StudyActivityTracker.activeDayCount(statsPrefs),
-                            todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
-                            dailyGoal = dailyGoal,
-                            onGoalChange = { goal ->
-                                dailyGoal = goal
-                                settingsPrefs.edit().putInt("daily_goal", goal).apply()
-                            },
-                            onStartReview = {
-                                quizStartWithDue = true
-                                tab = if (words.isEmpty()) 1 else 3
-                            },
-                            onOpenPractice = {
-                                quizStartWithDue = false
-                                tab = 3
-                            },
-                            onOpenLibrary = { tab = 1 },
-                            onOpenLearningPath = { tab = 2 },
-                            onOpenStats = { tab = 4 }
-                        )
-                    }
-                    item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Ôn flashcard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); FilterChip(selected = dueOnly, onClick = { dueOnly = !dueOnly; currentIndex = 0; revealed = false }, label = { Text(if (dueOnly) "Chỉ từ đến hạn" else "Tất cả từ") }) } }
-                    if (current == null) {
-                        item {
-                            Card(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text(if (dueOnly && words.isNotEmpty()) "Không có từ đến hạn" else "Sổ từ đang trống", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    Text(if (dueOnly && words.isNotEmpty()) "Bạn đã ôn hết từ đến hạn hiện tại. Có thể xem toàn bộ sổ từ hoặc quay lại sau." else "Bạn có thể tự nhập từ hoặc thêm vài từ mẫu để kiểm tra ứng dụng.")
-                                    if (dueOnly && words.isNotEmpty()) OutlinedButton(onClick = { dueOnly = false; currentIndex = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Xem toàn bộ từ") }
-                                    Button(
-                                        onClick = {
-                                            importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel"))
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("Nhập từ bằng CSV") }
-                                    OutlinedButton(onClick = { tab = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Mở sổ từ") }
-                                    OutlinedButton(onClick = { showSamplesConfirm = true }, modifier = Modifier.fillMaxWidth()) { Text("Thêm 3 từ mẫu để thử") }
-                                }
-                            }
-                        }
-                    } else {
-                        item {
-                            Text("Thẻ ${currentIndex + 1} / ${reviewDeck.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Card(Modifier.fillMaxWidth().heightIn(min = 250.dp), shape = RoundedCornerShape(24.dp)) {
-                                Column(
-                                    Modifier.fillMaxWidth().padding(24.dp),
-                                    verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(current.term, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                                     OfflineSpeakButton(text = current.term)
-                                    if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (current.partOfSpeech.isNotBlank()) Text(current.partOfSpeech, color = MaterialTheme.colorScheme.primary)
-                                     ReviewWindowLabel(current)
-                                    if (revealed) {
-                                        Spacer(Modifier.height(18.dp))
-                                        Text(current.meaning, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                                        if (current.example.isNotBlank()) {
-                                            Spacer(Modifier.height(10.dp))
-                                            Text(current.example)
-                                        }
-                                        if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
-                                        if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
-                                        if (current.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${current.synonyms}")
-                                        if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
-                                        if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
-                                        if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    Spacer(Modifier.height(16.dp))
-                                    OutlinedButton(onClick = { revealed = !revealed }, enabled = !ratingInProgress.value) {
-                                        Text(if (revealed) "Ẩn đáp án" else "Hiện đáp án")
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(
-                                    onClick = { currentIndex = (currentIndex - 1 + reviewDeck.size) % reviewDeck.size; revealed = false },
-                                    enabled = !ratingInProgress.value,
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("Trước") }
-                                Button(
-                                    onClick = { currentIndex = (currentIndex + 1) % reviewDeck.size; revealed = false },
-                                    enabled = !ratingInProgress.value,
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("Tiếp theo") }
-                            }
-                            Text(if (revealed) "Đánh giá mức độ ghi nhớ" else "Hãy hiện đáp án trước khi đánh giá", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf("Lại" to ReviewRating.AGAIN, "Khó" to ReviewRating.HARD, "Tốt" to ReviewRating.GOOD, "Dễ" to ReviewRating.EASY).forEach { (label, rating) ->
-                                    Button(
-                                        onClick = {
-                                            // Ignore rapid repeat taps before recording activity or calculating a second review.
-                                            if (ratingInProgress.value) return@Button
-                                            ratingInProgress.value = true
-                                            val now = Instant.now()
-                                            val state = ReviewState(
-                                                level = current.srsLevel,
-                                                nextReviewAt = current.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                                                reviewCount = current.reviewCount,
-                                                lapseCount = current.lapseCount
-                                            )
-                                            val next = SrsScheduler.review(state, rating, now)
-                                            StudyActivityTracker.recordEvent(statsPrefs)
-                                            scope.launch {
-                                                try {
-                                                    dao.update(current.copy(
-                                                        srsLevel = next.level,
-                                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                                        reviewCount = next.reviewCount,
-                                                        lapseCount = next.lapseCount,
-                                                        lastReviewedAtMillis = now.toEpochMilli()
-                                                    ))
-                                                    currentIndex = FlashcardLogic.nextIndexAfterRating(currentIndex, reviewDeck.size, dueOnly)
-                                                    revealed = false
-                                                } finally {
-                                                    ratingInProgress.value = false
-                                                }
-                                            }
-                                        },
-                                        enabled = revealed && !ratingInProgress.value,
-                                        modifier = Modifier.weight(1f),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
-                                    ) { Text(label, fontSize = 12.sp) }
-                                }
-                            }
-                        }
-                    }
-                }
+                0 -> LearningHomeScreen(
+                    words = words,
+                    dueCount = words.count { !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis()) },
+                    newCount = words.count { it.isNew && !it.excludedFromReview },
+                    weakCount = words.count { it.lapseCount > 0 || (it.reviewCount > 0 && it.srsLevel <= 1) },
+                    todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
+                    dailyGoal = dailyGoal,
+                    activeDays = StudyActivityTracker.activeDayCount(statsPrefs),
+                    onReview = { quizStartWithDue = true; tab = 3 },
+                    onPractice = { quizStartWithDue = false; tab = 3 },
+                    onLibrary = { tab = 1 },
+                    onStats = { tab = 4 },
+                    onImport = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) }
+                )
                 1 -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
