@@ -30,6 +30,7 @@ fun QuizScreen(
     var isSrsReview by remember(startWithDue) { mutableStateOf(startWithDue) }
     var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) MODE_MC else MODE_NEW) }
     var index by remember(startWithDue) { mutableIntStateOf(0) }
+    var deckGeneration by remember(startWithDue) { mutableIntStateOf(0) }
     var answerText by remember(startWithDue) { mutableStateOf("") }
     var selectedOptionId by remember(startWithDue) { mutableStateOf<Long?>(null) }
     var answered by remember(startWithDue) { mutableStateOf(false) }
@@ -44,7 +45,7 @@ fun QuizScreen(
     val exerciseLastUsed = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Long>() }
 
     // Freeze the SRS deck for this session: updating a due date must not skip the next card.
-    val srsDeckIds = remember(isSrsReview, words.map { it.id }) {
+    val srsDeckIds = remember(isSrsReview, words.map { it.id }, deckGeneration) {
         val now = System.currentTimeMillis()
         words.filter { !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= now) }
             .map { it.id }.toSet()
@@ -63,7 +64,7 @@ fun QuizScreen(
         else -> choicePool
     }
     val targetDeck = if (isSrsReview) srsDeck else practiceWords
-    val word = targetDeck.getOrNull(if (targetDeck.isEmpty()) 0 else index % targetDeck.size)
+    val word = targetDeck.getOrNull(index)
     val options = remember(word?.id, choicePool.map { it.id }, mode) {
         if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, choicePool, "Chọn nghĩa")
     }
@@ -113,6 +114,7 @@ fun QuizScreen(
     fun changeMode(nextMode: String, srs: Boolean = false) {
         isSrsReview = srs
         mode = nextMode
+        deckGeneration++
         index = 0
         attempts = 0
         correctCount = 0
@@ -237,6 +239,30 @@ fun QuizScreen(
                             else -> "Hãy nhập dữ liệu từ vựng trước khi luyện."
                         }
                     )
+                }
+            }
+        } else if (word == null) {
+            Card(shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        if (isSrsReview) "Đã hoàn thành hàng đợi ôn SRS" else "Đã hoàn thành lượt học",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (isSrsReview) "Bạn đã đi qua toàn bộ các từ đến hạn được chốt khi bắt đầu phiên. Từ đã ôn sẽ không bị lặp lại trong phiên này."
+                        else "Bạn đã đi hết các từ trong dạng bài hiện tại."
+                    )
+                    Button(
+                        onClick = { changeMode(mode, isSrsReview) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (isSrsReview) "Tạo hàng đợi SRS mới" else "Làm lại dạng bài") }
+                    if (isSrsReview) {
+                        OutlinedButton(
+                            onClick = { changeMode(MODE_NEW, false) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Chuyển sang học từ mới") }
+                    }
                 }
             }
         } else if (word != null) {
