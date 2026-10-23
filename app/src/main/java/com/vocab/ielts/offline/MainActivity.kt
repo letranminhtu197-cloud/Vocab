@@ -54,8 +54,6 @@ private fun VocabApp(database: VocabDatabase) {
     val dao = database.wordDao()
     var tab by remember { mutableIntStateOf(0) }
     var quizStartWithDue by remember { mutableStateOf(true) }
-    var learningPathTopic by remember { mutableStateOf<String?>(null) }
-    var showPathLesson by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var libraryFilter by remember { mutableStateOf("Tất cả") }
     var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
@@ -74,9 +72,6 @@ private fun VocabApp(database: VocabDatabase) {
     val context = LocalContext.current
     val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
     var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", true)) }
-    var lessonTarget by remember(settingsPrefs) {
-        mutableIntStateOf(settingsPrefs.getInt("lesson_target", 5).let { if (it in listOf(5, 10, 15, 20)) it else 5 })
-    }
     var dailyGoal by remember(settingsPrefs) {
         mutableIntStateOf(StudyGoalLogic.normalizeGoal(settingsPrefs.getInt("daily_goal", 10)))
     }
@@ -446,55 +441,6 @@ private fun VocabApp(database: VocabDatabase) {
                         }
                     }
                 }
-                2 -> if (showPathLesson) {
-                    Column(Modifier.fillMaxSize().padding(padding)) {
-                        TextButton(onClick = { showPathLesson = false }) { Text("← Quay lại lộ trình") }
-                        val pathWords = when (learningPathTopic) {
-                            null -> words
-                            "Chưa phân loại" -> words.filter { it.topic.isBlank() }
-                            else -> words.filter { it.topic.trim().equals(learningPathTopic, ignoreCase = true) }
-                        }
-                        LessonScreen(
-                            words = pathWords,
-                            modifier = Modifier.fillMaxSize().weight(1f),
-                            sessionSize = lessonTarget,
-                            onReview = { word, rating ->
-                                val now = Instant.now()
-                                val state = ReviewState(
-                                    level = word.srsLevel,
-                                    nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                                    reviewCount = word.reviewCount,
-                                    lapseCount = word.lapseCount
-                                )
-                                val next = SrsScheduler.review(state, rating, now)
-                                StudyActivityTracker.recordEvent(statsPrefs)
-                                scope.launch {
-                                    dao.update(word.copy(
-                                        srsLevel = next.level,
-                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                        reviewCount = next.reviewCount,
-                                        lapseCount = next.lapseCount,
-                                        lastReviewedAtMillis = now.toEpochMilli(),
-                                        isNew = false
-                                    ))
-                                }
-                            }
-                        )
-                    }
-                } else {
-                    LearningPathScreen(
-                        words = words,
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        sessionSize = lessonTarget,
-                        onSessionSizeChange = { target ->
-                            lessonTarget = target
-                            settingsPrefs.edit().putInt("lesson_target", target).apply()
-                        },
-                        onStart = { topic -> learningPathTopic = topic; showPathLesson = true },
-                        onPractice = { showPathLesson = false; quizStartWithDue = false; tab = 3 },
-                        onOpenLibrary = { tab = 1 }
-                    )
-                }
                 3 -> QuizScreen(
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
@@ -776,9 +722,9 @@ private fun VocabApp(database: VocabDatabase) {
                                         }
                                     }
                                     if (LearningPathLogic.topics(words, nowStats).size > topicProgress.size) {
-                                        Text("Mở Lộ trình để xem toàn bộ ${LearningPathLogic.topics(words, nowStats).size} chủ đề.",
+                                        Text("Mở Sổ từ để lọc và quản lý các chủ đề.",
                                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                                        OutlinedButton(onClick = { tab = 2 }, modifier = Modifier.fillMaxWidth()) { Text("Xem toàn bộ lộ trình") }
+                                        OutlinedButton(onClick = { tab = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Mở Sổ từ") }
                                     }
                                 }
                             }
