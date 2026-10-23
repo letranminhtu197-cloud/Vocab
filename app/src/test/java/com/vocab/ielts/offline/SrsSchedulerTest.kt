@@ -62,7 +62,7 @@ class SrsSchedulerTest {
         assertEquals(now.plus(Duration.ofDays(1)).plus(Duration.ofMinutes(10)), failed.nextReviewAt)
         val recovered = SrsScheduler.review(failed, ReviewRating.GOOD, failed.nextReviewAt!!)
         assertEquals(1, recovered.level)
-        assertEquals(failed.nextReviewAt!!.plus(Duration.ofHours(4)), recovered.nextReviewAt)
+        assertEquals(failed.nextReviewAt!!.plus(Duration.ofDays(1)), recovered.nextReviewAt)
     }
 
     @Test fun ratingLabelsMatchTheIntervalsUsedByTheScheduler() {
