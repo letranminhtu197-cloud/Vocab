@@ -47,10 +47,11 @@ fun QuizScreen(
     modifier: Modifier = Modifier,
     sessionScore: Int,
     sessionTotal: Int,
-    onAnswerRecorded: (WordEntity, Boolean) -> Unit,
+    onAnswerRecorded: (WordEntity, Boolean, Boolean) -> Unit,
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
 ) {
+    var isSrsReview by remember(startWithDue) { mutableStateOf(startWithDue) }
     var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) QUIZ_DUE else QUIZ_MEANING) }
     var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
@@ -69,9 +70,13 @@ fun QuizScreen(
     val modeAttempts = remember { mutableStateMapOf<String, Int>() }
     val modeCorrect = remember { mutableStateMapOf<String, Int>() }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
-    val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
+    val topicScopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
     }
+    val nowForQueue = System.currentTimeMillis()
+    val scopedWords = if (isSrsReview) topicScopedWords.filter {
+        !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= nowForQueue)
+    } else topicScopedWords
     val weakWords = scopedWords.filter { it.lapseCount > 0 }
     val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
     val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
@@ -122,7 +127,7 @@ fun QuizScreen(
         } else if (wordToRecord.id !in wrongWordIds) {
             wrongWordIds.add(wordToRecord.id)
         }
-        onAnswerRecorded(wordToRecord, correct)
+        onAnswerRecorded(wordToRecord, correct, isSrsReview)
     }
     fun submitTypedAnswer() {
         if (!answered && word != null && answerText.isNotBlank()) {
@@ -167,6 +172,50 @@ fun QuizScreen(
                 QuizQuickStat("✅", "Đúng", "$sessionScore", Modifier.weight(1f))
                 QuizQuickStat("🎯", "Mục tiêu", "$sessionTotal", Modifier.weight(1f))
                 QuizQuickStat("🧠", "Cần ôn", "${wrongWordIds.size}", Modifier.weight(1f))
+            }
+        }
+        item {
+            Card(shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Chế độ học", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = isSrsReview,
+                            onClick = {
+                                if (!isSrsReview) {
+                                    isSrsReview = true
+                                    mode = QUIZ_DUE
+                                    selectedTopic = "Tất cả chủ đề"
+                                    retryWrongOnly = false
+                                    retryDeckIds.clear()
+                                    showSummary = false
+                                    resetQuestionState()
+                                }
+                            },
+                            label = { Text("Ôn SRS · chỉ từ đến hạn") }
+                        )
+                        FilterChip(
+                            selected = !isSrsReview,
+                            onClick = {
+                                if (isSrsReview) {
+                                    isSrsReview = false
+                                    mode = QUIZ_MEANING
+                                    retryWrongOnly = false
+                                    retryDeckIds.clear()
+                                    showSummary = false
+                                    resetQuestionState()
+                                }
+                            },
+                            label = { Text("Luyện tập tự do") }
+                        )
+                    }
+                    Text(
+                        if (isSrsReview) "Câu trả lời đã nộp sẽ cập nhật lịch SRS đúng một lần. Câu chưa trả lời không bị tính sai."
+                        else "Luyện tập tự do chỉ ghi thống kê và phản hồi; không đổi lịch ôn, cấp SRS hoặc chuỗi ôn.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         if (showSummary) {
