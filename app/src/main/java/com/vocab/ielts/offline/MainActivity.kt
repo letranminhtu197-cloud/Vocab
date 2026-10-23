@@ -160,14 +160,25 @@ private fun VocabApp(dao: WordDao) {
     MaterialTheme(
         colorScheme = if (darkTheme) {
             darkColorScheme(
-                primary = androidx.compose.ui.graphics.Color(0xFF9DD7BE),
-                onPrimary = androidx.compose.ui.graphics.Color(0xFF12382B),
-                primaryContainer = androidx.compose.ui.graphics.Color(0xFF234A3B),
-                onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFDDF3E8),
-                secondary = androidx.compose.ui.graphics.Color(0xFFF2C46D),
-                background = androidx.compose.ui.graphics.Color(0xFF101713),
-                surface = androidx.compose.ui.graphics.Color(0xFF18221C),
-                surfaceVariant = androidx.compose.ui.graphics.Color(0xFF26352C)
+                primary = androidx.compose.ui.graphics.Color(0xFFC2B4FF),
+                onPrimary = androidx.compose.ui.graphics.Color(0xFF2B176E),
+                primaryContainer = androidx.compose.ui.graphics.Color(0xFF3C2D75),
+                onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFEAE3FF),
+                secondary = androidx.compose.ui.graphics.Color(0xFFFFB394),
+                onSecondary = androidx.compose.ui.graphics.Color(0xFF52200C),
+                secondaryContainer = androidx.compose.ui.graphics.Color(0xFF63351F),
+                onSecondaryContainer = androidx.compose.ui.graphics.Color(0xFFFFE1D4),
+                tertiary = androidx.compose.ui.graphics.Color(0xFF8FE2D1),
+                onTertiary = androidx.compose.ui.graphics.Color(0xFF003B35),
+                tertiaryContainer = androidx.compose.ui.graphics.Color(0xFF174E48),
+                onTertiaryContainer = androidx.compose.ui.graphics.Color(0xFFC8F4E9),
+                background = androidx.compose.ui.graphics.Color(0xFF171421),
+                onBackground = androidx.compose.ui.graphics.Color(0xFFF2EDF8),
+                surface = androidx.compose.ui.graphics.Color(0xFF211D2C),
+                onSurface = androidx.compose.ui.graphics.Color(0xFFF2EDF8),
+                surfaceVariant = androidx.compose.ui.graphics.Color(0xFF342E42),
+                onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFD0C6DD),
+                outline = androidx.compose.ui.graphics.Color(0xFF81758F)
             )
         } else {
             lightColorScheme(
