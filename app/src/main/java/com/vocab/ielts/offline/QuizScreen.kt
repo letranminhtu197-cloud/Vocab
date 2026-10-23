@@ -79,7 +79,7 @@ fun QuizScreen(
     } else topicScopedWords
     val weakWords = scopedWords.filter { it.lapseCount > 0 }
     val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
-    val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
+    val clozeWords = scopedWords.filter { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }
     val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
     val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
     val synonymWords = scopedWords.filter { it.synonyms.isNotBlank() }
@@ -433,7 +433,7 @@ fun QuizScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         if (mode == QUIZ_CLOZE) {
-                            Text(QuizLogic.clozeSentence(word.example, word.term).orEmpty(), fontSize = 20.sp, lineHeight = 28.sp)
+                            Text(ActiveLearningLogic.validatedCloze(word.example, word.term).orEmpty(), fontSize = 20.sp, lineHeight = 28.sp)
                             if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             OutlinedTextField(
                                 value = answerText,
