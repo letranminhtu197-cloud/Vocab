@@ -451,11 +451,37 @@ private fun VocabApp(database: VocabDatabase) {
                     modifier = Modifier.fillMaxSize().padding(padding),
                     sessionScore = quizSessionCorrect,
                     sessionTotal = quizSessionTotal,
+                    onSessionStarted = { sessionId, startedAt, isSrs ->
+                        scope.launch {
+                            dao.insertSession(
+                                LearningSessionEntity(
+                                    sessionId = sessionId,
+                                    startedAtMillis = startedAt,
+                                    isSrsReview = isSrs
+                                )
+                            )
+                        }
+                    },
+                    onSessionCompleted = { sessionId, startedAt, endedAt, questions, uniqueWords, isSrs ->
+                        scope.launch {
+                            val changed = database.withTransaction {
+                                dao.insertSession(
+                                    LearningSessionEntity(
+                                        sessionId = sessionId,
+                                        startedAtMillis = startedAt,
+                                        isSrsReview = isSrs
+                                    )
+                                )
+                                dao.completeSession(sessionId, endedAt, questions, uniqueWords)
+                            }
+                            if (changed > 0) completedSessionCount++
+                        }
+                    },
                     onAudioReplay = {
                         val replays = statsPrefs.getInt("audio_replay_count", 0) + 1
                         statsPrefs.edit().putInt("audio_replay_count", replays).apply()
                     },
-                    onAnswerRecorded = { word, correct, applySrs, attemptId, exerciseType ->
+                    onAnswerRecorded = { word, correct, applySrs, attemptId, sessionId, exerciseType ->
                         val answeredAt = System.currentTimeMillis()
                         scope.launch {
                             val inserted = database.withTransaction {
