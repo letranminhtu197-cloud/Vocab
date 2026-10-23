@@ -75,7 +75,7 @@ fun QuizScreen(
     }
     val targetDeck = if (isSrsReview) srsDeck else practiceWords
     val word = targetDeck.getOrNull(index)
-    val options = remember(word?.id, choicePool.map { it.id }, mode) {
+    val options = remember(word?.id, choicePool.map { it.id to it.meaning }, mode) {
         if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, choicePool, "Chọn nghĩa")
     }
     val clozeText = word?.let { ActiveLearningLogic.validatedCloze(it.example, it.term) }
