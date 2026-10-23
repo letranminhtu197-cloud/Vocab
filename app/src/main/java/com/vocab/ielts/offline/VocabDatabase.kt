@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WordEntity::class], version = 5, exportSchema = false)
+@Database(entities = [WordEntity::class, LearningAttemptEntity::class], version = 6, exportSchema = false)
 abstract class VocabDatabase : RoomDatabase() {
     abstract fun wordDao(): WordDao
 
@@ -40,6 +40,22 @@ abstract class VocabDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS learning_attempts (" +
+                        "attemptId TEXT NOT NULL PRIMARY KEY, " +
+                        "wordId INTEGER NOT NULL, " +
+                        "exerciseType TEXT NOT NULL, " +
+                        "isCorrect INTEGER NOT NULL, " +
+                        "isSrsReview INTEGER NOT NULL, " +
+                        "answeredAtMillis INTEGER NOT NULL)"
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_learning_attempts_wordId ON learning_attempts(wordId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_learning_attempts_answeredAtMillis ON learning_attempts(answeredAtMillis)")
+            }
+        }
+
         @Volatile private var INSTANCE: VocabDatabase? = null
 
         fun getInstance(context: Context): VocabDatabase =
@@ -48,7 +64,7 @@ abstract class VocabDatabase : RoomDatabase() {
                     context.applicationContext,
                     VocabDatabase::class.java,
                     "vocab-local.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
             }
     }
 }
