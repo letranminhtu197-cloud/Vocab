@@ -33,7 +33,7 @@ fun OfflineSpeakButton(
         statusText = "Đang kiểm tra giọng đọc ngoại tuyến…"
         onAvailabilityChanged(false, statusText)
         val engine = TextToSpeech(context.applicationContext) { initStatus ->
-            val tts = engineRef.value ?: engineRefFallback
+            val tts = engineRef.value
             if (initStatus != TextToSpeech.SUCCESS || tts == null) {
                 offlineReady = false
                 statusText = "Không khởi tạo được bộ đọc trên thiết bị."
@@ -58,9 +58,6 @@ fun OfflineSpeakButton(
                 }
             }
         }
-        // Android normally calls the init listener asynchronously. This reference also
-        // covers engines whose callback is delivered before assignment completes.
-        val engineRefFallback = engine
         engineRef.value = engine
         onDispose {
             engine.stop()
