@@ -42,8 +42,10 @@ object ActiveLearningLogic {
         )?.type
     }
 
-    fun normalize(value: String): String =
-        value.trim().lowercase().replace(Regex("\\s+"), " ")
+    fun normalize(value: String): String = value.trim().lowercase()
+        .replace(Regex("[^\\\\p{L}\\\\p{N}]+"), " ")
+        .replace(Regex("\\\\s+"), " ")
+        .trim()
 
     /** Requires four non-empty, visibly distinct labels and exactly one target label. */
     fun hasFourValidChoices(labels: List<String>, targetLabel: String): Boolean {
