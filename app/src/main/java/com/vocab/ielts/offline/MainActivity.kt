@@ -398,15 +398,40 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 }
-                1 -> Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                    Text("Sổ tay từ vựng", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Thêm, chỉnh sửa hoặc xóa từ. Dữ liệu vẫn còn sau khi đóng app.", style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(10.dp))
+                1 -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(18.dp)
+                            ) {
+                                Text("📚", modifier = Modifier.padding(13.dp), fontSize = 28.sp)
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Sổ tay từ vựng", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text("Bộ từ của riêng bạn · tìm, lọc và ôn tập", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                            Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), shape = RoundedCornerShape(14.dp)) {
+                                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("🔤", fontSize = 18.sp)
+                                    Text("${words.size}", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Tìm từ, nghĩa, ví dụ, cụm từ, ghi chú, thẻ…") },
+                        label = { Text("🔎  Tìm từ, nghĩa, ví dụ hoặc ghi chú…") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         singleLine = true
                     )
@@ -414,7 +439,7 @@ private fun VocabApp(dao: WordDao) {
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("Tất cả", "Đến hạn", "Từ yếu", "Có thẻ").forEach { option ->
+                        listOf("✨ Tất cả", "⏰ Đến hạn", "💪 Từ yếu", "🏷️ Có thẻ").forEach { option ->
                             FilterChip(
                                 selected = libraryFilter == option,
                                 onClick = { libraryFilter = option },
@@ -430,7 +455,7 @@ private fun VocabApp(dao: WordDao) {
                             FilterChip(
                                 selected = selectedTopic == "Mọi chủ đề",
                                 onClick = { selectedTopic = "Mọi chủ đề" },
-                                label = { Text("Mọi chủ đề") }
+                                label = { Text("🌈 Mọi chủ đề") }
                             )
                             topics.forEach { topic ->
                                 FilterChip(
@@ -441,16 +466,21 @@ private fun VocabApp(dao: WordDao) {
                             }
                         }
                     }
-                    Text("Hiển thị ${filtered.size}/${words.size} từ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(14.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("📖  Đang hiển thị", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${filtered.size} / ${words.size} từ", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         OutlinedButton(
                             onClick = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
                             modifier = Modifier.weight(1f)
-                        ) { Text("Nhập CSV") }
+                        ) { Text("📥  Nhập CSV") }
                         OutlinedButton(
                             onClick = { exportLauncher.launch("vocab-words.csv") },
                             modifier = Modifier.weight(1f)
-                        ) { Text("Xuất CSV") }
+                        ) { Text("📤  Xuất CSV") }
                     }
                     Text("CSV hỗ trợ cột bắt buộc term và meaning; các cột ipa, partOfSpeech, example, topic là tùy chọn.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     BackupControls(dao = dao, onMessage = { csvMessage = it })
@@ -473,10 +503,20 @@ private fun VocabApp(dao: WordDao) {
                             }
                         }
                         items(filtered, key = { it.id }) { word ->
-                            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(word.term, Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Card(
+                                Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(14.dp)) {
+                                            Text("🔤", modifier = Modifier.padding(10.dp), fontSize = 21.sp)
+                                        }
+                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text(word.term, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, color = MaterialTheme.colorScheme.onSurface)
+                                            if (word.ipa.isNotBlank()) Text("🔊  ${word.ipa}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                         IconButton(onClick = { editorWord = word; showEditor = true }) {
                                             Icon(Icons.Default.Edit, contentDescription = "Sửa từ")
                                         }
@@ -484,16 +524,29 @@ private fun VocabApp(dao: WordDao) {
                                             Icon(Icons.Default.Delete, contentDescription = "Xóa từ")
                                         }
                                     }
-                                    if (word.ipa.isNotBlank() || word.partOfSpeech.isNotBlank()) Text(listOf(word.ipa, word.partOfSpeech).filter { it.isNotBlank() }.joinToString(" • "), style = MaterialTheme.typography.bodySmall)
-                                    Text(word.meaning)
-                                    if (word.example.isNotBlank()) Text(word.example, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (word.topic.isNotBlank()) Text(word.topic, style = MaterialTheme.typography.labelSmall)
-                                    if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
-                                    if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
-                                    if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
-                                    if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}", style = MaterialTheme.typography.labelSmall)
-                                    if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("SRS cấp ${word.srsLevel}/5 • Đã ôn ${word.reviewCount} lần", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    if (word.partOfSpeech.isNotBlank()) {
+                                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(9.dp)) {
+                                            Text("🏷️  ${word.partOfSpeech}", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                        }
+                                    }
+                                    Text("🇻🇳  ${word.meaning}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    if (word.example.isNotBlank()) {
+                                        Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp)) {
+                                            Text("💬  ${word.example}", Modifier.fillMaxWidth().padding(11.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    if (word.topic.isNotBlank()) Text("🌍  ${word.topic}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+                                    if (word.collocations.isNotBlank()) Text("🧩  Cụm từ: ${word.collocations}", style = MaterialTheme.typography.bodySmall)
+                                    if (word.synonyms.isNotBlank()) Text("🔁  Từ đồng nghĩa: ${word.synonyms}", style = MaterialTheme.typography.bodySmall)
+                                    if (word.wordFamily.isNotBlank()) Text("🌱  Họ từ: ${word.wordFamily}", style = MaterialTheme.typography.bodySmall)
+                                    if (word.tags.isNotBlank()) Text("🏷️  ${word.tags}", style = MaterialTheme.typography.labelSmall)
+                                    if (word.notes.isNotBlank()) Text("📝  ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
+                                        Row(Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text("🧠  SRS ${word.srsLevel}/5", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                                            Text("🔁 ${word.reviewCount} lần", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        }
+                                    }
                                 }
                             }
                         }
