@@ -649,18 +649,204 @@ private fun VocabApp(dao: WordDao) {
                     startWithDue = quizStartWithDue
                 )
                 else -> LazyColumn(
-                    Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    item { Text("Thống kê", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-                    item { StatCard("Tổng số từ", words.size.toString()) }
-                    item { StatCard("Đã ôn ít nhất một lần", words.count { it.reviewCount > 0 }.toString()) }
-                    item { StatCard("Tổng lượt ôn", words.sumOf { it.reviewCount }.toString()) }
-                    item { StatCard("Cấp SRS 5", words.count { it.srsLevel == 5 }.toString()) }
-                    item { StatCard("Từ đến hạn ôn", words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }.toString()) }
-                    item { StatCard("Tổng câu quiz", quizTotal.toString()) }
-                    item { StatCard("Tỷ lệ đúng quiz", if (quizTotal == 0) "Chưa có dữ liệu" else "${quizCorrect * 100 / quizTotal}%") }
-                    item { StatCard("Chuỗi ngày học hiện tại", "${StudyActivityTracker.activeDayCount(statsPrefs)} ngày") }
+                    val nowStats = System.currentTimeMillis()
+                    val dueCount = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= nowStats }
+                    val learnedCount = words.count { it.reviewCount > 0 }
+                    val masteredCount = words.count { it.srsLevel >= 4 }
+                    val weakWords = words.filter { it.lapseCount > 0 || (it.reviewCount > 0 && it.srsLevel <= 1) }
+                        .sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.srsLevel }.thenBy { it.term.lowercase() }).take(5)
+                    val week = StudyActivityTracker.lastSevenDays(statsPrefs)
+                    val activeDays = week.count { it.activities > 0 }
+                    val eventTotal = week.sumOf { it.activities }
+                    val maxActivity = week.maxOfOrNull { it.activities }?.coerceAtLeast(1) ?: 1
+                    val accuracy = if (quizTotal == 0) 0 else (quizCorrect * 100 / quizTotal)
+                    val topicProgress = LearningPathLogic.topics(words, nowStats).take(6)
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("BẢN ĐỒ TIẾN BỘ", style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.ExtraBold)
+                            Text("Thống kê học tập", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                            Text("Số liệu được tính từ hoạt động và sổ từ trên thiết bị này.",
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(26.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("Tổng quan của bạn", style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        Text(if (words.isEmpty()) "Nhập từ để bắt đầu tạo dữ liệu" else "$learnedCount / ${words.size} từ đã được ôn",
+                                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f))
+                                    }
+                                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary) {
+                                        Text("✦", modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                            color = MaterialTheme.colorScheme.onPrimary, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
+                                LinearProgressIndicator(
+                                    progress = { if (words.isEmpty()) 0f else learnedCount.toFloat() / words.size },
+                                    modifier = Modifier.fillMaxWidth().height(9.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMetric("📚", "Tổng từ", words.size.toString(), Modifier.weight(1f))
+                                    StatsMetric("⏰", "Đến hạn", dueCount.toString(), Modifier.weight(1f))
+                                    StatsMetric("🧠", "Vững", masteredCount.toString(), Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Độ chính xác khi luyện quiz", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(if (quizTotal == 0) "—" else "$accuracy%",
+                                        style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary)
+                                    Column(Modifier.weight(1f).padding(bottom = 5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("$quizCorrect câu đúng / $quizTotal câu đã trả lời", style = MaterialTheme.typography.bodyMedium)
+                                        Text(if (quizTotal == 0) "Chưa có dữ liệu — hãy thử một phiên quiz."
+                                            else if (accuracy >= 80) "Độ chính xác đang tốt. Tiếp tục ôn đều để duy trì."
+                                            else "Tập trung ôn lại các từ sai để cải thiện độ chính xác.",
+                                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                LinearProgressIndicator(progress = { accuracy / 100f }, modifier = Modifier.fillMaxWidth().height(8.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMini("Tổng lượt ôn", words.sumOf { it.reviewCount }.toString(), Modifier.weight(1f))
+                                    StatsMini("Chuỗi hiện tại", "${StudyActivityTracker.activeDayCount(statsPrefs)} ngày", Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Nhịp học 7 ngày", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                                        Text("$activeDays/7 ngày có hoạt động · $eventTotal lượt", style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text("▥", fontSize = 28.sp, color = MaterialTheme.colorScheme.primary)
+                                }
+                                week.forEach { day ->
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                                        Text(day.date.format(java.time.format.DateTimeFormatter.ofPattern("EEE")),
+                                            modifier = Modifier.width(38.dp), style = MaterialTheme.typography.labelMedium)
+                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            LinearProgressIndicator(
+                                                progress = { day.activities.toFloat() / maxActivity },
+                                                modifier = Modifier.fillMaxWidth().height(9.dp),
+                                                color = if (day.activities > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                            Text(day.date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")),
+                                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Text(day.activities.toString(), modifier = Modifier.width(25.dp),
+                                            fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                    }
+                                }
+                                HorizontalDivider()
+                                Text("Mỗi lượt được ghi nhận khi bạn trả lời quiz hoặc đánh giá thẻ ôn tập.",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Trạng thái ghi nhớ", modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                                    Text("SRS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                }
+                                StatsDistributionRow("Chưa ôn lần nào", words.count { it.reviewCount == 0 }, words.size,
+                                    MaterialTheme.colorScheme.outline)
+                                StatsDistributionRow("Đang xây dựng", words.count { it.reviewCount > 0 && it.srsLevel in 1..3 }, words.size,
+                                    MaterialTheme.colorScheme.primary)
+                                StatsDistributionRow("Ghi nhớ vững", masteredCount, words.size,
+                                    MaterialTheme.colorScheme.tertiary)
+                                StatsDistributionRow("Cần ôn ngay", dueCount, words.size,
+                                    MaterialTheme.colorScheme.secondary)
+                                Text("Các nhóm có thể chồng lấp ở trạng thái đến hạn; số từ đến hạn được tính theo lịch ôn.",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Tiến độ theo chủ đề", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                                if (topicProgress.isEmpty()) {
+                                    Text("Chưa có dữ liệu chủ đề. Hãy thêm từ và gán chủ đề trong sổ từ; biểu đồ sẽ cập nhật tự động.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    OutlinedButton(onClick = { tab = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Mở sổ từ") }
+                                } else {
+                                    topicProgress.forEach { topic ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(topic.topic, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                                                Text("${topic.percent}%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
+                                            }
+                                            LinearProgressIndicator(progress = { topic.percent / 100f },
+                                                modifier = Modifier.fillMaxWidth().height(7.dp))
+                                            Text("${topic.learned}/${topic.total} đã ôn · ${topic.due} đến hạn · ${topic.weak} cần củng cố",
+                                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    if (LearningPathLogic.topics(words, nowStats).size > topicProgress.size) {
+                                        Text("Mở Lộ trình để xem toàn bộ ${LearningPathLogic.topics(words, nowStats).size} chủ đề.",
+                                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        OutlinedButton(onClick = { tab = 2 }, modifier = Modifier.fillMaxWidth()) { Text("Xem toàn bộ lộ trình") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Từ cần củng cố", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                                Text("Ưu tiên các từ từng bị quên hoặc còn ở cấp ghi nhớ thấp.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (weakWords.isEmpty()) {
+                                    Text(if (words.isEmpty()) "Sổ từ đang trống — thêm từ để bắt đầu." else "Chưa có từ yếu được ghi nhận. Hãy tiếp tục luyện tập để xác định từ cần củng cố.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    weakWords.forEach { word ->
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                                Text("↻", modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Text(word.term, fontWeight = FontWeight.Bold)
+                                                Text(word.meaning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Column(horizontalAlignment = Alignment.End) {
+                                                Text("SRS ${word.srsLevel}/5", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                                Text("${word.lapseCount} lần quên", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                            }
+                                        }
+                                        HorizontalDivider()
+                                    }
+                                    OutlinedButton(onClick = { quizStartWithDue = false; tab = 3 }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Luyện tập ngay")
+                                    }
+                                }
+                            }
+                        }
+                    }
                     item {
                         AchievementSection(
                             totalWords = words.size,
@@ -671,72 +857,18 @@ private fun VocabApp(dao: WordDao) {
                         )
                     }
                     item {
-                        val week = StudyActivityTracker.lastSevenDays(statsPrefs)
-                        val activeDays = week.count { it.activities > 0 }
-                        val eventTotal = week.sumOf { it.activities }
-                        val maximum = week.maxOfOrNull { it.activities }?.coerceAtLeast(1) ?: 1
-                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Hoạt động 7 ngày gần nhất", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                Text("$activeDays/7 ngày có học • $eventTotal lượt luyện/ôn", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                week.forEach { day ->
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(day.date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")), modifier = Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)
-                                        LinearProgressIndicator(
-                                            progress = { day.activities.toFloat() / maximum },
-                                            modifier = Modifier.weight(1f).height(8.dp)
-                                        )
-                                        Text(day.activities.toString(), modifier = Modifier.width(24.dp), style = MaterialTheme.typography.bodySmall)
-                                    }
+                        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("🔒", fontSize = 22.sp)
+                                Column {
+                                    Text("Dữ liệu riêng tư, lưu trên thiết bị", fontWeight = FontWeight.Bold)
+                                    Text("Thống kê hoạt động ngoại tuyến; không cần tài khoản hay đồng bộ đám mây.",
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
                     }
-                    item {
-                        val topicProgress = LearningPathLogic.topics(words, System.currentTimeMillis()).take(5)
-                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("Tiến độ theo chủ đề", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                if (topicProgress.isEmpty()) {
-                                    Text("Thêm từ và gán chủ đề IELTS để theo dõi tiến độ từng chủ đề.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                } else {
-                                    topicProgress.forEach { topic ->
-                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(topic.topic, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                                                Text("${topic.percent}%")
-                                            }
-                                            LinearProgressIndicator(progress = { topic.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                                            Text("${topic.learned}/${topic.total} đã ôn • ${topic.due} đến hạn • ${topic.weak} từ yếu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    item {
-                        val priorityWords = words.filter { it.lapseCount > 0 }.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.term.lowercase() }).take(5)
-                        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Từ cần ưu tiên", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                if (priorityWords.isEmpty()) {
-                                    Text("Chưa có từ nào được ghi nhận là hay quên. Khi chọn “Lại” hoặc trả lời sai trong quiz, các từ cần luyện lại sẽ xuất hiện ở đây.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                } else {
-                                    priorityWords.forEach { word ->
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                Text(word.term, fontWeight = FontWeight.SemiBold)
-                                                Text(word.meaning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                            Text("${word.lapseCount} lần quên", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
-                                        }
-                                        HorizontalDivider()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    item { StatCard("Chế độ hoạt động", "Ngoại tuyến") }
                 }
             }
         }
@@ -909,6 +1041,40 @@ private fun WordEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Hủy") } }
     )
+}
+
+@Composable
+private fun StatsMetric(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(icon, fontSize = 19.sp)
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun StatsMini(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun StatsDistributionRow(label: String, count: Int, total: Int, tint: androidx.compose.ui.graphics.Color) {
+    val fraction = if (total == 0) 0f else (count.toFloat() / total).coerceIn(0f, 1f)
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Text("$count", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        }
+        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().height(8.dp),
+            color = tint, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+    }
 }
 
 @Composable
