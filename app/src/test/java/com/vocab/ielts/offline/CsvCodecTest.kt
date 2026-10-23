@@ -98,6 +98,7 @@ class CsvCodecTest {
         assertEquals(original.tags, restored.tags)
         assertEquals(original.srsLevel, restored.srsLevel)
         assertEquals(original.reviewCount, restored.reviewCount)
+        assertEquals(original.isNew, restored.isNew)
     }
     @Test fun importsTheRequestedIeltsCsvHeaderWithSynonymAlias() {
         val result = CsvCodec.parse("word,phonetic,pos,meaning,collocation,synonym,topic\nallocate,/ˈæləkeɪt/,verb,phân bổ,allocate resources,assign; distribute,Economy")
