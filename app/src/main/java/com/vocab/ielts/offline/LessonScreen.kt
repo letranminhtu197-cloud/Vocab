@@ -200,84 +200,192 @@ fun LearningPathScreen(
     val now = System.currentTimeMillis()
     val overall = LearningPathLogic.overall(words, now)
     val topics = LearningPathLogic.topics(words, now)
+    val mastered = words.count { it.srsLevel >= 4 }
+    val newWords = words.count { it.reviewCount == 0 }
+    val dueWords = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= now }
+    val maxTopicWords = topics.maxOfOrNull { it.total }?.coerceAtLeast(1) ?: 1
 
-    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         item {
-            Text("Lộ trình học", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                "Theo dõi tiến độ bằng chính bộ từ bạn tự nhập. Mỗi chủ đề có số từ đã học, từ đến hạn và từ cần luyện lại.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("LỘ TRÌNH CỦA BẠN", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.ExtraBold)
+                Text("Từng từ một. Tiến bộ mỗi ngày.", style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold)
+                Text("Lộ trình tự hình thành từ những từ bạn nhập và cách bạn ôn tập — không có tiến độ giả.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         item {
-            Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Tiến độ toàn bộ sổ từ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("${overall.learned}/${overall.total} từ đã được ôn ít nhất một lần • ${overall.percent}%", style = MaterialTheme.typography.bodyLarge)
-                    LinearProgressIndicator(progress = { overall.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                    Text("Số từ mỗi phiên", fontWeight = FontWeight.SemiBold)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf(5, 10, 15, 20).forEach { target ->
-                            FilterChip(
-                                selected = sessionSize == target,
-                                onClick = { onSessionSizeChange(target) },
-                                label = { Text("$target") }
-                            )
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary) {
+                            Text("✦", modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                color = MaterialTheme.colorScheme.onPrimary, fontSize = 24.sp, fontWeight = FontWeight.Black)
                         }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Bản đồ ghi nhớ", style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(if (words.isEmpty()) "Sẵn sàng cho từ đầu tiên của bạn"
+                                else "${overall.learned} / ${overall.total} từ đã được ôn",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f))
+                        }
+                        Text("${overall.percent}%", style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
+                    LinearProgressIndicator(
+                        progress = { overall.percent / 100f },
+                        modifier = Modifier.fillMaxWidth().height(9.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip(onClick = { onStart(null) }, label = { Text("Bắt đầu học") })
-                        AssistChip(onClick = onPractice, label = { Text("Luyện tập") })
+                        PathMetric("🌱", "Từ mới", newWords, Modifier.weight(1f))
+                        PathMetric("⏰", "Đến hạn", dueWords, Modifier.weight(1f))
+                        PathMetric("🏆", "Vững", mastered, Modifier.weight(1f))
+                    }
+                    Button(
+                        onClick = { if (words.isEmpty()) onOpenLibrary() else onStart(null) },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(17.dp)
+                    ) {
+                        Text(if (words.isEmpty()) "Thêm từ để bắt đầu" else "Tiếp tục hành trình",
+                            fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Card(Modifier.weight(1f)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Đến hạn", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(overall.due.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Card(shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Cài đặt phiên học", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Chọn số từ cho mỗi lượt. Phiên học ưu tiên từ mới, từ đến hạn và từ cần củng cố.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf(5, 10, 15, 20).forEach { target ->
+                            FilterChip(
+                                selected = sessionSize == target,
+                                onClick = { onSessionSizeChange(target) },
+                                label = { Text("$target từ") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
-                }
-                Card(Modifier.weight(1f)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Từ yếu", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(overall.weak.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onPractice, modifier = Modifier.weight(1f)) { Text("Luyện quiz") }
+                        OutlinedButton(onClick = onOpenLibrary, modifier = Modifier.weight(1f)) { Text("Quản lý từ") }
                     }
                 }
             }
         }
         if (words.isEmpty()) {
             item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Lộ trình bắt đầu từ bộ từ của bạn", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Chưa có từ vựng nên chưa thể tạo tiến độ chủ đề. Thêm từ thủ công hoặc nhập CSV; ứng dụng không tự tải bộ từ.")
+                Card(shape = RoundedCornerShape(22.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📚", fontSize = 42.sp)
+                        Text("Chặng đầu tiên đang chờ bạn", style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold)
+                        Text("Thêm từ thủ công hoặc nhập CSV của riêng bạn. Khi bạn bắt đầu ôn, lộ trình sẽ tự cập nhật.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Button(onClick = onOpenLibrary, modifier = Modifier.fillMaxWidth()) { Text("Mở sổ từ") }
                     }
                 }
             }
         } else {
-            item { Text("Các chặng theo chủ đề", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Các chặng học", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                        Text("${topics.size} chủ đề · sắp xếp theo tên", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                        Text(" ${topics.size} ", modifier = Modifier.padding(7.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
             items(topics, key = { it.topic }) { topic ->
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(topic.topic, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text("${topic.percent}%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                val topicTint = if (topic.weak > 0) MaterialTheme.colorScheme.secondaryContainer
+                    else MaterialTheme.colorScheme.tertiaryContainer
+                val topicOnTint = if (topic.weak > 0) MaterialTheme.colorScheme.onSecondaryContainer
+                    else MaterialTheme.colorScheme.onTertiaryContainer
+                Card(shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Surface(shape = RoundedCornerShape(15.dp), color = topicTint) {
+                                Text(if (topic.topic == "Chưa phân loại") "✧" else "◈",
+                                    modifier = Modifier.padding(12.dp), color = topicOnTint, fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(topic.topic, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                                Text("${topic.total} từ trong chặng", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text("${topic.percent}%", style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         }
-                        LinearProgressIndicator(progress = { topic.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                        Text("${topic.learned}/${topic.total} từ đã ôn • ${topic.due} đến hạn • ${topic.weak} từ yếu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = { onStart(topic.topic) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (topic.topic == "Chưa phân loại") "Học từ chưa phân loại" else "Bắt đầu chặng này")
+                        LinearProgressIndicator(
+                            progress = { topic.percent / 100f },
+                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                            color = if (topic.weak > 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                            PathMiniStat("Đã ôn", "${topic.learned}/${topic.total}", Modifier.weight(1f))
+                            PathMiniStat("Đến hạn", topic.due.toString(), Modifier.weight(1f))
+                            PathMiniStat("Cần củng cố", topic.weak.toString(), Modifier.weight(1f))
+                        }
+                        Button(onClick = { onStart(topic.topic) }, modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(15.dp)) {
+                            Text(if (topic.topic == "Chưa phân loại") "Học từ chưa phân loại" else "Bắt đầu chặng",
+                                fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
+        }
+        item {
+            Text("Tiến độ dựa trên lịch ôn và kết quả thực tế của bạn. Từ chưa được ôn sẽ không được tính là đã ghi nhớ.",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun PathMetric(icon: String, label: String, value: Int, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)) {
+        Column(Modifier.padding(horizontal = 9.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(icon, fontSize = 19.sp)
+            Text(value.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun PathMiniStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
