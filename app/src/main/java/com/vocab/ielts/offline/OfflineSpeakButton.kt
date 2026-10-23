@@ -17,7 +17,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun OfflineSpeakButton(text: String, label: String = "Nghe phát âm") {
+fun OfflineSpeakButton(
+    text: String,
+    label: String = "Nghe phát âm",
+    onAvailabilityChanged: (Boolean, String) -> Unit = { _, _ -> },
+    onAudioReplay: () -> Unit = {}
+) {
     val context = LocalContext.current
     val engineRef = remember { mutableStateOf<TextToSpeech?>(null) }
     var offlineReady by remember { mutableStateOf(false) }
@@ -26,11 +31,13 @@ fun OfflineSpeakButton(text: String, label: String = "Nghe phát âm") {
     DisposableEffect(context) {
         offlineReady = false
         statusText = "Đang kiểm tra giọng đọc ngoại tuyến…"
+        onAvailabilityChanged(false, statusText)
         val engine = TextToSpeech(context.applicationContext) { initStatus ->
-            val tts = engineRef.value
+            val tts = engineRef.value ?: engineRefFallback
             if (initStatus != TextToSpeech.SUCCESS || tts == null) {
                 offlineReady = false
                 statusText = "Không khởi tạo được bộ đọc trên thiết bị."
+                onAvailabilityChanged(false, statusText)
             } else {
                 val voice: Voice? = tts.voices
                     ?.filter { it.locale.language == "en" && !it.isNetworkConnectionRequired }
@@ -41,14 +48,19 @@ fun OfflineSpeakButton(text: String, label: String = "Nghe phát âm") {
                     ?.firstOrNull()
                 if (voice == null) {
                     offlineReady = false
-                    statusText = "Chưa có giọng tiếng Anh ngoại tuyến. Cài giọng đọc offline trong cài đặt Text-to-Speech của Android."
+                    statusText = "Chưa có giọng tiếng Anh ngoại tuyến. Kiểm tra cài đặt Text-to-Speech của Android."
+                    onAvailabilityChanged(false, statusText)
                 } else {
                     tts.voice = voice
                     offlineReady = true
-                    statusText = "Dùng giọng tiếng Anh có sẵn trên máy; không gọi dịch vụ mạng."
+                    statusText = "Đã sẵn sàng dùng giọng tiếng Anh có sẵn trên máy."
+                    onAvailabilityChanged(true, statusText)
                 }
             }
         }
+        // Android normally calls the init listener asynchronously. This reference also
+        // covers engines whose callback is delivered before assignment completes.
+        val engineRefFallback = engine
         engineRef.value = engine
         onDispose {
             engine.stop()
@@ -62,7 +74,14 @@ fun OfflineSpeakButton(text: String, label: String = "Nghe phát âm") {
             onClick = {
                 val value = text.trim()
                 if (offlineReady && value.isNotEmpty()) {
-                    engineRef.value?.speak(value, TextToSpeech.QUEUE_FLUSH, null, "vocab-offline-speech")
+                    val result = engineRef.value?.speak(value, TextToSpeech.QUEUE_FLUSH, null, "vocab-offline-speech")
+                    if (result == TextToSpeech.SUCCESS) {
+                        onAudioReplay()
+                        statusText = "Đang phát âm ngoại tuyến."
+                    } else {
+                        statusText = "Không phát được âm thanh. Bạn có thể chuyển sang dạng bài khác."
+                        onAvailabilityChanged(false, statusText)
+                    }
                 }
             },
             enabled = offlineReady && text.isNotBlank()
