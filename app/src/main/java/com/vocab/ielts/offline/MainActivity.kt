@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -269,7 +270,8 @@ private fun VocabApp(database: VocabDatabase) {
                 }
             }
         ) { padding ->
-            when (tab) {
+            tabStateHolder.SaveableStateProvider(key = tab.toString()) {
+                when (tab) {
                 0 -> LearningHomeScreen(
                     words = words,
                     dueCount = words.count { !it.isNew && !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis()) },
@@ -839,6 +841,7 @@ private fun VocabApp(database: VocabDatabase) {
                         }
                     }
                 }
+            }
             }
         }
     }
