@@ -7,10 +7,10 @@ import java.time.Duration
 
 class SrsSchedulerTest {
     private val now = Instant.parse("2026-10-21T10:00:00Z")
-    @Test fun newWordGoodStartsLevelOneAndSchedulesFourHours() {
+    @Test fun newWordGoodStartsLevelOneAndSchedulesOneDay() {
         val result = SrsScheduler.review(ReviewState(), ReviewRating.GOOD, now)
         assertEquals(1, result.level)
-        assertEquals(now.plus(Duration.ofHours(4)), result.nextReviewAt)
+        assertEquals(now.plus(Duration.ofDays(1)), result.nextReviewAt)
     }
     @Test fun againSchedulesTenMinutesAndCountsLapse() {
         val result = SrsScheduler.review(ReviewState(level=3), ReviewRating.AGAIN, now)
@@ -39,11 +39,11 @@ class SrsSchedulerTest {
         assertEquals("OVERDUE", SrsScheduler.goldenWindow(state, due.plus(Duration.ofHours(12))))
     }
 
-    @Test fun goodRatingFollowsTheFourHourToThirtyDayLadder() {
+    @Test fun goodRatingFollowsTheOneToThirtyDayLadder() {
         val levels = listOf(0, 1, 2, 3, 4, 5)
         val expectedIntervals = listOf(
-            Duration.ofHours(4), Duration.ofHours(24), Duration.ofHours(72),
-            Duration.ofHours(168), Duration.ofHours(720), Duration.ofHours(720)
+            Duration.ofDays(1), Duration.ofDays(3), Duration.ofDays(7),
+            Duration.ofDays(14), Duration.ofDays(30), Duration.ofDays(30)
         )
         levels.zip(expectedIntervals).forEach { (level, interval) ->
             val result = SrsScheduler.review(ReviewState(level = level), ReviewRating.GOOD, now)
@@ -67,9 +67,9 @@ class SrsSchedulerTest {
 
     @Test fun ratingLabelsMatchTheIntervalsUsedByTheScheduler() {
         assertEquals("10 phút", SrsScheduler.intervalLabel(0, ReviewRating.AGAIN))
-        assertEquals("2 giờ", SrsScheduler.intervalLabel(0, ReviewRating.HARD))
-        assertEquals("4 giờ", SrsScheduler.intervalLabel(0, ReviewRating.GOOD))
-        assertEquals("1 ngày", SrsScheduler.intervalLabel(0, ReviewRating.EASY))
-        assertEquals("12 giờ", SrsScheduler.intervalLabel(2, ReviewRating.HARD))
+        assertEquals("12 giờ", SrsScheduler.intervalLabel(0, ReviewRating.HARD))
+        assertEquals("1 ngày", SrsScheduler.intervalLabel(0, ReviewRating.GOOD))
+        assertEquals("3 ngày", SrsScheduler.intervalLabel(0, ReviewRating.EASY))
+        assertEquals("1 ngày 12 giờ", SrsScheduler.intervalLabel(2, ReviewRating.HARD))
     }
 }
