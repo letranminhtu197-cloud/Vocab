@@ -2,8 +2,7 @@ package com.vocab.ielts.offline
 
 object QuizLogic {
     fun normalizeAnswer(value: String): String = value.trim().lowercase()
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
-        .trim()
+        .replace(Regex("\\s+"), " ")
 
     fun isCorrectAnswer(answer: String, term: String): Boolean =
         normalizeAnswer(answer).isNotBlank() && normalizeAnswer(answer) == normalizeAnswer(term)
