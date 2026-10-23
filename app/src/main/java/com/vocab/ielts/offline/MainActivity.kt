@@ -681,6 +681,18 @@ private fun VocabApp(database: VocabDatabase) {
                                     }
                                 }
                                 StatsMini("Lượt phát âm", statsPrefs.getInt("audio_replay_count", 0).toString(), Modifier.fillMaxWidth())
+                                val matchAttempts = statsPrefs.getInt("match_attempts", 0)
+                                val matchCorrect = statsPrefs.getInt("match_correct", 0)
+                                val matchGames = statsPrefs.getInt("match_games_completed", 0)
+                                val matchAccuracy = if (matchAttempts == 0) "—" else "${matchCorrect * 100 / matchAttempts}%"
+                                Text("Trò chơi ghép cặp", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMini("Hoàn thành", matchGames.toString(), Modifier.weight(1f))
+                                    StatsMini("Lượt thử", matchAttempts.toString(), Modifier.weight(1f))
+                                    StatsMini("Độ chính xác", matchAccuracy, Modifier.weight(1f))
+                                }
+                                Text("Kết quả trò chơi được theo dõi riêng và không làm thay đổi lịch SRS.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
