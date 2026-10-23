@@ -66,7 +66,7 @@ fun LearningHomeScreen(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), shape = RoundedCornerShape(16.dp)) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text(if (words.isEmpty()) "Bắt đầu bằng cách nhập từ" else if (dueCount > 0) "Bắt đầu ôn SRS" else "Bắt đầu luyện tập",
+                        Text(if (words.isEmpty()) "Bắt đầu bằng cách nhập từ" else if (dueCount > 0) "Bắt đầu ôn SRS" else if (newCount > 0) "Học từ mới" else "Bắt đầu luyện tập",
                             fontWeight = FontWeight.Bold)
                     }
                     if (words.isEmpty()) {
