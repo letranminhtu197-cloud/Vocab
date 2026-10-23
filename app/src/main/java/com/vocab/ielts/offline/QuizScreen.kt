@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -68,9 +69,31 @@ fun QuizScreen(
     // Freeze the replay deck for the duration of a retry session. The unresolved set can shrink
     // after a correct answer, but changing the rendered deck mid-question would skip items.
     val retryDeckIds = remember { mutableStateListOf<Long>() }
-    val modeAttempts = remember { mutableStateMapOf<String, Int>() }
-    val modeCorrect = remember { mutableStateMapOf<String, Int>() }
-    val modeLastUsedAt = remember { mutableStateMapOf<String, Long>() }
+    val context = LocalContext.current
+    val exerciseStats = remember(context) { context.getSharedPreferences("vocab_exercise_history", 0) }
+    // Persist per-exercise history across process death/relaunch; only compact aggregate values
+    // are stored, so this remains fully offline and independent of vocabulary import/export.
+    val modeAttempts = remember(exerciseStats) {
+        mutableStateMapOf<String, Int>().apply {
+            exerciseStats.all.filterKeys { it.startsWith("attempts:") }.forEach { (key, value) ->
+                (value as? Int)?.let { put(key.removePrefix("attempts:"), it) }
+            }
+        }
+    }
+    val modeCorrect = remember(exerciseStats) {
+        mutableStateMapOf<String, Int>().apply {
+            exerciseStats.all.filterKeys { it.startsWith("correct:") }.forEach { (key, value) ->
+                (value as? Int)?.let { put(key.removePrefix("correct:"), it) }
+            }
+        }
+    }
+    val modeLastUsedAt = remember(exerciseStats) {
+        mutableStateMapOf<String, Long>().apply {
+            exerciseStats.all.filterKeys { it.startsWith("last_used:") }.forEach { (key, value) ->
+                (value as? Long)?.let { put(key.removePrefix("last_used:"), it) }
+            }
+        }
+    }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val topicScopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
@@ -125,8 +148,10 @@ fun QuizScreen(
     }
     fun recordAnswer(wordToRecord: WordEntity, correct: Boolean) {
         sessionAttempts += 1
-        modeAttempts[mode] = (modeAttempts[mode] ?: 0) + 1
-        modeLastUsedAt[mode] = System.currentTimeMillis()
+        val updatedAttempts = (modeAttempts[mode] ?: 0) + 1
+        val now = System.currentTimeMillis()
+        modeAttempts[mode] = updatedAttempts
+        modeLastUsedAt[mode] = now
         if (correct) {
             sessionCorrect += 1
             modeCorrect[mode] = (modeCorrect[mode] ?: 0) + 1
@@ -134,6 +159,11 @@ fun QuizScreen(
         } else if (wordToRecord.id !in wrongWordIds) {
             wrongWordIds.add(wordToRecord.id)
         }
+        exerciseStats.edit()
+            .putInt("attempts:$mode", modeAttempts[mode] ?: 0)
+            .putInt("correct:$mode", modeCorrect[mode] ?: 0)
+            .putLong("last_used:$mode", now)
+            .apply()
         onAnswerRecorded(wordToRecord, correct, isSrsReview)
     }
     fun submitTypedAnswer() {
