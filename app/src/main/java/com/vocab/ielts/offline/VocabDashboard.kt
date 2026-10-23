@@ -154,6 +154,34 @@ fun DashboardOverview(
 
         DailyGoalCard(activities = todayActivities, goal = dailyGoal, onGoalChange = onGoalChange)
 
+        // Small visual legend makes the main actions scannable at a glance.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            QuickVisualBadge(
+                icon = "🧠",
+                title = "Ghi nhớ",
+                subtitle = "Nhớ chủ động",
+                modifier = Modifier.weight(1f),
+                tint = Color(0xFFEAE2FF)
+            )
+            QuickVisualBadge(
+                icon = "🎧",
+                title = "Nghe",
+                subtitle = "Luyện phát âm",
+                modifier = Modifier.weight(1f),
+                tint = Color(0xFFFFE7DE)
+            )
+            QuickVisualBadge(
+                icon = "✍️",
+                title = "Vận dụng",
+                subtitle = "Dùng từ mới",
+                modifier = Modifier.weight(1f),
+                tint = Color(0xFFDDF7EB)
+            )
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             DashboardAction("Sổ từ", "", Icons.Default.MenuBook, Modifier.weight(1f), onOpenLibrary)
             DashboardAction("Lộ trình", "", Icons.Default.School, Modifier.weight(1f), onOpenLearningPath)
@@ -219,6 +247,39 @@ private fun DailyGoalCard(activities: Int, goal: Int, onGoalChange: (Int) -> Uni
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickVisualBadge(
+    icon: String,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    tint: Color
+) {
+    Surface(
+        modifier = modifier,
+        color = tint,
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(icon, fontSize = 25.sp)
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF30234D)
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF594F69)
+            )
         }
     }
 }
