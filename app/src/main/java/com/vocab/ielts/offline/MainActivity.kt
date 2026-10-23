@@ -235,7 +235,7 @@ private fun VocabApp(dao: WordDao) {
             },
             bottomBar = {
                 NavigationBar {
-                    listOf("Trang chủ", "Sổ từ", "Lộ trình", "Ôn tập", "Thống kê").forEachIndexed { i, label ->
+                    listOf(0 to "Học", 1 to "Sổ từ", 3 to "Luyện", 4 to "Tiến độ").forEach { (i, label) ->
                         NavigationBarItem(
                             selected = tab == i,
                             onClick = {
@@ -247,7 +247,6 @@ private fun VocabApp(dao: WordDao) {
                                     when (i) {
                                         0 -> Icons.Default.Home
                                         1 -> Icons.Default.MenuBook
-                                        2 -> Icons.Default.School
                                         3 -> Icons.Default.Refresh
                                         else -> Icons.Default.QueryStats
                                     },
