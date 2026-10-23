@@ -74,9 +74,13 @@ fun QuizScreen(
     val topicScopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
     }
-    val nowForQueue = System.currentTimeMillis()
-    val scopedWords = if (isSrsReview) topicScopedWords.filter {
-        !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= nowForQueue)
+    // Freeze the eligible SRS deck for this session. Updating a reviewed word's due date must
+    // not remove it from the rendered list and accidentally skip the next question.
+    val scopedWords = if (isSrsReview) remember(isSrsReview, selectedTopic) {
+        val nowForQueue = System.currentTimeMillis()
+        topicScopedWords.filter {
+            !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= nowForQueue)
+        }
     } else topicScopedWords
     val weakWords = scopedWords.filter { it.lapseCount > 0 }
     val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
