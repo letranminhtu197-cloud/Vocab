@@ -58,7 +58,7 @@ fun DashboardOverview(
                 modifier = Modifier.fillMaxWidth().padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("GÓC HỌC TẬP CỦA BẠN", style = MaterialTheme.typography.labelMedium,
+                Text("HÔM NAY", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Text(
                     if (totalWords == 0) "Bắt đầu từ bộ từ của bạn" else "Mỗi ngày tiến thêm một chút",
@@ -66,13 +66,12 @@ fun DashboardOverview(
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Text(
-                    if (totalWords == 0)
-                        "Nhập CSV hoặc tự thêm từ để tạo bộ từ IELTS của riêng bạn. Vocab không tự nạp danh sách từ."
-                    else
-                        "Bạn có $totalWords mục từ riêng. Ưu tiên ôn từ đến hạn trước để giữ nhịp ghi nhớ.",
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                if (totalWords > 0 && dueWords > 0) {
+                    Text(
+                        "Bạn có $dueWords từ cần ôn.",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     DashboardMetric("Đến hạn", dueWords.toString(), Modifier.weight(1f))
                     DashboardMetric("Đã ôn", learnedWords.toString(), Modifier.weight(1f))
@@ -110,9 +109,9 @@ fun DashboardOverview(
         DailyGoalCard(activities = todayActivities, goal = dailyGoal, onGoalChange = onGoalChange)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            DashboardAction("Sổ từ", "Quản lý từ", Icons.Default.MenuBook, Modifier.weight(1f), onOpenLibrary)
-            DashboardAction("Lộ trình", "Theo chủ đề", Icons.Default.School, Modifier.weight(1f), onOpenLearningPath)
-            DashboardAction("Thống kê", "Xem tiến độ", Icons.Default.QueryStats, Modifier.weight(1f), onOpenStats)
+            DashboardAction("Sổ từ", "", Icons.Default.MenuBook, Modifier.weight(1f), onOpenLibrary)
+            DashboardAction("Lộ trình", "", Icons.Default.School, Modifier.weight(1f), onOpenLearningPath)
+            DashboardAction("Tiến độ", "", Icons.Default.QueryStats, Modifier.weight(1f), onOpenStats)
         }
     }
 }
@@ -151,12 +150,11 @@ private fun DailyGoalCard(activities: Int, goal: Int, onGoalChange: (Int) -> Uni
             }
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp))
             Text(
-                if (activities >= safeGoal) "Đã đạt mục tiêu hôm nay. Hãy duy trì nhịp học bền vững!"
-                else "Còn ${StudyGoalLogic.remaining(activities, safeGoal)} lượt để hoàn thành mục tiêu.",
+                if (activities >= safeGoal) "Hoàn thành mục tiêu!"
+                else "Còn ${StudyGoalLogic.remaining(activities, safeGoal)} lượt",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text("Chọn mục tiêu lượt học mỗi ngày", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -194,7 +192,9 @@ private fun DashboardAction(
         ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (subtitle.isNotBlank()) {
+                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
