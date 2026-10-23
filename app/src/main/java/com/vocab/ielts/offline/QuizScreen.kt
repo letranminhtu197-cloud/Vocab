@@ -333,7 +333,7 @@ fun QuizScreen(
                         if (isSrsReview) Text("SRS", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                     Text(
-                        "Đã trả lời: $attempts · Còn lại: ${(targetDeck.size - index).coerceAtLeast(0)} từ trong lượt này",
+                        "Đã trả lời: $attempts · Còn lại: ${(targetDeck.size - index - if (answered) 1 else 0).coerceAtLeast(0)} từ trong lượt này",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -357,8 +357,16 @@ fun QuizScreen(
                             if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
                             if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}")
                             if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
-                            Button(onClick = { onNewWordIntroduced(word); index++; resetAnswerState() }, modifier = Modifier.fillMaxWidth()) {
-                                Text(if (index + 1 >= targetDeck.size) "Hoàn tất làm quen" else "Từ tiếp theo")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { index = (index - 1).coerceAtLeast(0); resetAnswerState() },
+                                    enabled = index > 0,
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Từ trước") }
+                                Button(
+                                    onClick = { onNewWordIntroduced(word); index++; resetAnswerState() },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text(if (index + 1 >= targetDeck.size) "Hoàn tất" else "Từ tiếp theo") }
                             }
                         } else {
                             Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện nghĩa và ví dụ") }
