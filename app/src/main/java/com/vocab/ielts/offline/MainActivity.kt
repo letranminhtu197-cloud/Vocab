@@ -98,7 +98,8 @@ private fun VocabApp(dao: WordDao) {
         }
         matchesQuery && matchesMode && (selectedTopic == "Mọi chủ đề" || word.topic.trim().equals(selectedTopic, ignoreCase = true))
     }
-    val reviewDeck = if (dueOnly) words.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() } else words
+    val reviewableWords = words.filterNot { it.excludedFromReview }
+    val reviewDeck = if (dueOnly) reviewableWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() } else reviewableWords
     val current = reviewDeck.getOrNull(currentIndex.coerceIn(0, (reviewDeck.size - 1).coerceAtLeast(0)))
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -541,6 +542,12 @@ private fun VocabApp(dao: WordDao) {
                                     if (word.wordFamily.isNotBlank()) Text("🌱  Họ từ: ${word.wordFamily}", style = MaterialTheme.typography.bodySmall)
                                     if (word.tags.isNotBlank()) Text("🏷️  ${word.tags}", style = MaterialTheme.typography.labelSmall)
                                     if (word.notes.isNotBlank()) Text("📝  ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(if (word.excludedFromReview) "Đã tạm bỏ khỏi lịch ôn" else "Đang nằm trong lịch ôn", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = if (word.excludedFromReview) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
+                                        TextButton(onClick = {
+                                            scope.launch { dao.update(word.copy(excludedFromReview = !word.excludedFromReview)) }
+                                        }) { Text(if (word.excludedFromReview) "Đưa lại vào ôn" else "Bỏ khỏi ôn") }
+                                    }
                                     Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
                                         Row(Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text("🧠  SRS ${word.srsLevel}/5", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
@@ -994,6 +1001,7 @@ private fun WordEditorDialog(
     var wordFamily by remember(initial?.id) { mutableStateOf(initial?.wordFamily.orEmpty()) }
     var notes by remember(initial?.id) { mutableStateOf(initial?.notes.orEmpty()) }
     var tags by remember(initial?.id) { mutableStateOf(initial?.tags.orEmpty()) }
+    var excludedFromReview by remember(initial?.id) { mutableStateOf(initial?.excludedFromReview ?: false) }
     val canSave = term.isNotBlank() && meaning.isNotBlank()
 
     AlertDialog(
@@ -1015,6 +1023,13 @@ private fun WordEditorDialog(
                 OutlinedTextField(wordFamily, { wordFamily = it }, label = { Text("Word family / họ từ") }, minLines = 2)
                 OutlinedTextField(tags, { tags = it }, label = { Text("Tags / thẻ (phân tách bằng dấu phẩy)") }, minLines = 2)
                 OutlinedTextField(notes, { notes = it }, label = { Text("Ghi chú cá nhân") }, minLines = 2)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = excludedFromReview, onCheckedChange = { excludedFromReview = it })
+                    Column(Modifier.weight(1f)) {
+                        Text("Không đưa từ này vào lịch ôn")
+                        Text("Từ vẫn được giữ trong sổ và có thể tìm kiếm; lịch sử ghi nhớ không bị xóa.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 Text("* Bắt buộc", style = MaterialTheme.typography.labelSmall)
             }
         },
@@ -1034,7 +1049,8 @@ private fun WordEditorDialog(
                         synonyms = synonyms.trim(),
                         wordFamily = wordFamily.trim(),
                         notes = notes.trim(),
-                        tags = tags.trim()
+                        tags = tags.trim(),
+                        excludedFromReview = excludedFromReview
                     ))
                 }
             ) { Text("Lưu") }
