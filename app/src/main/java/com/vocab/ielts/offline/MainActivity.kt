@@ -188,7 +188,6 @@ private fun VocabApp(dao: WordDao) {
                     title = {
                         Column {
                             Text("Vocab", fontWeight = FontWeight.Bold)
-                            Text("IELTS Vocabulary • Offline", fontSize = 12.sp)
                         }
                     },
                     actions = {
