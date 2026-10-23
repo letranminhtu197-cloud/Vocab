@@ -660,6 +660,15 @@ private fun VocabApp(database: VocabDatabase) {
                                         )
                                     }
                                 }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMini("Từ luyện tự do", uniqueWordAnalytics.first.toString(), Modifier.weight(1f))
+                                    StatsMini("Từ ôn qua SRS", uniqueWordAnalytics.second.toString(), Modifier.weight(1f))
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMini("Phiên hoàn tất", sessionAnalytics.first.toString(), Modifier.weight(1f))
+                                    val averageMinutes = if (sessionAnalytics.first == 0) 0L else sessionAnalytics.second / sessionAnalytics.first / 60_000L
+                                    StatsMini("Thời lượng TB", if (sessionAnalytics.first == 0) "—" else "$averageMinutes phút", Modifier.weight(1f))
+                                }
                                 StatsMini("Lượt phát âm", statsPrefs.getInt("audio_replay_count", 0).toString(), Modifier.fillMaxWidth())
                                 val matchAttempts = statsPrefs.getInt("match_attempts", 0)
                                 val matchCorrect = statsPrefs.getInt("match_correct", 0)
