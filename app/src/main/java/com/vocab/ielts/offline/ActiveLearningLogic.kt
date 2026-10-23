@@ -1,7 +1,7 @@
 package com.vocab.ielts.offline
 
-/** Validates exercises using only vocabulary data supplied by the learner. */
-enum class ActiveExerciseType { MULTIPLE_CHOICE, LISTEN_AND_TYPE, CLOZE }
+/** Exercise types that require active recall; multiple-choice has intentionally been removed. */
+enum class ActiveExerciseType { DEFINITION_TO_TERM, LISTEN_AND_TYPE, CLOZE }
 
 data class ExerciseEvidence(
     val type: ActiveExerciseType,
@@ -14,13 +14,14 @@ data class ExerciseEvidence(
 data class MatchPair(val wordId: Long, val term: String, val meaning: String)
 
 object ActiveLearningLogic {
+    // Prioritize written recall; audio and contextual recall remain available when source data supports them.
     private val targetShare = mapOf(
-        ActiveExerciseType.MULTIPLE_CHOICE to 20,
+        ActiveExerciseType.DEFINITION_TO_TERM to 45,
         ActiveExerciseType.LISTEN_AND_TYPE to 30,
-        ActiveExerciseType.CLOZE to 50
+        ActiveExerciseType.CLOZE to 25
     )
 
-    /** Picks among valid exercises; invalid/missing source data is never replaced with invented data. */
+    /** Selects only exercises supported by the learner's stored data. */
     fun chooseNext(
         evidence: List<ExerciseEvidence>,
         nowMillis: Long,
@@ -44,16 +45,7 @@ object ActiveLearningLogic {
 
     fun normalize(value: String): String = QuizLogic.normalizeAnswer(value)
 
-    /** Requires four non-empty, visibly distinct labels and exactly one target label. */
-    fun hasFourValidChoices(labels: List<String>, targetLabel: String): Boolean {
-        val target = normalize(targetLabel)
-        val normalized = labels.map(::normalize)
-        return target.isNotBlank() && normalized.size == 4 &&
-            normalized.all { it.isNotBlank() } && normalized.distinct().size == 4 &&
-            normalized.count { it == target } == 1
-    }
-
-    /** Accept a cloze only when the target occurs exactly once as a whole word/phrase. */
+    /** Accepts a cloze only when the stored target occurs exactly once as a whole word/phrase. */
     fun validatedCloze(example: String, term: String): String? {
         if (example.isBlank() || term.isBlank()) return null
         val pattern = Regex(
