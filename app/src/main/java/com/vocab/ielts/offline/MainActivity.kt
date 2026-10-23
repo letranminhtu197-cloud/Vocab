@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.room.withTransaction
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
@@ -42,13 +43,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = VocabDatabase.getInstance(applicationContext)
-        setContent { VocabApp(database.wordDao()) }
+        setContent { VocabApp(database) }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VocabApp(dao: WordDao) {
+private fun VocabApp(database: VocabDatabase) {
+    val dao = database.wordDao()
     var tab by remember { mutableIntStateOf(0) }
     var quizStartWithDue by remember { mutableStateOf(true) }
     var learningPathTopic by remember { mutableStateOf<String?>(null) }
@@ -488,39 +490,62 @@ private fun VocabApp(dao: WordDao) {
                     modifier = Modifier.fillMaxSize().padding(padding),
                     sessionScore = quizSessionCorrect,
                     sessionTotal = quizSessionTotal,
-                    onAnswerRecorded = { word, correct, applySrs ->
-                        StudyActivityTracker.recordEvent(statsPrefs)
-                        quizTotal += 1
-                        quizSessionTotal += 1
-                        if (correct) {
-                            quizCorrect += 1
-                            quizSessionCorrect += 1
-                        }
-                        statsPrefs.edit()
-                            .putInt("quiz_total", quizTotal)
-                            .putInt("quiz_correct", quizCorrect)
-                            .putInt("quiz_session_total", quizSessionTotal)
-                            .putInt("quiz_session_correct", quizSessionCorrect)
-                            .apply()
-                        if (applySrs) {
-                            val now = Instant.now()
-                            val previous = ReviewState(
-                                level = word.srsLevel,
-                                nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                                reviewCount = word.reviewCount,
-                                lapseCount = word.lapseCount
-                            )
-                            val rating = if (correct) ReviewRating.GOOD else ReviewRating.AGAIN
-                            val next = SrsScheduler.review(previous, rating, now)
-                            scope.launch {
-                                dao.update(word.copy(
-                                    srsLevel = next.level,
-                                    nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                    reviewCount = next.reviewCount,
-                                    lapseCount = next.lapseCount,
-                                    lastReviewedAtMillis = now.toEpochMilli(),
-                                    isNew = false
-                                ))
+                    onAnswerRecorded = { word, correct, applySrs, attemptId, exerciseType ->
+                        val answeredAt = System.currentTimeMillis()
+                        scope.launch {
+                            val inserted = database.withTransaction {
+                                val rowId = dao.insertAttempt(
+                                    LearningAttemptEntity(
+                                        attemptId = attemptId,
+                                        wordId = word.id,
+                                        exerciseType = exerciseType.name,
+                                        isCorrect = correct,
+                                        isSrsReview = applySrs,
+                                        answeredAtMillis = answeredAt
+                                    )
+                                )
+                                if (rowId == -1L) {
+                                    false
+                                } else {
+                                    if (applySrs) {
+                                        val latestWord = dao.findById(word.id)
+                                        if (latestWord != null) {
+                                            val now = Instant.ofEpochMilli(answeredAt)
+                                            val previous = ReviewState(
+                                                level = latestWord.srsLevel,
+                                                nextReviewAt = latestWord.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
+                                                reviewCount = latestWord.reviewCount,
+                                                lapseCount = latestWord.lapseCount
+                                            )
+                                            val rating = if (correct) ReviewRating.GOOD else ReviewRating.AGAIN
+                                            val next = SrsScheduler.review(previous, rating, now)
+                                            dao.update(latestWord.copy(
+                                                srsLevel = next.level,
+                                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                                reviewCount = next.reviewCount,
+                                                lapseCount = next.lapseCount,
+                                                lastReviewedAtMillis = now.toEpochMilli(),
+                                                isNew = false
+                                            ))
+                                        }
+                                    }
+                                    true
+                                }
+                            }
+                            if (inserted) {
+                                StudyActivityTracker.recordEvent(statsPrefs)
+                                quizTotal += 1
+                                quizSessionTotal += 1
+                                if (correct) {
+                                    quizCorrect += 1
+                                    quizSessionCorrect += 1
+                                }
+                                statsPrefs.edit()
+                                    .putInt("quiz_total", quizTotal)
+                                    .putInt("quiz_correct", quizCorrect)
+                                    .putInt("quiz_session_total", quizSessionTotal)
+                                    .putInt("quiz_session_correct", quizSessionCorrect)
+                                    .apply()
                             }
                         }
                     },
