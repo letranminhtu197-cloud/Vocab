@@ -271,7 +271,8 @@ fun QuizScreen(
             }
         } else if (word != null) {
             val activeType = if (isSrsReview) {
-                pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
+                if (answered) lastType ?: pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
+                else pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
             } else when (mode) {
                 MODE_LISTEN -> ActiveExerciseType.LISTEN_AND_TYPE
                 MODE_CLOZE -> ActiveExerciseType.CLOZE
