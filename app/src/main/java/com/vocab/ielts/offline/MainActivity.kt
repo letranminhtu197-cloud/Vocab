@@ -647,6 +647,9 @@ private fun VocabApp(dao: WordDao) {
                             }
                         }
                     },
+                    onNewWordIntroduced = { word ->
+                        scope.launch { dao.update(word.copy(isNew = false)) }
+                    },
                     onSessionReset = {
                         quizSessionCorrect = 0
                         quizSessionTotal = 0
