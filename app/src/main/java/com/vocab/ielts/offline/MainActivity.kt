@@ -646,15 +646,6 @@ private fun VocabApp(dao: WordDao) {
                                 ))
                             }
                         }
-                    },                        scope.launch {
-                            dao.update(word.copy(
-                                srsLevel = next.level,
-                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                reviewCount = next.reviewCount,
-                                lapseCount = next.lapseCount,
-                                lastReviewedAtMillis = now.toEpochMilli()
-                            ))
-                        }
                     },
                     onSessionReset = {
                         quizSessionCorrect = 0
