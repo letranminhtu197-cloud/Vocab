@@ -19,8 +19,8 @@ fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
     var selectedMeaning by remember { mutableStateOf<Long?>(null) }
     var attempts by remember { mutableIntStateOf(0) }
     var feedback by remember { mutableStateOf<String?>(null) }
-    val canCheck = selectedTerm != null && selectedMeaning != null &&
-        selectedTerm !in matched && selectedMeaning !in matched
+    val canCheck = selectedTerm?.let { it !in matched } == true &&
+        selectedMeaning?.let { it !in matched } == true
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Trò chơi ghép từ", fontWeight = FontWeight.Bold) },
