@@ -18,8 +18,8 @@ object LearningPathLogic {
                     topic = topic,
                     total = group.size,
                     learned = group.count { it.reviewCount > 0 },
-                    due = group.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= nowMillis },
-                    weak = group.count { it.lapseCount > 0 }
+                    due = group.count { WordStatus.isDue(it, nowMillis) },
+                    weak = group.count { WordStatus.isWeak(it) }
                 )
             }
             .sortedWith(compareBy<TopicProgress> { it.topic == "Chưa phân loại" }.thenBy { it.topic.lowercase() })

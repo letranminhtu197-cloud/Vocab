@@ -5,8 +5,20 @@ object QuizLogic {
         .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
         .trim()
 
-    fun isCorrectAnswer(answer: String, term: String): Boolean =
-        normalizeAnswer(answer).isNotBlank() && normalizeAnswer(answer) == normalizeAnswer(term)
+    /**
+     * Bỏ toàn bộ dấu phân cách (khoảng trắng, gạch nối, nháy) để "well-being",
+     * "well being" và "wellbeing" được chấp nhận như nhau. Chỉ dùng để so sánh
+     * đáp án gõ tay, không dùng để hiển thị.
+     */
+    fun compactAnswer(value: String): String = normalizeAnswer(value).replace(" ", "")
+
+    fun isCorrectAnswer(answer: String, term: String): Boolean {
+        val normalizedAnswer = normalizeAnswer(answer)
+        val normalizedTerm = normalizeAnswer(term)
+        if (normalizedAnswer.isBlank() || normalizedTerm.isBlank()) return false
+        return normalizedAnswer == normalizedTerm ||
+            compactAnswer(normalizedAnswer) == compactAnswer(normalizedTerm)
+    }
 
     fun choiceLabel(word: WordEntity, mode: String): String = when (mode) {
         "Tìm từ" -> word.term

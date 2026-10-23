@@ -83,6 +83,18 @@ class QuizLogicTest {
         assertTrue(QuizLogic.isCorrectAnswer("  SUSTAINABLE! ", "sustainable"))
         assertFalse(QuizLogic.isCorrectAnswer("sustain", "sustainable"))
     }
+    @Test fun hyphenAndSpaceVariantsAreAccepted() {
+        assertTrue(QuizLogic.isCorrectAnswer("wellbeing", "well-being"))
+        assertTrue(QuizLogic.isCorrectAnswer("well being", "well-being"))
+        assertTrue(QuizLogic.isCorrectAnswer("ice-cream", "ice cream"))
+        assertTrue(QuizLogic.isCorrectAnswer("dont", "don't"))
+    }
+
+    @Test fun separatorInsensitivityDoesNotAcceptDifferentWords() {
+        assertFalse(QuizLogic.isCorrectAnswer("ice", "ice cream"))
+        assertFalse(QuizLogic.isCorrectAnswer("well", "well-being"))
+    }
+
     @Test fun dueFlashcardIndexResetsToStart() {
         assertEquals(0, FlashcardLogic.nextIndexAfterRating(2, 3, true))
     }

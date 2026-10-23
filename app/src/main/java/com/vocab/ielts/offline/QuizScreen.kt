@@ -25,6 +25,8 @@ private const val QUIZ_DUE = "Đến hạn"
 private const val QUIZ_COLLOCATIONS = "Cụm từ"
 private const val QUIZ_FAMILY = "Họ từ"
 private const val QUIZ_SYNONYMS = "Từ đồng nghĩa"
+private const val QUIZ_SCRAMBLE = "Xáo chữ"
+private const val QUIZ_LISTEN_CHOICE = "Nghe chọn nghĩa"
 
 @Composable
 fun QuizScreen(
@@ -34,9 +36,23 @@ fun QuizScreen(
     sessionTotal: Int,
     onAnswerRecorded: (WordEntity, Boolean) -> Unit,
     onSessionReset: () -> Unit,
-    startWithDue: Boolean = false
+    startWithDue: Boolean = false,
+    focusWordId: Long? = null,
+    dueLimit: Int = Int.MAX_VALUE,
+    onClearFocus: () -> Unit = {}
 ) {
-    var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) QUIZ_DUE else QUIZ_MEANING) }
+    val focusWord = remember(focusWordId, words) {
+        focusWordId?.let { id -> words.firstOrNull { it.id == id } }
+    }
+    var mode by remember(startWithDue, focusWordId) {
+        mutableStateOf(
+            when {
+                focusWord != null -> QUIZ_TYPED
+                startWithDue -> QUIZ_DUE
+                else -> QUIZ_MEANING
+            }
+        )
+    }
     var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
     var index by remember { mutableIntStateOf(0) }
     var selectedId by remember { mutableStateOf<Long?>(null) }
@@ -44,6 +60,7 @@ fun QuizScreen(
     var answered by remember { mutableStateOf(false) }
     var lastCorrect by remember { mutableStateOf<Boolean?>(null) }
     var showSummary by remember { mutableStateOf(false) }
+    var showAllModes by remember { mutableStateOf(false) }
     var retryWrongOnly by remember { mutableStateOf(false) }
     var sessionAttempts by remember { mutableIntStateOf(0) }
     var sessionCorrect by remember { mutableIntStateOf(0) }
@@ -54,11 +71,16 @@ fun QuizScreen(
     val modeAttempts = remember { mutableStateMapOf<String, Int>() }
     val modeCorrect = remember { mutableStateMapOf<String, Int>() }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
-    val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
-        it.topic.trim().equals(selectedTopic, ignoreCase = true)
+    val reviewableWords = words.filter { !it.paused }
+    val scopedWords = when {
+        focusWord != null -> listOf(focusWord)
+        selectedTopic == "Tất cả chủ đề" -> reviewableWords
+        else -> reviewableWords.filter { it.topic.trim().equals(selectedTopic, ignoreCase = true) }
     }
-    val weakWords = scopedWords.filter { it.lapseCount > 0 }
-    val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
+    val weakWords = scopedWords.filter { WordStatus.isWeak(it) }
+    val dueWords = scopedWords
+        .filter { WordStatus.isDue(it, System.currentTimeMillis()) }
+        .let { due -> if (dueLimit > 0) due.take(dueLimit) else due }
     val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
     val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
     val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
@@ -79,6 +101,9 @@ fun QuizScreen(
         else -> scopedWords
     }
     val word = activeWords.getOrNull(if (activeWords.isEmpty()) 0 else index % activeWords.size)
+    val scrambleText = remember(word?.id) {
+        word?.let { ScrambleLogic.scramble(it.term, it.id) }.orEmpty()
+    }
     val options = remember(word?.id, optionPool.map { it.id }, optionPool.map { QuizLogic.choiceLabel(it, mode) }, mode) {
         if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, optionPool, mode)
     }
@@ -192,26 +217,78 @@ fun QuizScreen(
                 }
             }
         }
-        item {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            ) {
-                FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
-                FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
-                FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
-                FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
-                FilterChip(selected = mode == QUIZ_SPEAKING, onClick = { resetForMode(QUIZ_SPEAKING) }, label = { Text(QUIZ_SPEAKING) })
-                FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
-                FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
-                FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
-                FilterChip(selected = mode == QUIZ_DUE, onClick = { resetForMode(QUIZ_DUE) }, label = { Text("$QUIZ_DUE (${dueWords.size})") })
-                FilterChip(selected = mode == QUIZ_COLLOCATIONS, onClick = { resetForMode(QUIZ_COLLOCATIONS) }, label = { Text("$QUIZ_COLLOCATIONS (${collocationWords.size})") })
-                FilterChip(selected = mode == QUIZ_FAMILY, onClick = { resetForMode(QUIZ_FAMILY) }, label = { Text("$QUIZ_FAMILY (${familyWords.size})") })
-                FilterChip(selected = mode == QUIZ_SYNONYMS, onClick = { resetForMode(QUIZ_SYNONYMS) }, label = { Text("$QUIZ_SYNONYMS (${synonymWords.size})") })
+        if (focusWord != null) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("Đang luyện riêng: ${focusWord.term}", fontWeight = FontWeight.Bold)
+                        Text(
+                            "Từ này được mở từ sổ tay. Chế độ gõ từ giúp bạn nhớ lại ngay sau khi xem chi tiết.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        TextButton(onClick = onClearFocus) { Text("Luyện cả bộ từ") }
+                    }
+                }
+            }
+        } else {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Chế độ luyện",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    ) {
+                        FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
+                        FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
+                        FilterChip(selected = mode == QUIZ_LISTEN_CHOICE, onClick = { resetForMode(QUIZ_LISTEN_CHOICE) }, label = { Text(QUIZ_LISTEN_CHOICE) })
+                        FilterChip(selected = mode == QUIZ_DUE, onClick = { resetForMode(QUIZ_DUE) }, label = { Text("$QUIZ_DUE (${dueWords.size})") })
+                    }
+                    TextButton(onClick = { showAllModes = !showAllModes }) {
+                        Text(if (showAllModes) "Thu gọn chế độ" else "Tất cả chế độ luyện tập")
+                    }
+                    if (showAllModes) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            ) {
+                                FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
+                                FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
+                                FilterChip(selected = mode == QUIZ_SCRAMBLE, onClick = { resetForMode(QUIZ_SCRAMBLE) }, label = { Text(QUIZ_SCRAMBLE) })
+                                FilterChip(selected = mode == QUIZ_SPEAKING, onClick = { resetForMode(QUIZ_SPEAKING) }, label = { Text(QUIZ_SPEAKING) })
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            ) {
+                                FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
+                                FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
+                                FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
+                                FilterChip(selected = mode == QUIZ_COLLOCATIONS, onClick = { resetForMode(QUIZ_COLLOCATIONS) }, label = { Text("$QUIZ_COLLOCATIONS (${collocationWords.size})") })
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            ) {
+                                FilterChip(selected = mode == QUIZ_FAMILY, onClick = { resetForMode(QUIZ_FAMILY) }, label = { Text("$QUIZ_FAMILY (${familyWords.size})") })
+                                FilterChip(selected = mode == QUIZ_SYNONYMS, onClick = { resetForMode(QUIZ_SYNONYMS) }, label = { Text("$QUIZ_SYNONYMS (${synonymWords.size})") })
+                            }
+                        }
+                    }
+                }
             }
         }
-        if (topics.isNotEmpty()) {
+        if (topics.isNotEmpty() && focusWord == null) {
             item {
                 Text("Khu vực IELTS · Chủ đề luyện tập", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Row(
@@ -305,7 +382,7 @@ fun QuizScreen(
                     }
                 }
             }
-        } else if (scopedWords.size < 2 && mode in listOf(QUIZ_MEANING, QUIZ_RECALL)) {
+        } else if (scopedWords.size < 2 && mode in listOf(QUIZ_MEANING, QUIZ_RECALL, QUIZ_LISTEN_CHOICE)) {
             item {
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -324,9 +401,9 @@ fun QuizScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        LinearProgressIndicator(
-                            progress = { (index + 1).toFloat() / activeWords.size.coerceAtLeast(1) },
-                            modifier = Modifier.fillMaxWidth()
+                        SegmentProgressBar(
+                            progress = (index + 1).toFloat() / activeWords.size.coerceAtLeast(1),
+                            segments = activeWords.size.coerceAtMost(12)
                         )
                         Text(
                             when (mode) {
@@ -334,6 +411,8 @@ fun QuizScreen(
                                 QUIZ_WEAK -> "Ôn từ từng quên"
                                 QUIZ_RECALL -> "Chọn từ khớp với nghĩa"
                                 QUIZ_TYPED -> "Tự nhớ và gõ từ tiếng Anh"
+                                QUIZ_SCRAMBLE -> "Sắp xếp lại các chữ cái thành từ đúng"
+                                QUIZ_LISTEN_CHOICE -> "Nghe phát âm ngoại tuyến rồi chọn nghĩa đúng"
                                 QUIZ_LISTENING -> "Nghe phát âm ngoại tuyến rồi gõ từ"
                                 QUIZ_SPEAKING -> "Nói từ tiếng Anh bằng nhận diện ngoại tuyến"
                                 QUIZ_SENTENCE -> "Tự đặt câu với từ mục tiêu"
@@ -368,6 +447,25 @@ fun QuizScreen(
                             Button(onClick = { submitTypedAnswer() }, enabled = !answered && answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
                                 Text("Kiểm tra đáp án")
                             }
+                        } else if (mode == QUIZ_SCRAMBLE) {
+                            Text(
+                                "Sắp xếp lại các chữ cái thành từ tiếng Anh đúng. Gợi ý: chữ cái đầu là “${ScrambleLogic.firstLetterHint(word.term)}”.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(scrambleText, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+                            Text("Nghĩa: ${word.meaning}")
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Từ đúng") },
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = { submitTypedAnswer() },
+                                enabled = !answered && answerText.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Kiểm tra đáp án") }
                         } else if (mode == QUIZ_LISTENING) {
                             Text(
                                 "Nghe từ tiếng Anh rồi nhập chính tả bạn nghe được. Đáp án không hiển thị trước khi kiểm tra.",
@@ -441,6 +539,12 @@ fun QuizScreen(
                             if (mode == QUIZ_RECALL) {
                                 Text(word.meaning, fontSize = 23.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
                                 if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else if (mode == QUIZ_LISTEN_CHOICE) {
+                                Text(
+                                    "Nghe phát âm rồi chọn nghĩa đúng. Từ tiếng Anh không hiển thị trước khi trả lời.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OfflineSpeakButton(text = word.term, label = "Phát lại từ (offline)")
                             } else {
                                 Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
                                 OfflineSpeakButton(text = word.term)
@@ -469,7 +573,7 @@ fun QuizScreen(
                                     Text(if (index + 1 >= activeWords.size) "Bỏ qua và kết thúc phiên" else "Bỏ qua câu không thể trả lời")
                                 }
                             }
-                            options.forEach { option ->
+                            options.forEachIndexed { optionIndex, option ->
                                 val correct = option.id == word.id
                                 val chosen = option.id == selectedId
                                 val fill = when {
@@ -487,24 +591,43 @@ fun QuizScreen(
                                         }
                                     },
                                     color = fill,
-                                    shape = RoundedCornerShape(14.dp),
+                                    shape = RoundedCornerShape(16.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(
-                                        when (mode) {
-                                            QUIZ_RECALL -> option.term
-                                            QUIZ_COLLOCATIONS -> option.collocations
-                                            QUIZ_FAMILY -> option.wordFamily
-                                            QUIZ_SYNONYMS -> option.synonyms
-                                            else -> option.meaning
-                                        },
-                                        Modifier.padding(14.dp),
-                                        color = when {
-                                            answered && correct -> MaterialTheme.colorScheme.onPrimaryContainer
-                                            answered && chosen -> MaterialTheme.colorScheme.onErrorContainer
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    Row(
+                                        Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surface,
+                                            shape = RoundedCornerShape(50),
+                                            modifier = Modifier.size(26.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    ('A' + optionIndex).toString(),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
                                         }
-                                    )
+                                        Text(
+                                            when (mode) {
+                                                QUIZ_RECALL -> option.term
+                                                QUIZ_COLLOCATIONS -> option.collocations
+                                                QUIZ_FAMILY -> option.wordFamily
+                                                QUIZ_SYNONYMS -> option.synonyms
+                                                else -> option.meaning
+                                            },
+                                            color = when {
+                                                answered && correct -> MaterialTheme.colorScheme.onPrimaryContainer
+                                                answered && chosen -> MaterialTheme.colorScheme.onErrorContainer
+                                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -534,7 +657,9 @@ fun QuizScreen(
                             if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
                             if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}")
                         }
-                        Button(
+                        VocabButton(
+                            text = if (index + 1 >= activeWords.size) "Hoàn thành phiên" else "Câu tiếp theo",
+                            enabled = answered && (mode != QUIZ_SENTENCE || lastCorrect != null),
                             onClick = {
                                 if (index + 1 >= activeWords.size) {
                                     showSummary = true
@@ -545,10 +670,8 @@ fun QuizScreen(
                                 answerText = ""
                                 answered = false
                                 lastCorrect = null
-                            },
-                            enabled = answered && (mode != QUIZ_SENTENCE || lastCorrect != null),
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (index + 1 >= activeWords.size) "Hoàn thành phiên" else "Câu tiếp theo") }
+                            }
+                        )
                         TextButton(
                             onClick = {
                                 onSessionReset()

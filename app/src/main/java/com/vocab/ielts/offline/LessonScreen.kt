@@ -1,5 +1,6 @@
 package com.vocab.ielts.offline
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,7 +18,8 @@ fun LessonScreen(
     words: List<WordEntity>,
     modifier: Modifier = Modifier,
     sessionSize: Int = 5,
-    onReview: (WordEntity, ReviewRating) -> Unit
+    onReview: (WordEntity, ReviewRating) -> Unit,
+    onCompleted: () -> Unit = {}
 ) {
     // Build a stable mixed deck: overdue/new/weak words rank ahead of mastered words.
     // Freeze the IDs for this session so SRS updates never move the current question.
@@ -37,6 +39,9 @@ fun LessonScreen(
     var retry by remember(lessonIds) { mutableIntStateOf(0) }
     val current = lessonDeck.getOrNull(index)
     val completed = lessonDeck.isNotEmpty() && index >= lessonDeck.size
+    LaunchedEffect(completed) {
+        if (completed) onCompleted()
+    }
 
     fun rateCurrent(rating: ReviewRating) {
         val word = current ?: return
@@ -72,6 +77,7 @@ fun LessonScreen(
             item {
                 Card(shape = RoundedCornerShape(22.dp)) {
                     Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ConfettiBurst(Modifier.fillMaxWidth().height(72.dp))
                         Text("Hoàn thành phiên học!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         Text("Đã nhớ: $remembered • Lượt cần củng cố: $retry")
                         Text("Từ bạn đánh giá “Lại” đã được đưa trở lại cuối phiên một lần để luyện nhớ chủ động. Lịch ôn SRS cũng đã được cập nhật.")
@@ -94,7 +100,10 @@ fun LessonScreen(
                     Text("Từ ${index + 1} / ${lessonDeck.size}", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     Text("Mục tiêu: ${lessonDeck.size} từ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                LinearProgressIndicator(progress = (index + 1).toFloat() / lessonDeck.size, modifier = Modifier.fillMaxWidth())
+                SegmentProgressBar(
+                    progress = (index + 1).toFloat() / lessonDeck.size,
+                    segments = lessonDeck.size.coerceAtMost(12)
+                )
             }
             item {
                 Card(shape = RoundedCornerShape(24.dp)) {
@@ -104,8 +113,14 @@ fun LessonScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(current.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        OfflineSpeakButton(text = current.term, allowSlow = true)
                         if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (current.partOfSpeech.isNotBlank()) Text(current.partOfSpeech, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            StudyQueueLogic.priorityReason(current, System.currentTimeMillis()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
                         ReviewWindowLabel(current)
                         if (revealed) {
                             HorizontalDivider()
@@ -117,52 +132,48 @@ fun LessonScreen(
                             if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
                             if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (current.example.isNotBlank()) Text("Ví dụ: ${current.example}")
+                            if (current.exampleMeaning.isNotBlank()) Text("Dịch: ${current.exampleMeaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (current.example.isBlank()) Text("Chưa có ví dụ. Bạn có thể bổ sung trong phần sửa từ hoặc qua CSV.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("Bạn nhớ từ này đến mức nào?", fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(
+                                VocabButton(
+                                    text = "Lại",
+                                    trailingText = SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.AGAIN),
                                     onClick = { rateCurrent(ReviewRating.AGAIN) },
                                     modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Lại")
-                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.AGAIN), style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                                OutlinedButton(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                )
+                                VocabButton(
+                                    text = "Khó",
+                                    trailingText = SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.HARD),
                                     onClick = { rateCurrent(ReviewRating.HARD) },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Khó")
-                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.HARD), style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
+                                    modifier = Modifier.weight(1f),
+                                    containerColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = MaterialTheme.colorScheme.onSecondary
+                                )
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                Button(
+                                VocabButton(
+                                    text = "Tốt",
+                                    trailingText = SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.GOOD),
                                     onClick = { rateCurrent(ReviewRating.GOOD) },
                                     modifier = Modifier.weight(1f)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Tốt")
-                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.GOOD), style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                                Button(
+                                )
+                                VocabButton(
+                                    text = "Dễ",
+                                    trailingText = SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.EASY),
                                     onClick = { rateCurrent(ReviewRating.EASY) },
                                     modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Dễ")
-                                        Text(SrsScheduler.intervalLabel(current.srsLevel, ReviewRating.EASY), style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
+                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                    contentColor = MaterialTheme.colorScheme.onTertiary
+                                )
                             }
                         } else {
-                            Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Lật thẻ · hiện nghĩa và ví dụ") }
+                            VocabButton(
+                                text = "Lật thẻ · hiện nghĩa và ví dụ",
+                                onClick = { revealed = true }
+                            )
                         }
                     }
                 }

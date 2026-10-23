@@ -42,6 +42,16 @@ class StudyQueueLogicTest {
         )
     }
 
+    @Test fun pausedWordsAreExcludedFromTheLessonDeck() {
+        val paused = WordEntity(term = "paused", meaning = "m", paused = true)
+        val active = WordEntity(term = "active", meaning = "a")
+
+        assertEquals(
+            listOf("active"),
+            StudyQueueLogic.prioritize(listOf(paused, active), now).map { it.term }
+        )
+    }
+
     @Test fun equalPriorityCardsUseStableAlphabeticalTieBreak() {
         val result = StudyQueueLogic.prioritize(
             listOf(word("zebra", 0L, reviewCount = 0), word("apple", 0L, reviewCount = 0)),
@@ -49,5 +59,13 @@ class StudyQueueLogicTest {
         )
 
         assertEquals(listOf("apple", "zebra"), result.map { it.term })
+    }
+
+    @Test fun priorityReasonExplainsEachQueueGroup() {
+        assertEquals("Từ mới", StudyQueueLogic.priorityReason(word("new", 0L, reviewCount = 0), now))
+        assertEquals("Cần củng cố", StudyQueueLogic.priorityReason(word("lapsed", now - 1L, lapseCount = 2), now))
+        assertEquals("Đến hạn ôn", StudyQueueLogic.priorityReason(word("due", now - 1L), now))
+        assertEquals("Từ yếu — ôn thêm", StudyQueueLogic.priorityReason(word("weak", now + 1L, lapseCount = 1), now))
+        assertEquals("Ôn duy trì", StudyQueueLogic.priorityReason(word("stable", now + 1L), now))
     }
 }

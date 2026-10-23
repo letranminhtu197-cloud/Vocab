@@ -11,8 +11,8 @@ android {
         applicationId = "com.vocab.ielts.offline"
         minSdk = 26
         targetSdk = 35
-        versionCode = 115
-        versionName = "1.1.5"
+        versionCode = 125
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }
