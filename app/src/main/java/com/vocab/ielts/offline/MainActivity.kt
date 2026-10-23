@@ -641,7 +641,7 @@ private fun VocabApp(database: VocabDatabase) {
                                 Text("Chỉ tính câu đã gửi đáp án. Trò chơi ghép cặp và lỗi kỹ thuật không được gộp vào điểm quiz.",
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 listOf(
-                                    ActiveExerciseType.MULTIPLE_CHOICE to "Trắc nghiệm",
+                                    ActiveExerciseType.DEFINITION_TO_TERM to "Gõ từ theo nghĩa",
                                     ActiveExerciseType.LISTEN_AND_TYPE to "Nghe và gõ",
                                     ActiveExerciseType.CLOZE to "Điền ngữ cảnh"
                                 ).forEach { (type, label) ->
