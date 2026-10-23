@@ -100,6 +100,19 @@ class CsvCodecTest {
         assertEquals(original.reviewCount, restored.reviewCount)
         assertEquals(original.isNew, restored.isNew)
     }
+    @Test fun legacyCsvInfersNewWordStateFromSrsProgress() {
+        val result = CsvCodec.parse("term,meaning,srsLevel,reviewCount\\nnewword,từ mới,0,0\\nreviewed,đã ôn,2,3")
+        assertNull(result.error)
+        assertTrue(result.words.first { it.term == "newword" }.isNew)
+        assertFalse(result.words.first { it.term == "reviewed" }.isNew)
+    }
+
+    @Test fun rejectsInvalidExplicitNewWordState() {
+        val result = CsvCodec.parse("term,meaning,is_new\\nword,nghĩa,maybe")
+        assertNotNull(result.error)
+        assertTrue(result.words.isEmpty())
+    }
+
     @Test fun importsTheRequestedIeltsCsvHeaderWithSynonymAlias() {
         val result = CsvCodec.parse("word,phonetic,pos,meaning,collocation,synonym,topic\nallocate,/ˈæləkeɪt/,verb,phân bổ,allocate resources,assign; distribute,Economy")
         assertNull(result.error)
