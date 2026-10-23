@@ -298,6 +298,11 @@ fun QuizScreen(
                         Spacer(Modifier.weight(1f))
                         if (isSrsReview) Text("SRS", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
+                    Text(
+                        "Đã trả lời: $attempts · Còn lại: ${(targetDeck.size - index).coerceAtLeast(0)} từ trong lượt này",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     LinearProgressIndicator(
                         progress = { (index + 1).toFloat() / targetDeck.size.coerceAtLeast(1) },
                         modifier = Modifier.fillMaxWidth()
@@ -313,7 +318,11 @@ fun QuizScreen(
                             Text(word.meaning, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}", style = MaterialTheme.typography.bodyLarge)
                             if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (word.notes.isNotBlank()) Text(word.notes)
+                            if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
+                            if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
+                            if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
+                            if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}")
+                            if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
                             Button(onClick = { onNewWordIntroduced(word); index++; resetAnswerState() }, modifier = Modifier.fillMaxWidth()) {
                                 Text(if (index + 1 >= targetDeck.size) "Hoàn tất làm quen" else "Từ tiếp theo")
                             }
@@ -329,13 +338,22 @@ fun QuizScreen(
                                 Text("Không tạo câu hỏi trắc nghiệm: cần 4 nghĩa khác nhau trong dữ liệu đã nhập.", color = MaterialTheme.colorScheme.error)
                             } else {
                                 options.forEach { option ->
+                                    val isTarget = option.id == word.id
+                                    val wasChosenWrong = answered && selectedOptionId == option.id && correct == false
                                     OutlinedButton(
                                         onClick = {
                                             selectedOptionId = option.id
-                                            submitAnswer(word, option.id == word.id, ActiveExerciseType.MULTIPLE_CHOICE)
+                                            submitAnswer(word, isTarget, ActiveExerciseType.MULTIPLE_CHOICE)
                                         },
                                         enabled = !answered,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = when {
+                                                answered && isTarget -> MaterialTheme.colorScheme.primaryContainer
+                                                wasChosenWrong -> MaterialTheme.colorScheme.errorContainer
+                                                else -> MaterialTheme.colorScheme.surface
+                                            }
+                                        )
                                     ) {
                                         Text(option.meaning, modifier = Modifier.fillMaxWidth())
                                     }
@@ -412,7 +430,13 @@ fun QuizScreen(
                             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(if (correct == true) "Chính xác!" else "Chưa chính xác", fontWeight = FontWeight.Bold)
                                 Text("${word.term} — ${word.meaning}")
-                                if (word.example.isNotBlank()) Text(word.example)
+                                if (word.ipa.isNotBlank()) Text("IPA: ${word.ipa}")
+                                if (word.partOfSpeech.isNotBlank()) Text("Từ loại: ${word.partOfSpeech}")
+                                if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}")
+                                if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
+                                if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
+                                if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
+                                if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
                             }
                         }
                         Button(
