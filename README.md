@@ -1,6 +1,6 @@
-# Vocab 1.1.4 — IELTS Vocabulary Offline
+# Vocab 1.1.5 — IELTS Vocabulary Offline
 
-**Phiên bản ứng dụng:** `1.1.4` (`versionCode 114`). Đây là bản phát hành cá nhân ưu tiên ngoại tuyến; APK CI hiện là **debug-signed** để cài thử trực tiếp, chưa phải APK phát hành thương mại ký bằng khóa riêng.
+**Phiên bản ứng dụng:** `1.1.5` (`versionCode 115`). Đây là bản phát hành cá nhân ưu tiên ngoại tuyến; APK CI hiện là **debug-signed** để cài thử trực tiếp, chưa phải APK phát hành thương mại ký bằng khóa riêng.
 
 Ứng dụng Android cá nhân học từ vựng IELTS Academic, giao diện tiếng Việt, thiết kế cho dùng ngoại tuyến trên điện thoại Android. Ứng dụng không tự cài sẵn danh sách từ vựng; người dùng tự nhập từ, nhập CSV, hoặc chủ động thêm ba từ mẫu chỉ để thử tính năng.
 
@@ -8,7 +8,7 @@
 - Kotlin, Jetpack Compose, Material 3.
 - Room database cục bộ: từ vựng và tiến độ vẫn còn sau khi đóng/mở ứng dụng.
 - Thêm, sửa, xóa, tìm kiếm từ; flashcard; thống kê cơ bản. Mỗi từ hỗ trợ IPA, từ loại, nghĩa, ví dụ, chủ đề IELTS, collocations, từ đồng nghĩa, word family, ghi chú cá nhân và tags. Khi thêm/sửa sẽ chặn từ trùng không phân biệt chữ hoa/thường; thao tác xóa cần xác nhận và tìm kiếm có trạng thái rỗng rõ ràng.
-- Ôn SRS 5 cấp, đánh giá Lại/Khó/Tốt/Dễ; lịch cơ sở lần lượt 4 giờ, 24 giờ, 72 giờ, 168 giờ và 720 giờ. “Khó” lên lịch bằng một nửa khoảng của cấp mục tiêu (tối thiểu 1 giờ); “Lại” đặt ôn lại sau 10 phút và ghi nhận lần quên. Tiến độ/lịch đã lưu được giữ nguyên; lịch mới được áp dụng khi đánh giá từ tiếp theo.
+- Ôn SRS 5 cấp, đánh giá Lại/Khó/Tốt/Dễ; lịch cơ sở lần lượt 1 ngày, 3 ngày, 7 ngày, 14 ngày và 30 ngày. “Khó” lên lịch bằng một nửa khoảng của cấp mục tiêu (tối thiểu 1 giờ); “Lại” đặt ôn lại sau 10 phút và ghi nhận lần quên. Tiến độ/lịch đã lưu được giữ nguyên; lịch mới được áp dụng khi đánh giá từ tiếp theo.
 - Kết quả của các dạng quiz cũng cập nhật SRS cho đúng từ đang luyện, không chỉ tăng thống kê tổng.
 - Hiển thị trạng thái SRS: từ mới, sắp đến hạn, thời điểm vàng hoặc quá hạn.
 - Lưu cục bộ tổng số câu quiz, tỷ lệ đúng và điểm/số câu của phiên quiz hiện tại qua các lần mở ứng dụng; có thể đặt lại bộ đếm phiên mà không xóa thống kê tổng.
