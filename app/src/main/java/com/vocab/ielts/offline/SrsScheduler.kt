@@ -12,13 +12,14 @@ data class ReviewState(
     val consecutiveSuccessfulReviews: Int = 0
 )
 object SrsScheduler {
-    // Five core intervals requested for this personal IELTS workflow: 4h, 1d, 3d, 7d, 30d.
+    // Original five-level review ladder: 1, 3, 7, 14, and 30 days.
+    // Existing scheduled timestamps are preserved; these intervals apply to new ratings.
     private val intervals = listOf(
-        Duration.ofHours(4),
-        Duration.ofHours(24),
-        Duration.ofHours(72),
-        Duration.ofHours(168),
-        Duration.ofHours(720)
+        Duration.ofDays(1),
+        Duration.ofDays(3),
+        Duration.ofDays(7),
+        Duration.ofDays(14),
+        Duration.ofDays(30)
     )
 
     private fun nextLevel(level: Int, rating: ReviewRating): Int = when (rating) {
