@@ -25,6 +25,21 @@ private const val QUIZ_DUE = "Đến hạn"
 private const val QUIZ_COLLOCATIONS = "Cụm từ"
 private const val QUIZ_FAMILY = "Họ từ"
 private const val QUIZ_SYNONYMS = "Từ đồng nghĩa"
+@Composable
+private fun QuizQuickStat(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(icon, fontSize = 20.sp)
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 
 @Composable
 fun QuizScreen(
@@ -125,9 +140,35 @@ fun QuizScreen(
         }
     }
 
-    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("Luyện tập IELTS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-        item { Text("Luyện nhớ nghĩa, tự gọi lại từ theo ngữ cảnh hoặc tập trung vào các từ từng quên. Điểm của phiên được giữ khi đổi chế độ.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    LazyColumn(modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(color = MaterialTheme.colorScheme.secondary, shape = RoundedCornerShape(18.dp)) {
+                        Text("🧩", Modifier.padding(13.dp), fontSize = 29.sp)
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Luyện tập IELTS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text("Chọn cách luyện phù hợp với bạn", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                    Text("⚡", fontSize = 26.sp)
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuizQuickStat("✅", "Đúng", "$sessionScore", Modifier.weight(1f))
+                QuizQuickStat("🎯", "Mục tiêu", "$sessionTotal", Modifier.weight(1f))
+                QuizQuickStat("🧠", "Cần ôn", "${wrongWordIds.size}", Modifier.weight(1f))
+            }
+        }
         if (showSummary) {
             item {
                 Card(shape = RoundedCornerShape(24.dp)) {
