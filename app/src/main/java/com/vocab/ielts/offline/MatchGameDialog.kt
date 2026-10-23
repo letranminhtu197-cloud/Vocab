@@ -5,15 +5,28 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
-    val pairs = remember(words) { ActiveLearningLogic.matchPairs(words).shuffled() }
+    var round by remember { mutableIntStateOf(0) }
+    val pairs = remember(words, round) { ActiveLearningLogic.matchPairs(words).shuffled() }
     val terms = remember(pairs) { pairs.shuffled() }
     val meanings = remember(pairs) { pairs.shuffled() }
+    val context = LocalContext.current
+    val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
+    val startedAtMillis = remember(pairs) { System.currentTimeMillis() }
+    LaunchedEffect(pairs, matched.size) {
+        if (pairs.isNotEmpty() && matched.size == pairs.size) {
+            statsPrefs.edit()
+                .putInt("match_games_completed", statsPrefs.getInt("match_games_completed", 0) + 1)
+                .putLong("match_duration_total_ms", statsPrefs.getLong("match_duration_total_ms", 0L) + (System.currentTimeMillis() - startedAtMillis).coerceAtLeast(0L))
+                .apply()
+        }
+    }
     val matched = remember(pairs) { mutableStateListOf<Long>() }
     var selectedTerm by remember { mutableStateOf<Long?>(null) }
     var selectedMeaning by remember { mutableStateOf<Long?>(null) }
@@ -71,13 +84,27 @@ fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
                 if (pairs.isNotEmpty() && matched.size < pairs.size) {
                     Button(enabled = canCheck, onClick = {
                         attempts++
-                        if (selectedTerm == selectedMeaning) {
+                        val isCorrectPair = selectedTerm == selectedMeaning
+                        statsPrefs.edit()
+                            .putInt("match_attempts", statsPrefs.getInt("match_attempts", 0) + 1)
+                            .putInt("match_correct", statsPrefs.getInt("match_correct", 0) + if (isCorrectPair) 1 else 0)
+                            .apply()
+                        if (isCorrectPair) {
                             matched.add(selectedTerm!!)
                             feedback = "Chính xác!"
                         } else feedback = "Chưa khớp — thử lại."
                         selectedTerm = null
                         selectedMeaning = null
                     }) { Text("Kiểm tra") }
+                }
+                if (pairs.isNotEmpty() && matched.size == pairs.size) {
+                    TextButton(onClick = {
+                        round++
+                        selectedTerm = null
+                        selectedMeaning = null
+                        attempts = 0
+                        feedback = null
+                    }) { Text("Chơi lại") }
                 }
                 TextButton(onClick = onDismiss) { Text("Đóng") }
             }
