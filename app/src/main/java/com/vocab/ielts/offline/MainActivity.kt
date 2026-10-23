@@ -587,7 +587,8 @@ private fun VocabApp(dao: WordDao) {
                                         nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
                                         reviewCount = next.reviewCount,
                                         lapseCount = next.lapseCount,
-                                        lastReviewedAtMillis = now.toEpochMilli()
+                                        lastReviewedAtMillis = now.toEpochMilli(),
+                                        isNew = false
                                     ))
                                 }
                             }
