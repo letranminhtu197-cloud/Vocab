@@ -19,11 +19,18 @@ fun LessonScreen(
     sessionSize: Int = 5,
     onReview: (WordEntity, ReviewRating) -> Unit
 ) {
-    // Build a stable mixed deck: overdue/new/weak words rank ahead of mastered words.
-    // Freeze the IDs for this session so SRS updates never move the current question.
+    // Mochi-inspired study queues: due cards, untouched new cards, or difficult cards.
+    // The queue is frozen for the session so SRS updates cannot move the current card.
+    var queueMode by remember { mutableStateOf("Đến hạn") }
+    val eligibleWords = words.filterNot { it.excludedFromReview }
+    val queueWords = when (queueMode) {
+        "Từ mới" -> eligibleWords.filter { it.reviewCount == 0 }
+        "Từ yếu" -> eligibleWords.filter { it.lapseCount > 0 || (it.reviewCount > 0 && it.srsLevel <= 1) }
+        else -> eligibleWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
+    }
     val safeSessionSize = sessionSize.coerceIn(1, 50)
-    val lessonIds = remember(words.map { it.id }, safeSessionSize) {
-        StudyQueueLogic.prioritize(words, System.currentTimeMillis())
+    val lessonIds = remember(words.map { it.id to it.nextReviewAtMillis }, safeSessionSize, queueMode) {
+        StudyQueueLogic.prioritize(queueWords, System.currentTimeMillis())
             .take(safeSessionSize)
             .map { it.id }
     }
@@ -73,12 +80,57 @@ fun LessonScreen(
                 }
             }
         }
+        item {
+            Text("Chọn hàng đợi học", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Đến hạn", "Từ mới", "Từ yếu").forEach { option ->
+                    FilterChip(
+                        selected = queueMode == option,
+                        onClick = { queueMode = option },
+                        label = { Text(option) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Text(
+                when (queueMode) {
+                    "Từ mới" -> "Học các từ chưa từng được đánh giá."
+                    "Từ yếu" -> "Ưu tiên từ từng trả lời sai hoặc đang ở cấp ghi nhớ thấp."
+                    else -> "Tập trung vào từ mới và từ đã đến thời điểm cần ôn."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         if (words.isEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(22.dp)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("📚 Bắt đầu bằng bộ từ của bạn", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         Text("Chưa có từ nào nên chưa thể tạo bài học. Thêm từ trong Sổ từ hoặc nhập file CSV. Ứng dụng không tự nạp từ mẫu.")
+                    }
+                }
+            }
+        } else if (lessonIds.isEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(22.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            when (queueMode) {
+                                "Từ mới" -> "Bạn đã học hết từ mới hiện có"
+                                "Từ yếu" -> "Chưa có từ yếu cần củng cố"
+                                else -> "Chưa có từ đến hạn"
+                            },
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text("Bạn có thể đổi hàng đợi, thêm từ mới hoặc quay lại khi có từ đến hạn.")
+                        OutlinedButton(onClick = { queueMode = when (queueMode) { "Đến hạn" -> "Từ mới"; "Từ mới" -> "Từ yếu"; else -> "Đến hạn" } }) {
+                            Text("Chuyển hàng đợi")
+                        }
                     }
                 }
             }
