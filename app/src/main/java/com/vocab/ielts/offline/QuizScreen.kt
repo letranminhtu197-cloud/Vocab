@@ -25,6 +25,7 @@ fun QuizScreen(
     sessionScore: Int,
     sessionTotal: Int,
     onAnswerRecorded: (WordEntity, Boolean, Boolean, String, ActiveExerciseType) -> Unit,
+    onAudioReplay: () -> Unit = {},
     onNewWordIntroduced: (WordEntity) -> Unit,
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
@@ -42,6 +43,9 @@ fun QuizScreen(
     var attempts by remember(startWithDue) { mutableIntStateOf(0) }
     var correctCount by remember(startWithDue) { mutableIntStateOf(0) }
     var lastType by remember(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
+    var overrideType by remember(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
+    var audioReady by remember(startWithDue) { mutableStateOf(false) }
+    var audioStatus by remember(startWithDue) { mutableStateOf("Đang kiểm tra giọng đọc ngoại tuyến…") }
     val exerciseCounts = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
     val exerciseErrors = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
     val exerciseLastUsed = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Long>() }
@@ -114,6 +118,9 @@ fun QuizScreen(
         revealed = false
         correct = null
         lastType = null
+        overrideType = null
+        audioReady = false
+        audioStatus = "Đang kiểm tra giọng đọc ngoại tuyến…"
     }
 
     fun changeMode(nextMode: String, srs: Boolean = false) {
@@ -271,7 +278,7 @@ fun QuizScreen(
                 }
             }
         } else if (word != null) {
-            val activeType = if (isSrsReview) {
+            val activeType = if (!isSrsReview && mode == MODE_NEW) null else overrideType ?: if (isSrsReview) {
                 if (answered) lastType ?: pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
                 else pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
             } else when (mode) {
@@ -337,7 +344,33 @@ fun QuizScreen(
                         ActiveExerciseType.LISTEN_AND_TYPE -> {
                             Text("Nghe và gõ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text("Nghe cách phát âm, sau đó nhập từ tiếng Anh bạn nghe được.")
-                            OfflineSpeakButton(text = word.term, label = "Phát âm từ")
+                            OfflineSpeakButton(
+                                text = word.term,
+                                label = "Phát âm từ",
+                                onAvailabilityChanged = { ready, status ->
+                                    audioReady = ready
+                                    audioStatus = status
+                                },
+                                onAudioReplay = onAudioReplay
+                            )
+                            if (!audioReady) {
+                                Text(audioStatus, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                val alternative = availableTypes(word).firstOrNull { it != ActiveExerciseType.LISTEN_AND_TYPE }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (alternative != null) {
+                                            overrideType = alternative
+                                            answered = false
+                                            answerText = ""
+                                            correct = null
+                                        } else {
+                                            index++
+                                            resetAnswerState()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(if (alternative != null) "Chuyển sang dạng bài khả dụng" else "Bỏ qua từ này, không ghi kết quả") }
+                            }
                             OutlinedTextField(
                                 value = answerText,
                                 onValueChange = { if (!answered) answerText = it },
@@ -347,7 +380,7 @@ fun QuizScreen(
                             )
                             Button(
                                 onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.LISTEN_AND_TYPE) },
-                                enabled = !answered && answerText.isNotBlank(),
+                                enabled = !answered && audioReady && answerText.isNotBlank(),
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("Kiểm tra") }
                         }
