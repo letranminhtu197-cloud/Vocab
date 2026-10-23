@@ -19,6 +19,19 @@ private const val MODE_MC = "Trắc nghiệm"
 private const val MODE_LISTEN = "Nghe và gõ"
 private const val MODE_CLOZE = "Điền vào ngữ cảnh"
 
+private fun defaultPracticeMode(words: List<WordEntity>): String {
+    val pool = words.filterNot { it.excludedFromReview }
+    if (pool.any { it.isNew }) return MODE_NEW
+    val hasMultipleChoice = pool.any { target ->
+        val options = QuizLogic.multipleChoiceOptions(target, pool, "Chọn nghĩa")
+        ActiveLearningLogic.hasFourValidChoices(options.map { it.meaning }, target.meaning)
+    }
+    if (hasMultipleChoice) return MODE_MC
+    if (pool.any { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }) return MODE_CLOZE
+    if (pool.any { it.term.isNotBlank() }) return MODE_LISTEN
+    return MODE_NEW
+}
+
 @Composable
 fun QuizScreen(
     words: List<WordEntity>,
@@ -34,7 +47,7 @@ fun QuizScreen(
     startWithDue: Boolean = false
 ) {
     var isSrsReview by rememberSaveable(startWithDue) { mutableStateOf(startWithDue) }
-    var mode by rememberSaveable(startWithDue) { mutableStateOf(if (startWithDue) MODE_MC else MODE_NEW) }
+    var mode by rememberSaveable(startWithDue, words.map { it.id }) { mutableStateOf(if (startWithDue) MODE_MC else defaultPracticeMode(words)) }
     var index by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
     var deckGeneration by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
     var answerText by rememberSaveable(startWithDue) { mutableStateOf("") }
@@ -222,7 +235,7 @@ fun QuizScreen(
                     )
                     FilterChip(
                         selected = !isSrsReview,
-                        onClick = { if (isSrsReview) changeMode(MODE_NEW, false) },
+                        onClick = { if (isSrsReview) changeMode(defaultPracticeMode(words), false) },
                         label = { Text("Luyện tự do") }
                     )
                 }
