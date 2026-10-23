@@ -7,23 +7,28 @@ import java.time.Duration
 
 class SrsSchedulerTest {
     private val now = Instant.parse("2026-10-21T10:00:00Z")
-    @Test fun newWordGoodStartsLevelOneAndSchedulesOneDay() {
+
+    @Test fun newWordGoodStartsLevelOneAndSchedulesTwoHours() {
         val result = SrsScheduler.review(ReviewState(), ReviewRating.GOOD, now)
         assertEquals(1, result.level)
-        assertEquals(now.plus(Duration.ofDays(1)), result.nextReviewAt)
+        assertEquals(now.plus(Duration.ofHours(2)), result.nextReviewAt)
     }
-    @Test fun againSchedulesTenMinutesAndCountsLapse() {
-        val result = SrsScheduler.review(ReviewState(level=3), ReviewRating.AGAIN, now)
-        assertEquals(0, result.level)
+
+    @Test fun againDropsToLevelOneSchedulesTenMinutesAndCountsLapse() {
+        val result = SrsScheduler.review(ReviewState(level = 3), ReviewRating.AGAIN, now)
+        assertEquals(1, result.level)
         assertEquals(now.plus(Duration.ofMinutes(10)), result.nextReviewAt)
         assertEquals(1, result.lapseCount)
     }
+
     @Test fun easyAdvancesTwoLevelsAndCapsAtFive() {
         assertEquals(2, SrsScheduler.review(ReviewState(), ReviewRating.EASY, now).level)
-        assertEquals(5, SrsScheduler.review(ReviewState(level=4), ReviewRating.EASY, now).level)
+        assertEquals(5, SrsScheduler.review(ReviewState(level = 4), ReviewRating.EASY, now).level)
+        assertEquals(now.plus(Duration.ofHours(24)), SrsScheduler.review(ReviewState(), ReviewRating.EASY, now).nextReviewAt)
     }
+
     @Test fun dueAndGoldenWindowAreBasedOnSavedTimestamp() {
-        val state = ReviewState(level=1, nextReviewAt=now)
+        val state = ReviewState(level = 1, nextReviewAt = now)
         assertTrue(SrsScheduler.isDue(state, now))
         assertEquals("GOLDEN", SrsScheduler.goldenWindow(state, now))
         assertEquals("OVERDUE", SrsScheduler.goldenWindow(state, now.plus(Duration.ofHours(13))))
@@ -39,11 +44,11 @@ class SrsSchedulerTest {
         assertEquals("OVERDUE", SrsScheduler.goldenWindow(state, due.plus(Duration.ofHours(12))))
     }
 
-    @Test fun goodRatingFollowsTheOneToThirtyDayLadder() {
+    @Test fun goodRatingFollowsTheSpecifiedTwoHourToFifteenDayLadder() {
         val levels = listOf(0, 1, 2, 3, 4, 5)
         val expectedIntervals = listOf(
-            Duration.ofDays(1), Duration.ofDays(3), Duration.ofDays(7),
-            Duration.ofDays(14), Duration.ofDays(30), Duration.ofDays(30)
+            Duration.ofHours(2), Duration.ofHours(24), Duration.ofHours(72),
+            Duration.ofHours(168), Duration.ofHours(360), Duration.ofHours(360)
         )
         levels.zip(expectedIntervals).forEach { (level, interval) ->
             val result = SrsScheduler.review(ReviewState(level = level), ReviewRating.GOOD, now)
@@ -55,21 +60,21 @@ class SrsSchedulerTest {
         val first = SrsScheduler.review(ReviewState(), ReviewRating.GOOD, now)
         assertEquals(1, first.reviewCount)
         assertEquals(0, first.lapseCount)
-        val failed = SrsScheduler.review(first, ReviewRating.AGAIN, now.plus(Duration.ofDays(1)))
+        val failed = SrsScheduler.review(first, ReviewRating.AGAIN, now.plus(Duration.ofHours(2)))
         assertEquals(2, failed.reviewCount)
         assertEquals(1, failed.lapseCount)
-        assertEquals(0, failed.level)
-        assertEquals(now.plus(Duration.ofDays(1)).plus(Duration.ofMinutes(10)), failed.nextReviewAt)
+        assertEquals(1, failed.level)
+        assertEquals(now.plus(Duration.ofHours(2)).plus(Duration.ofMinutes(10)), failed.nextReviewAt)
         val recovered = SrsScheduler.review(failed, ReviewRating.GOOD, failed.nextReviewAt!!)
-        assertEquals(1, recovered.level)
-        assertEquals(failed.nextReviewAt!!.plus(Duration.ofDays(1)), recovered.nextReviewAt)
+        assertEquals(2, recovered.level)
+        assertEquals(failed.nextReviewAt!!.plus(Duration.ofHours(24)), recovered.nextReviewAt)
     }
 
     @Test fun ratingLabelsMatchTheIntervalsUsedByTheScheduler() {
         assertEquals("10 phút", SrsScheduler.intervalLabel(0, ReviewRating.AGAIN))
-        assertEquals("12 giờ", SrsScheduler.intervalLabel(0, ReviewRating.HARD))
-        assertEquals("1 ngày", SrsScheduler.intervalLabel(0, ReviewRating.GOOD))
-        assertEquals("3 ngày", SrsScheduler.intervalLabel(0, ReviewRating.EASY))
+        assertEquals("1 giờ", SrsScheduler.intervalLabel(0, ReviewRating.HARD))
+        assertEquals("2 giờ", SrsScheduler.intervalLabel(0, ReviewRating.GOOD))
+        assertEquals("1 ngày", SrsScheduler.intervalLabel(0, ReviewRating.EASY))
         assertEquals("1 ngày 12 giờ", SrsScheduler.intervalLabel(2, ReviewRating.HARD))
     }
 }
