@@ -23,5 +23,6 @@ data class WordEntity(
     val reviewCount: Int = 0,
     val lapseCount: Int = 0,
     val createdAtMillis: Long = System.currentTimeMillis(),
-    val lastReviewedAtMillis: Long = 0L
+    val lastReviewedAtMillis: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val excludedFromReview: Boolean = false
 )
