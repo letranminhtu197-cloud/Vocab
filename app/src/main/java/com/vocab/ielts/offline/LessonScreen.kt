@@ -52,10 +52,10 @@ fun LessonScreen(
     }
 
     LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("Bài học theo mục tiêu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item { Text("🎯  Bài học theo mục tiêu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item {
             Text(
-                "Học chủ động + lặp lại ngắt quãng. Phiên học ưu tiên từ mới, từ đến hạn và từ từng quên; hãy cố tự nhớ trước khi lật thẻ.",
+                "🧠 Nhớ trước khi lật thẻ  •  🔁 Ôn đúng thời điểm  •  ✨ Học từng bước",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -63,7 +63,7 @@ fun LessonScreen(
             item {
                 Card(shape = RoundedCornerShape(22.dp)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Bắt đầu bằng bộ từ của bạn", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Text("📚 Bắt đầu bằng bộ từ của bạn", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         Text("Chưa có từ nào nên chưa thể tạo bài học. Thêm từ trong Sổ từ hoặc nhập file CSV. Ứng dụng không tự nạp từ mẫu.")
                     }
                 }
@@ -72,7 +72,7 @@ fun LessonScreen(
             item {
                 Card(shape = RoundedCornerShape(22.dp)) {
                     Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Hoàn thành phiên học!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text("🏆 Hoàn thành phiên học!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         Text("Đã nhớ: $remembered • Lượt cần củng cố: $retry")
                         Text("Từ bạn đánh giá “Lại” đã được đưa trở lại cuối phiên một lần để luyện nhớ chủ động. Lịch ôn SRS cũng đã được cập nhật.")
                         Button(
