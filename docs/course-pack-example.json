@@ -1,0 +1,37 @@
+{
+  "course": "IELTS khởi đầu (ví dụ)",
+  "lessons": [
+    {
+      "title": "Environment",
+      "words": [
+        {
+          "term": "sustainable",
+          "partOfSpeech": "adj",
+          "meaning": "bền vững",
+          "example": "We need sustainable solutions to reduce waste.",
+          "exampleMeaning": "Chúng ta cần các giải pháp bền vững để giảm rác thải.",
+          "collocations": "sustainable development"
+        },
+        {
+          "term": "emission",
+          "partOfSpeech": "n",
+          "meaning": "khí thải",
+          "example": "Cutting carbon emissions is a global priority.",
+          "exampleMeaning": "Cắt giảm khí thải carbon là ưu tiên toàn cầu."
+        }
+      ]
+    },
+    {
+      "title": "Education",
+      "words": [
+        {
+          "term": "curriculum",
+          "partOfSpeech": "n",
+          "meaning": "chương trình giảng dạy",
+          "example": "The school revised its science curriculum.",
+          "exampleMeaning": "Trường đã sửa lại chương trình khoa học."
+        }
+      ]
+    }
+  ]
+}

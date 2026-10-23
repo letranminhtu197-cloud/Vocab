@@ -40,15 +40,21 @@ object CsvCodec {
             .decode(ByteBuffer.wrap(bytes))
             .toString()
 
-    fun parse(text: String): ImportResult {
-        val rows = try { readRows(text.removePrefix("\uFEFF")) } catch (e: IllegalArgumentException) {
+    fun parse(text: String): ImportResult = parse(text, ',')
+
+    /**
+     * Như [parse] nhưng cho phép chọn dấu phân cách (`,` cho CSV, tab cho TSV/TSV copy
+     * từ Excel, `;` cho CSV kiểu châu Âu).
+     */
+    fun parse(text: String, delimiter: Char): ImportResult {
+        val rows = try { readRows(text.removePrefix("\uFEFF"), delimiter) } catch (e: IllegalArgumentException) {
             return ImportResult(emptyList(), 0, e.message ?: "CSV không hợp lệ")
         }
         val nonEmpty = rows.filter { row -> row.any { it.isNotBlank() } }
         if (nonEmpty.isEmpty()) return ImportResult(emptyList(), 0, "File CSV đang trống.")
         val header = nonEmpty.first().map { it.trim().lowercase().replace(" ", "").replace("_", "") }
-        val termIndex = header.indexOfFirst { it in setOf("term", "word", "vocabulary", "từ", "từvựng", "từ/cụmtừ") }
-        val meaningIndex = header.indexOfFirst { it in setOf("meaning", "definition", "translation", "nghĩa", "nghĩatiếngviệt") }
+        val termIndex = header.indexOfFirst { it in termAliases }
+        val meaningIndex = header.indexOfFirst { it in meaningAliases }
         if (termIndex < 0 || meaningIndex < 0) {
             return ImportResult(emptyList(), 0, "Không tìm thấy cột bắt buộc. File phải có tiêu đề term/word và meaning/nghĩa.")
         }
@@ -56,6 +62,8 @@ object CsvCodec {
         val ipaIndex = index("ipa", "phonetic", "pronunciation", "phiênâm")
         val posIndex = index("partofspeech", "pos", "type", "từloại")
         val exampleIndex = index("example", "sentence", "vídụ", "câuvídụ")
+        val exampleMeaningIndex = index("examplemeaning", "meaningofexample", "nghĩacâuvídụ", "dịchnghĩavídụ")
+        val pausedIndex = index("paused", "suspended", "tạmdừng", "tamdung")
         val topicIndex = index("topic", "category", "chủđề")
         val collocationsIndex = index("collocations", "collocation", "cụmtừ", "cụmtừđi kèm", "cụmtừđikèm")
         val synonymsIndex = index("synonyms", "synonym", "syn", "đồngnghĩa", "từđồngnghĩa")
@@ -107,18 +115,24 @@ object CsvCodec {
                 if (listOf(level, reviews, lapses, nextReview, created, lastReviewed).any { it == null }) {
                     return@forEach
                 }
+                fun booleanField(index: Int): Boolean {
+                    val raw = value(index).lowercase()
+                    return raw == "1" || raw == "true" || raw == "yes" || raw == "có" || raw == "co"
+                }
                 result += WordEntity(
                     term = term,
                     meaning = meaning,
                     ipa = value(ipaIndex),
                     partOfSpeech = value(posIndex),
                     example = value(exampleIndex),
+                    exampleMeaning = value(exampleMeaningIndex),
                     topic = value(topicIndex),
                     collocations = value(collocationsIndex),
                     synonyms = value(synonymsIndex),
                     wordFamily = value(wordFamilyIndex),
                     notes = value(notesIndex),
                     tags = value(tagsIndex),
+                    paused = booleanField(pausedIndex),
                     srsLevel = level!!,
                     nextReviewAtMillis = nextReview!!,
                     reviewCount = reviews!!,
@@ -134,19 +148,34 @@ object CsvCodec {
 
     fun export(words: List<WordEntity>): String {
         val rows = mutableListOf(
-            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "collocations", "synonyms", "wordFamily", "notes", "tags", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis")
+            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "exampleMeaning", "topic", "collocations", "synonyms", "wordFamily", "notes", "tags", "paused", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis")
         )
         words.forEach { w ->
-            rows += listOf(w.term, w.ipa, w.partOfSpeech, w.meaning, w.example, w.topic, w.collocations, w.synonyms, w.wordFamily, w.notes, w.tags,
+            rows += listOf(w.term, w.ipa, w.partOfSpeech, w.meaning, w.example, w.exampleMeaning, w.topic, w.collocations, w.synonyms, w.wordFamily, w.notes, w.tags,
+                if (w.paused) "1" else "0",
                 w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString(), w.createdAtMillis.toString(), w.lastReviewedAtMillis.toString())
         }
         return rows.joinToString("\r\n") { row -> row.joinToString(",") { escape(it) } } + "\r\n"
     }
 
+    /** Nhận diện dòng tiêu đề để phân biệt CSV/TSV có tiêu đề với file danh sách đơn giản. */
+    fun looksLikeHeader(line: String, delimiter: Char = ','): Boolean {
+        val cells = try {
+            readRows(line, delimiter).firstOrNull().orEmpty()
+        } catch (_: IllegalArgumentException) {
+            return false
+        }
+        val normalized = cells.map { it.trim().lowercase().replace(" ", "").replace("_", "") }
+        return normalized.any { it in termAliases } && normalized.any { it in meaningAliases }
+    }
+
+    private val termAliases = setOf("term", "word", "vocabulary", "từ", "từvựng", "từ/cụmtừ")
+    private val meaningAliases = setOf("meaning", "definition", "translation", "nghĩa", "nghĩatiếngviệt")
+
     private fun escape(value: String): String =
         "\"" + value.replace("\"", "\"\"") + "\""
 
-    private fun readRows(text: String): List<List<String>> {
+    private fun readRows(text: String, delimiter: Char = ','): List<List<String>> {
         val rows = mutableListOf<List<String>>()
         var row = mutableListOf<String>()
         val cell = StringBuilder()
@@ -177,7 +206,7 @@ object CsvCodec {
                     closedQuote = true
                 }
                 quoted -> cell.append(ch)
-                closedQuote && ch == ',' -> finishCell()
+                closedQuote && ch == delimiter -> finishCell()
                 closedQuote && (ch == '\n' || ch == '\r') -> {
                     if (ch == '\r' && i + 1 < text.length && text[i + 1] == '\n') i++
                     finishRow()
@@ -189,7 +218,7 @@ object CsvCodec {
                 ch == '"' -> throw IllegalArgumentException(
                     "File CSV có dấu ngoặc kép ở vị trí không hợp lệ."
                 )
-                ch == ',' -> finishCell()
+                ch == delimiter -> finishCell()
                 ch == '\n' || ch == '\r' -> {
                     if (ch == '\r' && i + 1 < text.length && text[i + 1] == '\n') i++
                     finishRow()

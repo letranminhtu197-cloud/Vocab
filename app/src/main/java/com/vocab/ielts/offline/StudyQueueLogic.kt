@@ -22,9 +22,25 @@ object StudyQueueLogic {
     }
 
     fun prioritize(words: List<WordEntity>, nowMillis: Long): List<WordEntity> =
-        words.sortedWith(
+        words.filter { !it.paused }
+            .sortedWith(
             compareByDescending<WordEntity> { priorityScore(it, nowMillis) }
                 .thenBy { if (it.nextReviewAtMillis <= 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
                 .thenBy { it.term.lowercase() }
         )
+
+    /**
+     * Nhãn ngắn giải thích vì sao từ được xếp vào phiên học. Hiển thị ngay trên
+     * thẻ để người học hiểu thứ tự ưu tiên thay vì thấy danh sách có vẻ ngẫu nhiên.
+     */
+    fun priorityReason(word: WordEntity, nowMillis: Long): String {
+        val isDue = word.nextReviewAtMillis <= 0L || word.nextReviewAtMillis <= nowMillis
+        return when {
+            word.reviewCount == 0 -> "Từ mới"
+            word.lapseCount > 0 && isDue -> "Cần củng cố"
+            word.lapseCount > 0 -> "Từ yếu — ôn thêm"
+            isDue -> "Đến hạn ôn"
+            else -> "Ôn duy trì"
+        }
+    }
 }

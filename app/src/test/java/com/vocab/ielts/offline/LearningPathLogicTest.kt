@@ -7,7 +7,7 @@ class LearningPathLogicTest {
     @Test fun groupsWordsByTopicAndCountsProgressDueAndWeakWords() {
         val now = 1_000_000L
         val words = listOf(
-            WordEntity(term = "adapt", meaning = "thích nghi", topic = "Environment", reviewCount = 2, nextReviewAtMillis = now + 10, lapseCount = 0),
+            WordEntity(term = "adapt", meaning = "thích nghi", topic = "Environment", reviewCount = 2, srsLevel = 3, nextReviewAtMillis = now + 10, lapseCount = 0),
             WordEntity(term = "emission", meaning = "khí thải", topic = "Environment", reviewCount = 1, nextReviewAtMillis = now - 10, lapseCount = 1),
             WordEntity(term = "allocate", meaning = "phân bổ", topic = "Education", reviewCount = 0, nextReviewAtMillis = 0, lapseCount = 0),
             WordEntity(term = "benefit", meaning = "lợi ích", topic = "", reviewCount = 0, nextReviewAtMillis = 0, lapseCount = 2)
