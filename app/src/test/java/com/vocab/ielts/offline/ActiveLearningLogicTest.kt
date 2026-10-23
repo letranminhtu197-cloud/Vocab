@@ -7,38 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ActiveLearningLogicTest {
-    @Test fun multipleChoiceRequiresFourDistinctNonBlankLabelsAndOneTarget() {
-        assertTrue(ActiveLearningLogic.hasFourValidChoices(
-            listOf("allocate", "assign", "sustainable", "reduce"), "allocate"
-        ))
-        assertFalse(ActiveLearningLogic.hasFourValidChoices(
-            listOf("allocate", "assign", "assign", "reduce"), "allocate"
-        ))
-        assertFalse(ActiveLearningLogic.hasFourValidChoices(
-            listOf("allocate", "assign", "", "reduce"), "allocate"
-        ))
-        assertFalse(ActiveLearningLogic.hasFourValidChoices(
-            listOf("allocate", "assign", "sustainable", "reduce"), "missing"
-        ))
-    }
-
-    @Test fun multipleChoicePrefersPlausibleDistinctDistractorsAndAvoidsKnownSynonyms() {
-        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ", partOfSpeech = "verb", synonyms = "assign; allot")
-        val pool = listOf(
-            target,
-            WordEntity(id = 2, term = "assign", meaning = "giao; phân công", partOfSpeech = "verb"),
-            WordEntity(id = 3, term = "allot", meaning = "chia phần", partOfSpeech = "verb"),
-            WordEntity(id = 4, term = "reduce", meaning = "giảm", partOfSpeech = "verb"),
-            WordEntity(id = 5, term = "sustainable", meaning = "bền vững", partOfSpeech = "adjective"),
-            WordEntity(id = 6, term = "consume", meaning = "tiêu thụ", partOfSpeech = "verb")
-        )
-        val options = QuizLogic.multipleChoiceOptions(target, pool, "Chọn nghĩa")
-        assertEquals(4, options.size)
-        assertEquals(1, options.count { it.id == target.id })
-        assertTrue(options.none { it.term == "assign" || it.term == "allot" })
-        assertEquals(4, options.map { QuizLogic.normalizeAnswer(it.meaning) }.distinct().size)
-    }
-
     @Test fun clozeRequiresExactlyOneWholeWordOccurrence() {
         assertEquals(
             "We need to _____ resources.",
@@ -62,7 +30,7 @@ class ActiveLearningLogicTest {
             ActiveExerciseType.CLOZE,
             ActiveLearningLogic.chooseNext(
                 listOf(
-                    ExerciseEvidence(ActiveExerciseType.MULTIPLE_CHOICE, false),
+                    ExerciseEvidence(ActiveExerciseType.DEFINITION_TO_TERM, false),
                     ExerciseEvidence(ActiveExerciseType.CLOZE, true)
                 ),
                 100L
