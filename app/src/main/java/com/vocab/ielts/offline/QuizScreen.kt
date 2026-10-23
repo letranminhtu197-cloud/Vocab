@@ -543,9 +543,9 @@ fun QuizScreen(
                                 word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                 if (mode in listOf(QUIZ_COLLOCATIONS, QUIZ_FAMILY, QUIZ_SYNONYMS) && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            if (options.size < 2) {
+                            if (options.size < 4) {
                                 Text(
-                                    "Chưa đủ đáp án khác nhau để tạo câu trắc nghiệm. Hãy bổ sung nghĩa, cụm từ hoặc họ từ khác nhau cho các mục trong phạm vi này.",
+                                    "Chưa đủ 4 lựa chọn phân biệt để tạo câu trắc nghiệm hợp lệ. Câu này sẽ được bỏ qua thay vì dùng đáp án thiếu hoặc mơ hồ.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 OutlinedButton(
@@ -575,7 +575,7 @@ fun QuizScreen(
                                 }
                                 Surface(
                                     onClick = {
-                                        if (!answered && options.size >= 2) {
+                                        if (!answered && options.size == 4) {
                                             selectedId = option.id
                                             lastCorrect = correct
                                             answered = true
