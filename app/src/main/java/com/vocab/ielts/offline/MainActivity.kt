@@ -70,7 +70,7 @@ private fun VocabApp(dao: WordDao) {
     var pendingCsvInvalidRows by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
-    var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", false)) }
+    var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", true)) }
     var lessonTarget by remember(settingsPrefs) {
         mutableIntStateOf(settingsPrefs.getInt("lesson_target", 5).let { if (it in listOf(5, 10, 15, 20)) it else 5 })
     }
@@ -160,25 +160,25 @@ private fun VocabApp(dao: WordDao) {
     MaterialTheme(
         colorScheme = if (darkTheme) {
             darkColorScheme(
-                primary = androidx.compose.ui.graphics.Color(0xFFC2B4FF),
+                primary = androidx.compose.ui.graphics.Color(0xFFB9A5FF),
                 onPrimary = androidx.compose.ui.graphics.Color(0xFF2B176E),
-                primaryContainer = androidx.compose.ui.graphics.Color(0xFF3C2D75),
+                primaryContainer = androidx.compose.ui.graphics.Color(0xFF34245F),
                 onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFEAE3FF),
-                secondary = androidx.compose.ui.graphics.Color(0xFFFFB394),
+                secondary = androidx.compose.ui.graphics.Color(0xFFFFA98E),
                 onSecondary = androidx.compose.ui.graphics.Color(0xFF52200C),
-                secondaryContainer = androidx.compose.ui.graphics.Color(0xFF63351F),
+                secondaryContainer = androidx.compose.ui.graphics.Color(0xFF4D2C3A),
                 onSecondaryContainer = androidx.compose.ui.graphics.Color(0xFFFFE1D4),
-                tertiary = androidx.compose.ui.graphics.Color(0xFF8FE2D1),
+                tertiary = androidx.compose.ui.graphics.Color(0xFF83E0CB),
                 onTertiary = androidx.compose.ui.graphics.Color(0xFF003B35),
-                tertiaryContainer = androidx.compose.ui.graphics.Color(0xFF174E48),
+                tertiaryContainer = androidx.compose.ui.graphics.Color(0xFF153F40),
                 onTertiaryContainer = androidx.compose.ui.graphics.Color(0xFFC8F4E9),
-                background = androidx.compose.ui.graphics.Color(0xFF171421),
+                background = androidx.compose.ui.graphics.Color(0xFF12111B),
                 onBackground = androidx.compose.ui.graphics.Color(0xFFF2EDF8),
-                surface = androidx.compose.ui.graphics.Color(0xFF211D2C),
+                surface = androidx.compose.ui.graphics.Color(0xFF1D1A29),
                 onSurface = androidx.compose.ui.graphics.Color(0xFFF2EDF8),
-                surfaceVariant = androidx.compose.ui.graphics.Color(0xFF342E42),
+                surfaceVariant = androidx.compose.ui.graphics.Color(0xFF302A40),
                 onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFD0C6DD),
-                outline = androidx.compose.ui.graphics.Color(0xFF81758F)
+                outline = androidx.compose.ui.graphics.Color(0xFF8B7DA5)
             )
         } else {
             lightColorScheme(
