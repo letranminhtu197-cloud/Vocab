@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -33,4 +34,20 @@ interface WordDao {
 
     @Query("SELECT * FROM words WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): WordEntity?
+
+    /** Returns -1 when this stable attempt ID has already been recorded. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAttempt(attempt: LearningAttemptEntity): Long
+
+    @Query("SELECT COUNT(*) FROM learning_attempts")
+    suspend fun countLearningAttempts(): Int
+
+    @Query("SELECT COUNT(*) FROM learning_attempts WHERE isSrsReview = 1")
+    suspend fun countSrsAttempts(): Int
+
+    @Query("SELECT COUNT(*) FROM learning_attempts WHERE exerciseType = :type")
+    suspend fun countAttemptsForType(type: String): Int
+
+    @Query("SELECT COUNT(*) FROM learning_attempts WHERE exerciseType = :type AND isCorrect = 1")
+    suspend fun countCorrectForType(type: String): Int
 }
