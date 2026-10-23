@@ -52,30 +52,47 @@ fun DashboardOverview(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(30.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text("HÔM NAY", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text(
+                            "✦  HÔM NAY",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text("✧", style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.secondary)
+                }
                 Text(
-                    if (totalWords == 0) "Bắt đầu từ bộ từ của bạn" else "Mỗi ngày tiến thêm một chút",
+                    if (totalWords == 0) "Bắt đầu hành trình của bạn"
+                    else if (dueWords > 0) "Một chút hôm nay, tiến xa ngày mai."
+                    else "Bạn đang xây dựng thói quen tốt.",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                if (totalWords > 0 && dueWords > 0) {
-                    Text(
-                        "Bạn có $dueWords từ cần ôn.",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                if (totalWords == 0) {
+                    Text("Thêm những từ bạn muốn ghi nhớ.", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                } else if (dueWords > 0) {
+                    Text("$dueWords từ đang chờ bạn.", color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    DashboardMetric("Đến hạn", dueWords.toString(), Modifier.weight(1f))
-                    DashboardMetric("Đã ôn", learnedWords.toString(), Modifier.weight(1f))
-                    DashboardMetric("Chuỗi ngày", "$activeStreak", Modifier.weight(1f))
+                    DashboardMetric("Cần ôn", dueWords.toString(), Modifier.weight(1f))
+                    DashboardMetric("Đã học", learnedWords.toString(), Modifier.weight(1f))
+                    DashboardMetric("Ngày liền", "$activeStreak", Modifier.weight(1f))
                 }
                 Button(
                     onClick = {
@@ -85,7 +102,8 @@ fun DashboardOverview(
                             else -> onOpenPractice()
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     Icon(
                         when {
@@ -95,12 +113,14 @@ fun DashboardOverview(
                         },
                         contentDescription = null
                     )
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         when {
                             totalWords == 0 -> "Thêm từ đầu tiên"
-                            dueWords > 0 -> "Ôn tập ngay · $dueWords từ"
-                            else -> "Mở khu luyện tập"
-                        }
+                            dueWords > 0 -> "Bắt đầu ôn tập · $dueWords từ"
+                            else -> "Bắt đầu luyện tập"
+                        },
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -141,7 +161,7 @@ private fun DailyGoalCard(activities: Int, goal: Int, onGoalChange: (Int) -> Uni
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Mục tiêu hôm nay", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("✦  Mục tiêu hôm nay", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("$activities / $safeGoal lượt luyện và ôn", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
