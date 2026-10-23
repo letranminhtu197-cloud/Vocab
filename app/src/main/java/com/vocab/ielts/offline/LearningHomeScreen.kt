@@ -101,7 +101,7 @@ fun LearningHomeScreen(
             }
         }
         item { Text("Không gian học tập", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
-        item { ActionCard("Luyện tập chủ động", "Trắc nghiệm · nghe và gõ · điền từ theo ngữ cảnh", Icons.Default.PlayArrow, onPractice) }
+        item { ActionCard("Học chủ động", "Gợi nhớ bằng cách tự gõ · nghe và gõ · điền ngữ cảnh · ghép cặp", Icons.Default.PlayArrow, onPractice) }
         item { ActionCard("Sổ từ của tôi", "Tìm kiếm, chỉnh sửa và quản lý bộ từ đã nhập", Icons.Default.LibraryBooks, onLibrary) }
         item { ActionCard("Phân tích tiến độ", "Theo dõi hoạt động và những từ cần củng cố", Icons.Default.QueryStats, onStats) }
         item {
