@@ -235,7 +235,7 @@ private fun VocabApp(dao: WordDao) {
             },
             bottomBar = {
                 NavigationBar {
-                    listOf(0 to "Học", 1 to "Sổ từ", 3 to "Luyện", 4 to "Tiến độ").forEach { (i, label) ->
+                    listOf(0 to "Học", 1 to "Sổ từ", 3 to "Ôn tập", 4 to "Tiến độ").forEach { (i, label) ->
                         NavigationBarItem(
                             selected = tab == i,
                             onClick = {
