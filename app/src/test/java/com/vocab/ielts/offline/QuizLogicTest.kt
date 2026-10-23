@@ -79,8 +79,10 @@ class QuizLogicTest {
     }
 
 
-    @Test fun answerComparisonIgnoresCaseAndPunctuation() {
-        assertTrue(QuizLogic.isCorrectAnswer("  SUSTAINABLE! ", "sustainable"))
+    @Test fun answerComparisonIgnoresCaseAndWhitespaceButPreservesMeaningfulPunctuation() {
+        assertTrue(QuizLogic.isCorrectAnswer("  SUSTAINABLE  ", "sustainable"))
+        assertFalse(QuizLogic.isCorrectAnswer("  SUSTAINABLE! ", "sustainable"))
+        assertFalse(QuizLogic.isCorrectAnswer("well-being", "well being"))
         assertFalse(QuizLogic.isCorrectAnswer("sustain", "sustainable"))
     }
     @Test fun dueFlashcardIndexResetsToStart() {
