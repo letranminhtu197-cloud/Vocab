@@ -85,7 +85,7 @@ Tài nguyên Flutter có nhóm ảnh/icon, Lottie, SVG, font và hiệu ứng â
 ## 5. Thay đổi trong nhánh này
 
 - Bổ sung chế độ **Nghe & gõ** trong luyện tập: phát từ mục tiêu bằng nút TTS offline, không hiện từ trước khi trả lời, nhận đáp án bằng cùng bộ chuẩn hóa chính tả hiện có, ghi nhận kết quả vào thống kê/SRS qua callback hiện hữu và cho xem đáp án sau khi trả lời.
-- Điều chỉnh SRS về thang thời gian 4 giờ / 24 giờ / 72 giờ / 168 giờ / 720 giờ; mức Khó dùng nửa khoảng của cấp mục tiêu (tối thiểu 1 giờ), mức Lại là 10 phút. Cấp độ và lịch ôn đã lưu không bị xóa; lịch mới áp dụng khi người dùng đánh giá tiếp.
+- Điều chỉnh SRS theo thang gốc 1 / 3 / 7 / 14 / 30 ngày; mức Khó dùng nửa khoảng của cấp mục tiêu (tối thiểu 1 giờ), mức Lại là 10 phút. Lịch đã lưu không bị đặt lại; khoảng mới áp dụng từ lần đánh giá kế tiếp. Cấp độ và lịch ôn đã lưu không bị xóa; lịch mới áp dụng khi người dùng đánh giá tiếp.
 - Không thêm thư viện hoặc quyền mạng; nếu thiết bị không có giọng tiếng Anh offline, nút phát âm giải thích trạng thái thay vì chuyển sang dịch vụ mạng.
 - Bản phân tích này là tài liệu kỹ thuật nội bộ cho dự án Vocab; không chứa mã nguồn hoặc asset trích xuất từ ứng dụng tham khảo.
 
