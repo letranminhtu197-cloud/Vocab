@@ -70,6 +70,7 @@ fun QuizScreen(
     val retryDeckIds = remember { mutableStateListOf<Long>() }
     val modeAttempts = remember { mutableStateMapOf<String, Int>() }
     val modeCorrect = remember { mutableStateMapOf<String, Int>() }
+    val modeLastUsedAt = remember { mutableStateMapOf<String, Long>() }
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val topicScopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
         it.topic.trim().equals(selectedTopic, ignoreCase = true)
@@ -125,6 +126,7 @@ fun QuizScreen(
     fun recordAnswer(wordToRecord: WordEntity, correct: Boolean) {
         sessionAttempts += 1
         modeAttempts[mode] = (modeAttempts[mode] ?: 0) + 1
+        modeLastUsedAt[mode] = System.currentTimeMillis()
         if (correct) {
             sessionCorrect += 1
             modeCorrect[mode] = (modeCorrect[mode] ?: 0) + 1
@@ -147,6 +149,45 @@ fun QuizScreen(
         if (mode == QUIZ_SENTENCE && answered && lastCorrect == null && word != null) {
             lastCorrect = usedCorrectly
             recordAnswer(word, usedCorrectly)
+        }
+    }
+    fun suggestNextExercise() {
+        val evidence = buildList {
+            val mcValid = scopedWords.any { candidate ->
+                QuizLogic.multipleChoiceOptions(candidate, scopedWords, QUIZ_MEANING).size == 4
+            }
+            if (mcValid) add(ExerciseEvidence(
+                ActiveExerciseType.MULTIPLE_CHOICE, true,
+                modeAttempts[QUIZ_MEANING] ?: 0,
+                ((modeAttempts[QUIZ_MEANING] ?: 0) - (modeCorrect[QUIZ_MEANING] ?: 0)).coerceAtLeast(0),
+                modeLastUsedAt[QUIZ_MEANING] ?: 0L
+            ))
+            if (scopedWords.any { it.term.isNotBlank() }) add(ExerciseEvidence(
+                ActiveExerciseType.LISTEN_AND_TYPE, true,
+                modeAttempts[QUIZ_LISTENING] ?: 0,
+                ((modeAttempts[QUIZ_LISTENING] ?: 0) - (modeCorrect[QUIZ_LISTENING] ?: 0)).coerceAtLeast(0),
+                modeLastUsedAt[QUIZ_LISTENING] ?: 0L
+            ))
+            if (scopedWords.any { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }) add(ExerciseEvidence(
+                ActiveExerciseType.CLOZE, true,
+                modeAttempts[QUIZ_CLOZE] ?: 0,
+                ((modeAttempts[QUIZ_CLOZE] ?: 0) - (modeCorrect[QUIZ_CLOZE] ?: 0)).coerceAtLeast(0),
+                modeLastUsedAt[QUIZ_CLOZE] ?: 0L
+            ))
+        }
+        val next = ActiveLearningLogic.chooseNext(
+            evidence, System.currentTimeMillis(),
+            mapOf(
+                ActiveExerciseType.MULTIPLE_CHOICE to (modeAttempts[QUIZ_MEANING] ?: 0),
+                ActiveExerciseType.LISTEN_AND_TYPE to (modeAttempts[QUIZ_LISTENING] ?: 0),
+                ActiveExerciseType.CLOZE to (modeAttempts[QUIZ_CLOZE] ?: 0)
+            )
+        )
+        when (next) {
+            ActiveExerciseType.MULTIPLE_CHOICE -> resetForMode(QUIZ_MEANING)
+            ActiveExerciseType.LISTEN_AND_TYPE -> resetForMode(QUIZ_LISTENING)
+            ActiveExerciseType.CLOZE -> resetForMode(QUIZ_CLOZE)
+            else -> Unit
         }
     }
 
@@ -294,6 +335,7 @@ fun QuizScreen(
             ) {
                 FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
                 FilterChip(selected = false, onClick = { showMatchGame = true }, label = { Text("🎮 Ghép cặp") })
+                FilterChip(selected = false, onClick = { suggestNextExercise() }, label = { Text("✨ Gợi ý bài tiếp") })
                 FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
                 FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
                 FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
