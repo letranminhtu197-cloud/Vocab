@@ -19,6 +19,7 @@ fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
     val startedAtMillis = remember(pairs) { System.currentTimeMillis() }
+    val matched = remember(pairs) { mutableStateListOf<Long>() }
     LaunchedEffect(pairs, matched.size) {
         if (pairs.isNotEmpty() && matched.size == pairs.size) {
             statsPrefs.edit()
@@ -27,7 +28,6 @@ fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
                 .apply()
         }
     }
-    val matched = remember(pairs) { mutableStateListOf<Long>() }
     var selectedTerm by remember { mutableStateOf<Long?>(null) }
     var selectedMeaning by remember { mutableStateOf<Long?>(null) }
     var attempts by remember { mutableIntStateOf(0) }
