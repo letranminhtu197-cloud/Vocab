@@ -24,6 +24,7 @@ fun QuizScreen(
     sessionScore: Int,
     sessionTotal: Int,
     onAnswerRecorded: (WordEntity, Boolean, Boolean) -> Unit,
+    onNewWordIntroduced: (WordEntity) -> Unit,
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
 ) {
@@ -51,7 +52,10 @@ fun QuizScreen(
             .map { it.id }.toSet()
     }
     val srsDeck = words.filter { it.id in srsDeckIds && !it.excludedFromReview }
-    val newWords = words.filter { it.reviewCount == 0 && it.srsLevel == 0 && !it.excludedFromReview }
+    val newWordIds = remember(words.map { it.id }, deckGeneration) {
+        words.filter { it.isNew && !it.excludedFromReview }.map { it.id }.toSet()
+    }
+    val newWords = words.filter { it.id in newWordIds && !it.excludedFromReview }
     val choicePool = words.filter { !it.excludedFromReview }
     val practiceWords = if (isSrsReview) srsDeck else when (mode) {
         MODE_NEW -> newWords
@@ -300,7 +304,7 @@ fun QuizScreen(
                             if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}", style = MaterialTheme.typography.bodyLarge)
                             if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (word.notes.isNotBlank()) Text(word.notes)
-                            Button(onClick = { index++; resetAnswerState() }, modifier = Modifier.fillMaxWidth()) {
+                            Button(onClick = { onNewWordIntroduced(word); index++; resetAnswerState() }, modifier = Modifier.fillMaxWidth()) {
                                 Text(if (index + 1 >= targetDeck.size) "Hoàn tất làm quen" else "Từ tiếp theo")
                             }
                         } else {
