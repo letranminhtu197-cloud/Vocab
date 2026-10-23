@@ -263,7 +263,7 @@ private fun VocabApp(dao: WordDao) {
             when (tab) {
                 0 -> LearningHomeScreen(
                     words = words,
-                    dueCount = words.count { !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis()) },
+                    dueCount = words.count { !it.isNew && !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis()) },
                     newCount = words.count { it.isNew && !it.excludedFromReview },
                     weakCount = words.count { it.lapseCount > 0 || (it.reviewCount > 0 && it.srsLevel <= 1) },
                     todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
