@@ -1,6 +1,9 @@
 package com.vocab.ielts.offline
 
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,6 +55,20 @@ fun OfflineSpeakButton(
                     onAvailabilityChanged(false, statusText)
                 } else {
                     tts.voice = voice
+                    tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) = Unit
+                        override fun onDone(utteranceId: String?) = Unit
+                        override fun onError(utteranceId: String?) {
+                            Handler(Looper.getMainLooper()).post {
+                                offlineReady = false
+                                statusText = "Phát âm bị gián đoạn hoặc thất bại. Hãy chuyển sang dạng bài khác."
+                                onAvailabilityChanged(false, statusText)
+                            }
+                        }
+                        override fun onError(utteranceId: String?, errorCode: Int) {
+                            onError(utteranceId)
+                        }
+                    })
                     offlineReady = true
                     statusText = "Đã sẵn sàng dùng giọng tiếng Anh có sẵn trên máy."
                     onAvailabilityChanged(true, statusText)
