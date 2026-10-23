@@ -51,13 +51,27 @@ fun LessonScreen(
         revealed = false
     }
 
-    LazyColumn(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("🎯  Bài học theo mục tiêu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+    LazyColumn(modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text(
-                "🧠 Nhớ trước khi lật thẻ  •  🔁 Ôn đúng thời điểm  •  ✨ Học từng bước",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(color = MaterialTheme.colorScheme.tertiary, shape = RoundedCornerShape(18.dp)) {
+                        Text("🃏", Modifier.padding(13.dp), fontSize = 29.sp)
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Bài học theo mục tiêu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Text("Nhớ chủ động · ôn đúng lúc · tiến bộ từng ngày", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    }
+                    Text("🌱", fontSize = 26.sp)
+                }
+            }
         }
         if (words.isEmpty()) {
             item {
