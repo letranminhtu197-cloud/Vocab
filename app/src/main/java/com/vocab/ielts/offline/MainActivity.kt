@@ -311,7 +311,7 @@ private fun VocabApp(database: VocabDatabase) {
                             }
                             Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), shape = RoundedCornerShape(14.dp)) {
                                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.LibraryBooks, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                     Text("${words.size}", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
