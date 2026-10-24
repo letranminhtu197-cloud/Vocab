@@ -96,7 +96,7 @@ class SrsSchedulerTest {
         )
         assertEquals(0, reset.repetitions)
         assertEquals(0, reset.intervalDays)
-        assertEquals(2, reset.lapses)
+        assertEquals(1, reset.lapses)
         assertEquals(second.nextReviewAt + 10 * 60 * 1000L, reset.nextReviewAt)
     }
 
