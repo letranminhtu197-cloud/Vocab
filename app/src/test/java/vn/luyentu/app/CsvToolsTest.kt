@@ -52,6 +52,13 @@ class CsvToolsTest {
     }
 
     @Test
+    fun parsesOnlyRowsWithBothTermAndMeaning() {
+        val rows = CsvTools.parse("word,meaning\nresilient,kiên cường\n,missing term\nmissing meaning,")
+        assertEquals(1, rows.size)
+        assertEquals("resilient", rows.single().term)
+    }
+
+    @Test
     fun plainTextExportCanBeImportedAgain() {
         val original = listOf(
             VocabularyWord(1, "take into account", "tính đến", "We must take it into account.", "/.../", "Academic")

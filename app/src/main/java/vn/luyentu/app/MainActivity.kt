@@ -29,6 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +45,7 @@ class MainActivity : ComponentActivity() {
 private fun LuyenTuApp() {
     val context = LocalContext.current
     val db = remember(context) { VocabularyDatabase(context) }
+    val coroutineScope = rememberCoroutineScope()
     var words by remember { mutableStateOf(db.getAllWords()) }
     var dueWords by remember { mutableStateOf(db.getDueWords()) }
     var decks by remember { mutableStateOf(db.getDecks()) }
@@ -58,81 +62,122 @@ private fun LuyenTuApp() {
     }
     val importCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
-            try {
-                val csv = context.contentResolver.openInputStream(uri)?.use { stream ->
-                    InputStreamReader(stream, StandardCharsets.UTF_8).readText()
-                }.orEmpty()
-                val parsed = CsvTools.parse(csv)
-                var added = 0
-                parsed.forEach { row -> if (db.addWord(row.term, row.meaning, row.example, row.ipa, row.topic, activeDeckId)) added++ }
-                refresh()
-                Toast.makeText(context, "Đã nhập $added/${parsed.size} từ mới từ CSV/TXT. Từ trùng được bỏ qua.", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Không thể nhập CSV: " + (e.localizedMessage ?: "lỗi đọc tệp"), Toast.LENGTH_LONG).show()
+            val targetDeckId = activeDeckId
+            coroutineScope.launch {
+                try {
+                    val result = withContext(Dispatchers.IO) {
+                        val content = context.contentResolver.openInputStream(uri)?.use { stream ->
+                            InputStreamReader(stream, StandardCharsets.UTF_8).readText()
+                        } ?: error("Không đọc được tệp.")
+                        val parsed = CsvTools.parse(content)
+                        val counts = db.importWords(parsed, targetDeckId)
+                        Triple(parsed.size, counts.first, counts.second)
+                    }
+                    refresh()
+                    val message = if (result.first == 0) {
+                        "Tệp không có dòng từ vựng hợp lệ. Cần có từ tiếng Anh và nghĩa."
+                    } else {
+                        "Đã thêm ${result.second} từ; bỏ qua ${result.third} từ trùng/không hợp lệ."
+                    }
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Không thể nhập từ: " + (e.localizedMessage ?: "lỗi đọc tệp"), Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
     val exportTxt = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri: Uri? ->
         if (uri != null) {
-            try {
-                context.contentResolver.openOutputStream(uri)?.use { stream ->
-                    OutputStreamWriter(stream, StandardCharsets.UTF_8).use { writer -> writer.write(CsvTools.exportPlainText(db.getAllWords())) }
+            val targetDeckId = activeDeckId
+            coroutineScope.launch {
+                try {
+                    val count = withContext(Dispatchers.IO) {
+                        val selectedWords = db.getAllWords(deckId = targetDeckId)
+                        val text = CsvTools.exportPlainText(selectedWords)
+                        context.contentResolver.openOutputStream(uri)?.use { stream ->
+                            OutputStreamWriter(stream, StandardCharsets.UTF_8).use { writer -> writer.write(text) }
+                        } ?: error("Không thể mở tệp để ghi.")
+                        selectedWords.size
+                    }
+                    Toast.makeText(context, "Đã xuất $count từ dạng TXT/TSV.", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Không thể xuất TXT: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
                 }
-                Toast.makeText(context, "Đã xuất bộ từ dạng TXT.", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Không thể xuất TXT: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
             }
         }
     }
     val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
         if (uri != null) {
-            try {
-                val backup = JSONObject(db.exportBackupJson())
-                backup.put("settings", JSONObject()
-                    .put("dailyGoal", dailyGoal)
-                    .put("reminderEnabled", reminderEnabled))
-                context.contentResolver.openOutputStream(uri)?.use { stream ->
-                    OutputStreamWriter(stream, StandardCharsets.UTF_8).use { it.write(backup.toString(2)) }
+            val savedGoal = dailyGoal
+            val savedReminder = reminderEnabled
+            coroutineScope.launch {
+                try {
+                    val counts = withContext(Dispatchers.IO) {
+                        val backup = JSONObject(db.exportBackupJson())
+                        backup.put("settings", JSONObject()
+                            .put("dailyGoal", savedGoal)
+                            .put("reminderEnabled", savedReminder))
+                        context.contentResolver.openOutputStream(uri)?.use { stream ->
+                            OutputStreamWriter(stream, StandardCharsets.UTF_8).use { it.write(backup.toString(2)) }
+                        } ?: error("Không thể mở tệp để ghi.")
+                        db.wordCount() to db.reviewCount()
+                    }
+                    Toast.makeText(context, "Đã sao lưu ${counts.first} từ và ${counts.second} lượt ôn.", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Sao lưu thất bại: " + (e.localizedMessage ?: "lỗi không xác định"), Toast.LENGTH_LONG).show()
                 }
-                Toast.makeText(context, "Đã sao lưu ${words.size} từ và ${db.reviewCount()} lượt ôn.", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Sao lưu thất bại: " + (e.localizedMessage ?: "lỗi không xác định"), Toast.LENGTH_LONG).show()
             }
         }
     }
     val importBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
-            try {
-                val backup = context.contentResolver.openInputStream(uri)?.use {
-                    InputStreamReader(it, StandardCharsets.UTF_8).readText()
-                } ?: error("Không đọc được tệp.")
-                val root = JSONObject(backup)
-                val counts = db.restoreBackupJson(backup)
-                val settings = root.optJSONObject("settings")
-                if (settings != null) {
-                    dailyGoal = settings.optInt("dailyGoal", 10).coerceIn(5, 20)
-                    reminderEnabled = settings.optBoolean("reminderEnabled", false)
-                    context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).edit()
-                        .putInt("daily_review_goal", dailyGoal)
-                        .putBoolean(DailyReminderWorker.ENABLED_KEY, reminderEnabled).apply()
-                    if (reminderEnabled) DailyReminderWorker.schedule(context) else DailyReminderWorker.cancel(context)
+            coroutineScope.launch {
+                try {
+                    val result = withContext(Dispatchers.IO) {
+                        val backup = context.contentResolver.openInputStream(uri)?.use {
+                            InputStreamReader(it, StandardCharsets.UTF_8).readText()
+                        } ?: error("Không đọc được tệp.")
+                        val root = JSONObject(backup)
+                        val counts = db.restoreBackupJson(backup)
+                        val settings = root.optJSONObject("settings")
+                        val restoredGoal = settings?.optInt("dailyGoal", 10)?.coerceIn(5, 20)
+                        val restoredReminder = settings?.optBoolean("reminderEnabled", false)
+                        Triple(counts, restoredGoal, restoredReminder)
+                    }
+                    if (result.second != null) dailyGoal = result.second
+                    if (result.third != null) reminderEnabled = result.third
+                    if (result.second != null || result.third != null) {
+                        context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).edit().apply {
+                            result.second?.let { putInt("daily_review_goal", it) }
+                            result.third?.let { putBoolean(DailyReminderWorker.ENABLED_KEY, it) }
+                        }.apply()
+                        if (reminderEnabled) DailyReminderWorker.schedule(context) else DailyReminderWorker.cancel(context)
+                    }
+                    refresh()
+                    Toast.makeText(context, "Khôi phục thành công: ${result.first.first} từ, ${result.first.second} lượt ôn.", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Khôi phục thất bại: " + (e.localizedMessage ?: "tệp không hợp lệ"), Toast.LENGTH_LONG).show()
                 }
-                refresh()
-                Toast.makeText(context, "Khôi phục thành công: ${counts.first} từ, ${counts.second} lượt ôn.", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Khôi phục thất bại: " + (e.localizedMessage ?: "tệp không hợp lệ"), Toast.LENGTH_LONG).show()
             }
         }
     }
     val exportCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
         if (uri != null) {
-            try {
-                context.contentResolver.openOutputStream(uri)?.use { stream ->
-                    OutputStreamWriter(stream, StandardCharsets.UTF_8).use { writer -> writer.write(CsvTools.export(db.getAllWords())) }
+            val targetDeckId = activeDeckId
+            coroutineScope.launch {
+                try {
+                    val count = withContext(Dispatchers.IO) {
+                        val selectedWords = db.getAllWords(deckId = targetDeckId)
+                        val csv = CsvTools.export(selectedWords)
+                        context.contentResolver.openOutputStream(uri)?.use { stream ->
+                            OutputStreamWriter(stream, StandardCharsets.UTF_8).use { writer -> writer.write(csv) }
+                        } ?: error("Không thể mở tệp để ghi.")
+                        selectedWords.size
+                    }
+                    Toast.makeText(context, "Đã xuất $count từ dạng CSV.", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Không thể xuất CSV: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
                 }
-                Toast.makeText(context, "Đã xuất bộ từ CSV.", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Không thể xuất CSV: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -248,7 +293,12 @@ private fun LuyenTuApp() {
                     Text("Dữ liệu được lưu trên thiết bị. Không cần tài khoản hoặc kết nối mạng.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                1 -> VocabularyScreen(padding, words, activeDeckId, { newId -> activeDeckId = newId }, db, refresh)
+                1 -> VocabularyScreen(
+                    padding, words, decks, activeDeckId, { newId -> activeDeckId = newId }, db, refresh,
+                    onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
+                    onExport = { exportCsv.launch(if (activeDeckId == null) "LuyenTu-all-words.csv" else "LuyenTu-deck-${activeDeckId}.csv") },
+                    onExportText = { exportTxt.launch(if (activeDeckId == null) "LuyenTu-all-words.txt" else "LuyenTu-deck-${activeDeckId}.txt") }
+                )
                 2 -> PracticeScreen(padding, activeDueWords, activeWords, db, refresh)
                 3 -> StatisticsScreen(padding, activeWords, activeDueWords, db)
                 4 -> SettingsScreen(
@@ -299,10 +349,14 @@ private fun DashboardAction(title: String, subtitle: String, color: androidx.com
 private fun VocabularyScreen(
     padding: PaddingValues,
     words: List<VocabularyWord>,
+    decksFromApp: List<VocabularyDeck>,
     activeDeckId: Long?,
     onActiveDeckChange: (Long?) -> Unit,
     db: VocabularyDatabase,
-    refresh: () -> Unit
+    refresh: () -> Unit,
+    onImport: () -> Unit,
+    onExport: () -> Unit,
+    onExportText: () -> Unit
 ) {
     var term by rememberSaveable { mutableStateOf("") }
     var meaning by rememberSaveable { mutableStateOf("") }
@@ -322,8 +376,9 @@ private fun VocabularyScreen(
     var addWordDialog by rememberSaveable { mutableStateOf(false) }
     var viewingDeckContent by rememberSaveable { mutableStateOf(false) }
     var deckSearch by rememberSaveable { mutableStateOf("") }
-    var decks by remember { mutableStateOf(db.getDecks()) }
+    var decks by remember { mutableStateOf(decksFromApp) }
     var folders by remember { mutableStateOf(db.getFolders()) }
+    LaunchedEffect(decksFromApp) { decks = decksFromApp }
     var createDialog by rememberSaveable { mutableStateOf<String?>(null) }
     var newContainerName by rememberSaveable { mutableStateOf("") }
     var selectedFolderId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -426,8 +481,9 @@ private fun VocabularyScreen(
                 Text("${deckWords.size} từ • ${if (activeDeckId == null) "tất cả bộ từ" else db.deckName(activeDeckId)}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = { createDialog = "folder"; newContainerName = "" }) { Icon(Icons.Default.CreateNewFolder, "Tạo thư mục") }
-            IconButton(onClick = { createDialog = "deck"; newContainerName = ""; selectedFolderId = null }) { Icon(Icons.Default.AddBox, "Tạo bộ từ") }
+            IconButton(onClick = onImport) { Icon(Icons.Default.FileOpen, "Nhập từ vào bộ") }
+            IconButton(onClick = onExport) { Icon(Icons.Default.FileDownload, "Xuất bộ từ CSV") }
+            IconButton(onClick = onExportText) { Icon(Icons.Default.TextSnippet, "Xuất bộ từ TXT/TSV") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Box {
@@ -541,7 +597,7 @@ private fun VocabularyScreen(
             onDismissRequest = { addWordDialog = false },
             title = { Text("Thêm từ vào bộ") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.heightIn(max = 430.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(term, { term = it; message = "" }, modifier = Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh *") }, singleLine = true)
                     OutlinedTextField(meaning, { meaning = it; message = "" }, modifier = Modifier.fillMaxWidth(), label = { Text("Nghĩa tiếng Việt *") })
                     OutlinedTextField(ipa, { ipa = it }, modifier = Modifier.fillMaxWidth(), label = { Text("IPA / phiên âm") }, singleLine = true)
@@ -615,9 +671,9 @@ private fun VocabularyScreen(
                     )
                     if (createDialog == "deck" && folders.isNotEmpty()) {
                         Text("Lưu trong thư mục", style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(selected = selectedFolderId == null, onClick = { selectedFolderId = null }, label = { Text("Không thư mục") })
-                            folders.forEach { folder ->
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            item { FilterChip(selected = selectedFolderId == null, onClick = { selectedFolderId = null }, label = { Text("Không thư mục") }) }
+                            items(folders, key = { it.id }) { folder ->
                                 FilterChip(selected = selectedFolderId == folder.id, onClick = { selectedFolderId = folder.id }, label = { Text(folder.name) })
                             }
                         }

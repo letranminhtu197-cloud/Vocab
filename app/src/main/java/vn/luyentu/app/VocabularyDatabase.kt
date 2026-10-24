@@ -148,6 +148,46 @@ class VocabularyDatabase(context: Context) :
         }
     }
 
+    /**
+     * Imports a complete file in one SQLite transaction to avoid a commit per word.
+     * Returns Pair(added, skipped); existing terms are never overwritten.
+     */
+    @Synchronized
+    fun importWords(rows: List<CsvTools.CsvWord>, deckId: Long? = null): Pair<Int, Int> {
+        val db = writableDatabase
+        var added = 0
+        var skipped = 0
+        db.beginTransaction()
+        try {
+            val targetDeck = deckId ?: ensureDefaultDeck(db)
+            rows.forEach { row ->
+                val term = row.term.trim()
+                val meaning = row.meaning.trim()
+                if (term.isBlank() || meaning.isBlank()) {
+                    skipped++
+                } else {
+                    val values = ContentValues().apply {
+                        put("term", term)
+                        put("meaning", meaning)
+                        put("example", row.example.trim())
+                        put("ipa", row.ipa.trim())
+                        put("topic", row.topic.trim())
+                        put("created_at", System.currentTimeMillis())
+                        put("deck_id", targetDeck)
+                    }
+                    val inserted = db.insertWithOnConflict(
+                        "vocabulary", null, values, SQLiteDatabase.CONFLICT_IGNORE
+                    )
+                    if (inserted == -1L) skipped++ else added++
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return added to skipped
+    }
+
     @Synchronized
     fun addWord(term: String, meaning: String, example: String = "", ipa: String = "", topic: String = "", deckId: Long? = null): Boolean {
         val cleanTerm = term.trim()
@@ -211,76 +251,37 @@ class VocabularyDatabase(context: Context) :
     }
 
     @Synchronized
-    fun getDueWords(limit: Int = 30): List<VocabularyWord> {
+    fun getDueWords(limit: Int = Int.MAX_VALUE): List<VocabularyWord> {
         val now = System.currentTimeMillis()
         return getAllWords().asSequence().filter { it.nextReviewAt <= now }.sortedBy { it.nextReviewAt }.take(limit).toList()
     }
 
     @Synchronized
     fun reviewWord(wordId: Long, grade: Int) {
-        // Grade scale: 0 = Again, 1 = Hard, 2 = Good, 3 = Easy.
-        val safeGrade = grade.coerceIn(0, 3)
         val word = getAllWords().firstOrNull { it.id == wordId } ?: return
-        val now = System.currentTimeMillis()
-        val nextRepetitions: Int
-        val nextInterval: Int
-        val nextEase: Double
-        val nextLapses = word.lapses + if (safeGrade == 0) 1 else 0
-        val nextStep: Int
-        val delayMs: Long
-
-        when (safeGrade) {
-            0 -> {
-                nextRepetitions = 0
-                nextInterval = 0
-                nextEase = (word.easeFactor - 0.2).coerceAtLeast(1.3)
-                nextStep = 0
-                delayMs = 10 * 60 * 1000L
-            }
-            1 -> {
-                nextRepetitions = word.repetitions
-                nextInterval = if (word.intervalDays <= 1) 1 else (word.intervalDays * 1.2).toInt().coerceAtLeast(1)
-                nextEase = (word.easeFactor - 0.15).coerceAtLeast(1.3)
-                nextStep = 1
-                delayMs = if (word.repetitions == 0) 12 * 60 * 60 * 1000L else nextInterval * DAY_MS
-            }
-            2, 3 -> {
-                nextRepetitions = word.repetitions + 1
-                nextEase = if (safeGrade == 3) (word.easeFactor + 0.15).coerceAtMost(3.0) else word.easeFactor
-                nextInterval = when {
-                    word.repetitions == 0 -> if (safeGrade == 3) 4 else 1
-                    word.repetitions == 1 -> if (safeGrade == 3) 7 else 3
-                    else -> (word.intervalDays * nextEase * if (safeGrade == 3) 1.3 else 1.0).toInt().coerceAtLeast(1)
-                }
-                nextStep = 0
-                delayMs = nextInterval * DAY_MS
-            }
-            else -> return
-        }
-
+        val schedule = SrsScheduler.calculate(word, grade, System.currentTimeMillis())
         val db = writableDatabase
         db.beginTransaction()
         try {
             db.update("vocabulary", ContentValues().apply {
-                put("next_review_at", now + delayMs)
-                put("interval_days", nextInterval)
-                put("repetitions", nextRepetitions)
-                put("ease_factor", nextEase)
-                put("last_reviewed_at", now)
-                put("lapses", nextLapses)
-                put("learning_step", nextStep)
+                put("next_review_at", schedule.nextReviewAt)
+                put("interval_days", schedule.intervalDays)
+                put("repetitions", schedule.repetitions)
+                put("ease_factor", schedule.easeFactor)
+                put("last_reviewed_at", schedule.reviewedAt)
+                put("lapses", schedule.lapses)
+                put("learning_step", schedule.learningStep)
             }, "id = ?", arrayOf(wordId.toString()))
             db.insert("review_log", null, ContentValues().apply {
                 put("word_id", wordId)
-                put("grade", safeGrade)
-                put("reviewed_at", now)
+                put("grade", schedule.grade)
+                put("reviewed_at", schedule.reviewedAt)
             })
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
         }
     }
-
 
     @Synchronized
     fun updateWord(id: Long, term: String, meaning: String, example: String = "", ipa: String = "", topic: String = ""): Boolean {
@@ -426,14 +427,17 @@ class VocabularyDatabase(context: Context) :
         readableDatabase.rawQuery(
             "SELECT DISTINCT date(reviewed_at / 1000, 'unixepoch', 'localtime') FROM review_log",
             null
-        ).use { cursor -> while (cursor.moveToNext()) reviewedDays += cursor.getString(0) }
+        ).use { cursor ->
+            while (cursor.moveToNext()) cursor.getString(0)?.let { reviewedDays += it }
+        }
         val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val calendar = Calendar.getInstance()
-        val today = format.format(calendar.time)
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
-        val yesterday = format.format(calendar.time)
-        if (today !in reviewedDays && yesterday !in reviewedDays) return 0
-        if (today !in reviewedDays) calendar.timeInMillis = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }.timeInMillis
+        // If today has no reviews yet, a streak may still continue from yesterday.
+        if (format.format(calendar.time) !in reviewedDays) {
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
+        }
+        if (format.format(calendar.time) !in reviewedDays) return 0
+
         var streak = 0
         while (format.format(calendar.time) in reviewedDays) {
             streak++

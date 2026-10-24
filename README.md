@@ -14,11 +14,13 @@
 ## Đã triển khai trên nhánh `luyentu2.0`
 
 - Kotlin + Jetpack Compose; SQLite cục bộ.
-- Sổ từ: thêm, sửa, xoá, tìm kiếm, lọc theo chủ đề; trường từ, nghĩa, IPA, ví dụ, chủ đề.
-- Nhập CSV và TXT/TSV; xuất CSV và TXT/TSV; nhận diện nhiều tên cột; bỏ qua từ trùng.
-- Các dạng luyện tập: thẻ từ, trắc nghiệm, nghe/phát âm và gõ từ, điền từ vào câu, ghép từ-nghĩa, dịch nghĩa sang tiếng Anh, ôn hỗn hợp.
-- Lịch ôn cách quãng nâng cấp: Again/Hard/Good/Easy, khoảng ôn thay đổi theo kết quả, hệ số dễ, số lần quên, bước học lại và ưu tiên từ quá hạn.
-- Thống kê tổng từ, lượt ôn, từ đến hạn, từ đã vững; biểu đồ hoạt động 7 ngày và lịch sử ôn gần đây.
+- Thư viện bộ từ và thư mục riêng trong SQLite: tạo, đổi tên, xóa, chuyển bộ vào thư mục, chọn bộ để luyện; liên kết từ với bộ và nâng cấp cơ sở dữ liệu cũ lên schema 4.
+- Sổ từ theo bộ: thêm, sửa, xóa, tìm kiếm, lọc theo chủ đề, chuyển từ giữa các bộ; trường từ, nghĩa, IPA, ví dụ và chủ đề.
+- Nhập CSV/TXT/TSV theo lô trong một giao dịch SQLite; nhận diện tiêu đề Anh/Việt, bỏ qua từ trùng mà không ghi đè. Xuất CSV/TXT/TSV từ bộ đang mở hoặc toàn bộ thư viện.
+- Các dạng luyện tập: thẻ từ, trắc nghiệm, nghe và gõ, điền từ theo câu/nghĩa, ghép nhiều cặp từ-nghĩa, dịch nghĩa sang tiếng Anh và ôn hỗn hợp.
+- Phiên ôn có lựa chọn 10/20/30/50 từ và danh sách cố định khi bắt đầu; tiến độ cập nhật sau từng kết quả.
+- SRS được tách thành lịch lập thuần có thể kiểm thử: Again/Hard/Good/Easy, khoảng ôn, hệ số dễ, số lần quên, bước học lại; sửa tính chuỗi học để tính cả ngày hôm nay khi đã ôn.
+- Thống kê tổng từ, lượt ôn, từ đến hạn, từ đã vững, cấp độ Lv0–Lv5, biểu đồ hoạt động 7 ngày, bộ lọc từ và lịch sử ôn.
 - Chuỗi ngày học, lộ trình cột mốc offline và mục tiêu ôn tập hằng ngày có thể chọn.
 - Nhắc ôn cục bộ hằng ngày lúc 20:00 (tuỳ chọn; cần cấp quyền thông báo).
 - Widget màn hình chính hiển thị từ vựng, nghĩa, chuỗi học và số từ đến hạn; nhấn widget để mở ứng dụng.
@@ -30,7 +32,7 @@
 - Hai mini-game Monkey Rescue và Flappy.
 - Tùy chỉnh avatar/widget và lựa chọn từ hiển thị; widget hiện dùng biểu tượng sách và từ đầu tiên theo thứ tự bảng chữ cái.
 - Hiệu chỉnh thuật toán SRS sau khi đối chiếu hành vi thực tế; lịch gốc chưa thể xác minh chính xác từ APK đã biên dịch.
-- Kiểm thử UI, hiệu năng, thông báo và offline trên Galaxy S22 Ultra thật.
+- Kiểm thử UI, hiệu năng, thông báo, khả năng nhập hàng chục nghìn từ và offline trên Galaxy S22 Ultra thật.
 - Xác nhận CI thành công cho phiên bản mới nhất và kiểm tra APK đầu ra.
 
 Các tính năng online trong ứng dụng gốc như tài khoản, chat, leaderboard dùng máy chủ, mua hàng/subscription và đồng bộ đám mây được loại bỏ theo yêu cầu miễn phí/offline một người dùng; không thay bằng dịch vụ từ xa.

@@ -26,7 +26,7 @@ class LuyenTuWidgetProvider : AppWidgetProvider() {
             val chosen = words.firstOrNull()
             views.setTextViewText(R.id.widget_word, chosen?.term ?: "Thêm từ đầu tiên")
             views.setTextViewText(R.id.widget_meaning, chosen?.meaning ?: "Mở LuyenTu để nhập bộ từ của bạn")
-            views.setTextViewText(R.id.widget_streak, "🔥 ${db.currentStreakDays()} ngày học • ${db.getDueWords(10000).size} từ đến hạn")
+            views.setTextViewText(R.id.widget_streak, "🔥 ${db.currentStreakDays()} ngày học • ${db.getDueWords().size} từ đến hạn")
             views.setTextViewText(R.id.widget_avatar, "📚")
             val intent = PendingIntent.getActivity(
                 context, 7001, Intent(context, MainActivity::class.java),
