@@ -63,6 +63,44 @@ class SrsSchedulerTest {
     }
 
     @Test
+    fun repeatedGoodReviewsIncreaseIntervalAndAgainResetsLearning() {
+        var word = fresh
+        var nowMs = now
+
+        val first = SrsScheduler.calculate(word, 2, nowMs)
+        assertEquals(1, first.intervalDays)
+        word = word.copy(
+            nextReviewAt = first.nextReviewAt,
+            intervalDays = first.intervalDays,
+            repetitions = first.repetitions,
+            easeFactor = first.easeFactor,
+            lapses = first.lapses,
+            learningStep = first.learningStep
+        )
+        nowMs = first.nextReviewAt
+
+        val second = SrsScheduler.calculate(word, 2, nowMs)
+        assertEquals(3, second.intervalDays)
+        assertEquals(2, second.repetitions)
+        assertTrue(second.nextReviewAt > first.nextReviewAt)
+
+        val reset = SrsScheduler.calculate(
+            word.copy(
+                intervalDays = second.intervalDays,
+                repetitions = second.repetitions,
+                easeFactor = second.easeFactor,
+                lapses = second.lapses
+            ),
+            0,
+            second.nextReviewAt
+        )
+        assertEquals(0, reset.repetitions)
+        assertEquals(0, reset.intervalDays)
+        assertEquals(2, reset.lapses)
+        assertEquals(second.nextReviewAt + 10 * 60 * 1000L, reset.nextReviewAt)
+    }
+
+    @Test
     fun easyClampsEaseFactorAndGradeIsClamped() {
         val mature = fresh.copy(repetitions = 3, intervalDays = 7, easeFactor = 2.99, lapses = 2)
         val result = SrsScheduler.calculate(mature, 99, now)
