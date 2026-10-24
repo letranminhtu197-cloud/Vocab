@@ -285,7 +285,8 @@ private fun VocabApp(database: VocabDatabase) {
                     onPractice = { quizStartWithDue = false; tab = 3 },
                     onLibrary = { tab = 1 },
                     onStats = { tab = 4 },
-                    onImport = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) }
+                    onImport = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
+                    modifier = Modifier.fillMaxSize().padding(padding)
                 )
                 1 -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Card(
