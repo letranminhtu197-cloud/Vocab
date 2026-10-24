@@ -18,17 +18,18 @@ class WordLibraryRepository(private val database: VocabDatabase) {
     suspend fun addWord(word: WordEntity): Long {
         validateWord(word)
         val trimmed = word.term.trim()
-        require(words.findByNormalizedTerm(normalizeTerm(trimmed)) == null) {
-            "Từ '${trimmed}' đã tồn tại."
-        }
+        val duplicate = words.getAllSnapshot().firstOrNull { normalizeTerm(it.term) == normalizeTerm(trimmed) }
+        require(duplicate == null) { "Từ '${trimmed}' đã tồn tại." }
         return words.insert(word.copy(term = trimmed))
     }
 
     suspend fun updateWord(word: WordEntity) {
         validateWord(word)
         require(words.findById(word.id) != null) { "Không tìm thấy từ cần cập nhật." }
-        val duplicate = words.findByNormalizedTerm(normalizeTerm(word.term))
-        require(duplicate == null || duplicate.id == word.id) {
+        val duplicate = words.getAllSnapshot().firstOrNull {
+            normalizeTerm(it.term) == normalizeTerm(word.term) && it.id != word.id
+        }
+        require(duplicate == null) {
             "Một từ khác có cùng cách viết đã tồn tại."
         }
         words.update(word.copy(term = word.term.trim()))
