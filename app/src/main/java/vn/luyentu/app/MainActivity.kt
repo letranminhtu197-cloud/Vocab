@@ -3,6 +3,8 @@ package vn.luyentu.app
 import android.os.Bundle
 import android.net.Uri
 import android.widget.Toast
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import java.io.InputStreamReader
@@ -210,6 +212,19 @@ private fun PracticeScreen(
     refresh: () -> Unit
 ) {
     val modes = listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Ôn hỗn hợp")
+    var speechEngine by remember { mutableStateOf<TextToSpeech?>(null) }
+    var speechReady by remember { mutableStateOf(false) }
+    DisposableEffect(context) {
+        lateinit var engine: TextToSpeech
+        engine = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val languageStatus = engine.setLanguage(Locale.US)
+                speechReady = languageStatus != TextToSpeech.LANG_MISSING_DATA && languageStatus != TextToSpeech.LANG_NOT_SUPPORTED
+            }
+        }
+        speechEngine = engine
+        onDispose { engine.stop(); engine.shutdown(); speechEngine = null; speechReady = false }
+    }
     var mode by rememberSaveable { mutableStateOf("Thẻ từ") }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var revealed by rememberSaveable { mutableStateOf(false) }
@@ -322,7 +337,12 @@ private fun PracticeScreen(
                             Text("Nghe và nhập từ tiếng Anh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text("Nghĩa: \${current.meaning}")
                             Text("IPA: \${current.ipa.ifBlank { "Chưa có IPA" }}", style = MaterialTheme.typography.bodySmall)
-                            Text("Chế độ này dùng câu trả lời gõ; phát âm tự động sẽ được bổ sung riêng.")
+                            Button(onClick = { speechEngine?.speak(current.term, TextToSpeech.QUEUE_FLUSH, null, "luyentu-word-${current.id}") }, modifier = Modifier.fillMaxWidth(), enabled = speechReady) {
+                                Icon(Icons.Default.VolumeUp, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (speechReady) "Phát âm từ" else "Đang khởi tạo giọng đọc")
+                            }
+                            Text("Âm thanh dùng dịch vụ Text-to-Speech trên thiết bị. Muốn dùng hoàn toàn offline, hãy cài sẵn giọng tiếng Anh ngoại tuyến trong cài đặt Android.", style = MaterialTheme.typography.bodySmall)
                             OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = "" }, Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh") }, singleLine = true)
                             Button(onClick = {
                                 if (typedAnswer.isNotBlank() && !answered) {
