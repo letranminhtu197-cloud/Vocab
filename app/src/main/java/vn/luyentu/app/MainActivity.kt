@@ -1,6 +1,13 @@
 package vn.luyentu.app
 
 import android.os.Bundle
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
+import java.nio.charset.StandardCharsets
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -34,6 +41,34 @@ private fun LuyenTuApp() {
     val refresh = {
         words = db.getAllWords()
         dueWords = db.getDueWords()
+    }
+    val importCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val csv = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    InputStreamReader(stream, StandardCharsets.UTF_8).readText()
+                }.orEmpty()
+                val parsed = CsvTools.parse(csv)
+                var added = 0
+                parsed.forEach { row -> if (db.addWord(row.term, row.meaning, row.example, row.ipa, row.topic)) added++ }
+                refresh()
+                Toast.makeText(context, "Đã nhập $added/${parsed.size} từ mới. Từ trùng được bỏ qua.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Không thể nhập CSV: " + (e.localizedMessage ?: "lỗi đọc tệp"), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val exportCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    OutputStreamWriter(stream, StandardCharsets.UTF_8).use { writer -> writer.write(CsvTools.export(db.getAllWords())) }
+                }
+                Toast.makeText(context, "Đã xuất bộ từ CSV.", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Không thể xuất CSV: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
+            }
+        }
     }
     val titles = listOf("Tổng quan", "Sổ từ", "Luyện tập", "Thống kê", "Cài đặt")
     val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings)
@@ -84,7 +119,7 @@ private fun LuyenTuApp() {
                     Metric("Đến hạn ôn", dueWords.size.toString(), Modifier.fillMaxWidth())
                     Text("Số liệu được tính từ cơ sở dữ liệu trên thiết bị.")
                 }
-                else -> SimpleScreen(padding, "Cài đặt", "Ứng dụng không cần tài khoản hoặc kết nối máy chủ. Nhập/xuất CSV và sao lưu cục bộ sẽ được bổ sung.")
+                else -> SettingsScreen(padding, onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) }, onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") })
             }
         }
     }
@@ -139,6 +174,30 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
             }
             if (filtered.isEmpty()) item { Text(if (search.isBlank()) "Chưa có từ. Hãy thêm từ đầu tiên ở biểu mẫu trên." else "Không tìm thấy từ.") }
         }
+    }
+}
+
+
+@Composable
+private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit) {
+    Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Cài đặt & dữ liệu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Quản lý bộ từ bằng tệp CSV. Dữ liệu được nhập vào bộ nhớ cục bộ của ứng dụng; không cần đăng nhập.")
+        Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.FileOpen, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Nhập từ file CSV")
+        }
+        OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.FileDownload, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Xuất bộ từ ra CSV")
+        }
+        HorizontalDivider()
+        Text("Định dạng CSV", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Tiêu đề cột được hỗ trợ: term, meaning, ipa, topic, example. Một số tên tương đương như word, translation, definition và sentence cũng được nhận diện.")
+        Text("Mỗi từ cần có từ tiếng Anh và nghĩa. Từ trùng sẽ được bỏ qua, không ghi đè dữ liệu đang có.")
+        Text("Nếu chọn vị trí lưu trữ đám mây trong bộ chọn Android, việc chuyển tệp qua dịch vụ đó có thể cần Internet. Bản thân ứng dụng không cần mạng để học và quản lý từ.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
