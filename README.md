@@ -17,7 +17,7 @@
 - Thư viện bộ từ và thư mục riêng trong SQLite: tạo, đổi tên, xóa, chuyển bộ vào thư mục, chọn bộ để luyện; liên kết từ với bộ và nâng cấp cơ sở dữ liệu cũ lên schema 4.
 - Sổ từ theo bộ: thêm, sửa, xóa, tìm kiếm, lọc theo chủ đề, chuyển từ giữa các bộ; trường từ, nghĩa, IPA, ví dụ và chủ đề.
 - Nhập CSV/TXT/TSV theo lô trong một giao dịch SQLite; nhận diện tiêu đề Anh/Việt, bỏ qua từ trùng mà không ghi đè. Xuất CSV/TXT/TSV từ bộ đang mở hoặc toàn bộ thư viện.
-- Các dạng luyện tập: thẻ từ, trắc nghiệm, nghe và gõ, điền từ theo câu/nghĩa, ghép nhiều cặp từ-nghĩa, dịch nghĩa sang tiếng Anh và ôn hỗn hợp.
+- Sáu chế độ người dùng: Flashcard, Trắc nghiệm, Nối từ, Gõ từ vựng, Nghe viết và Đặc biệt; chế độ Đặc biệt chọn ngẫu nhiên biến thể bài tập, gồm cả điền từ.
 - Phiên ôn có lựa chọn 10/20/30/50 từ và danh sách cố định khi bắt đầu; tiến độ cập nhật sau từng kết quả.
 - SRS được tách thành lịch lập thuần có thể kiểm thử: Again/Hard/Good/Easy, khoảng ôn, hệ số dễ, số lần quên, bước học lại; sửa tính chuỗi học để tính cả ngày hôm nay khi đã ôn.
 - Thống kê tổng từ, lượt ôn, từ đến hạn, từ đã vững, cấp độ Lv0–Lv5, biểu đồ hoạt động 7 ngày, bộ lọc từ và lịch sử ôn.

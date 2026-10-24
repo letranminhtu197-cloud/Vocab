@@ -172,7 +172,9 @@ class VocabularyDatabase(context: Context) :
                         put("example", row.example.trim())
                         put("ipa", row.ipa.trim())
                         put("topic", row.topic.trim())
-                        put("created_at", System.currentTimeMillis())
+                        val createdAt = System.currentTimeMillis()
+                        put("created_at", createdAt)
+                        put("next_review_at", createdAt)
                         put("deck_id", targetDeck)
                     }
                     val inserted = db.insertWithOnConflict(
@@ -199,7 +201,9 @@ class VocabularyDatabase(context: Context) :
             put("example", example.trim())
             put("ipa", ipa.trim())
             put("topic", topic.trim())
-            put("created_at", System.currentTimeMillis())
+            val createdAt = System.currentTimeMillis()
+            put("created_at", createdAt)
+            put("next_review_at", createdAt)
             put("deck_id", deckId ?: ensureDefaultDeck(writableDatabase))
         }
         return try {

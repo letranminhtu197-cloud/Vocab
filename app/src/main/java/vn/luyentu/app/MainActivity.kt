@@ -840,7 +840,8 @@ private fun PracticeScreen(
     refresh: () -> Unit
 ) {
     val context = LocalContext.current
-    val modes = listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Dịch từ", "Ôn hỗn hợp")
+    // Six user-facing modes; cloze is a challenge inside Special mode.
+    val modes = listOf("Thẻ từ", "Trắc nghiệm", "Nối từ", "Gõ từ vựng", "Nghe viết", "Đặc biệt")
     var speechEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     var speechReady by remember { mutableStateOf(false) }
     DisposableEffect(context) {
@@ -873,14 +874,14 @@ private fun PracticeScreen(
     val safeIndex = index.coerceIn(0, (sessionWords.size - 1).coerceAtLeast(0))
     val current = sessionWords.getOrNull(safeIndex)
     val activeMode = remember(current?.id, mode) {
-        if (mode == "Ôn hỗn hợp") listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Dịch từ").random()
+        if (mode == "Đặc biệt") listOf("Thẻ từ", "Trắc nghiệm", "Nghe viết", "Điền từ", "Nối từ", "Gõ từ vựng").random()
         else mode
     }
     val choices = remember(current?.id, allWords.size, activeMode) {
         if (current == null) emptyList()
         else (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled().take(3) + current.meaning).shuffled()
     }
-    val matchBatch = if (activeMode == "Ghép cặp") sessionWords.take(4) else emptyList()
+    val matchBatch = if (activeMode == "Nối từ") sessionWords.take(4) else emptyList()
     val shuffledMatchTerms = remember(matchBatch.map { it.id }) { matchBatch.shuffled() }
     val shuffledMatchMeanings = remember(matchBatch.map { it.id }) { matchBatch.shuffled() }
 
@@ -966,7 +967,7 @@ private fun PracticeScreen(
                 }
             }
         } else {
-            Text("Từ ${sessionTotal - sessionWords.size + 1} / $sessionTotal  •  Dạng bài: $activeMode", style = MaterialTheme.typography.labelLarge)
+            Text("Từ ${sessionTotal - sessionWords.size + 1} / $sessionTotal  •  Dạng bài: ${if (mode == "Đặc biệt") "Đặc biệt · $activeMode" else activeMode}", style = MaterialTheme.typography.labelLarge)
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (activeMode) {
@@ -995,7 +996,7 @@ private fun PracticeScreen(
                                 ) { Text(choice) }
                             }
                         }
-                        "Ghép cặp" -> {
+                        "Nối từ" -> {
                             Text("Nối từng từ tiếng Anh với nghĩa tương ứng.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (matchBatch.size < 2) {
                                 Text("Cần ít nhất 2 từ trong phiên để chơi ghép cặp.")
@@ -1061,11 +1062,10 @@ private fun PracticeScreen(
                                 if (pairFeedback.isNotBlank()) Text(pairFeedback, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                             }
                         }
-                        "Nghe & gõ", "Dịch từ" -> {
-                            if (activeMode == "Nghe & gõ") {
+                        "Nghe viết", "Gõ từ vựng" -> {
+                            if (activeMode == "Nghe viết") {
                                 Text("Nghe và nhập từ tiếng Anh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Text("Nghĩa: ${current.meaning}")
-                                Text("IPA: ${current.ipa.ifBlank { "Chưa có IPA" }}", style = MaterialTheme.typography.bodySmall)
+                                Text("Hãy nghe âm thanh và nhập từ tiếng Anh bạn nghe được.")
                                 Button(onClick = { speechEngine?.speak(current.term, TextToSpeech.QUEUE_FLUSH, null, "luyentu-word-${current.id}") }, modifier = Modifier.fillMaxWidth(), enabled = speechReady) {
                                     Icon(Icons.Default.VolumeUp, null)
                                     Spacer(Modifier.width(8.dp))
@@ -1144,7 +1144,7 @@ private fun StatisticsScreen(
         (wordSearch.isBlank() || word.term.contains(wordSearch, true) || word.meaning.contains(wordSearch, true)) &&
         when (wordFilter) {
             "Đến hạn" -> word.id in dueIds
-            "Đang học" -> word.repetitions > 0 && word.learningLevel < 3
+            "Đang học" -> word.learningLevel < 3
             "Đã vững" -> word.learningLevel >= 3
             else -> true
         }
