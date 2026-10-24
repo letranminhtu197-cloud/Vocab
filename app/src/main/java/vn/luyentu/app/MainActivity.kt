@@ -629,6 +629,12 @@ private fun StatisticsScreen(
                 Metric("Từ đã vững", db.masteredWordCount().toString(), Modifier.weight(1f))
             }
         }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Metric("Lần quên", db.totalLapses().toString(), Modifier.weight(1f))
+                Metric("Chuỗi học", "${db.currentStreakDays()} ngày", Modifier.weight(1f))
+            }
+        }
         item { Text("Hoạt động 7 ngày gần nhất", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
         items(daily) { (day, count) ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
