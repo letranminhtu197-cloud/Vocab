@@ -5,12 +5,16 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.UUID
@@ -43,6 +47,7 @@ fun QuizScreen(
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current
     var isSrsReview by rememberSaveable(startWithDue) { mutableStateOf(startWithDue) }
     var mode by rememberSaveable(startWithDue, words.map { it.id }) { mutableStateOf(if (startWithDue) MODE_RECALL else defaultPracticeMode(words)) }
     var index by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
@@ -153,6 +158,7 @@ fun QuizScreen(
     fun submitAnswer(target: WordEntity, isCorrect: Boolean, type: ActiveExerciseType) {
         if (answered) return
         answered = true
+        keyboardController?.hide()
         correct = isCorrect
         attempts++
         if (isCorrect) correctCount++
@@ -397,7 +403,13 @@ fun QuizScreen(
                                 onValueChange = { if (!answered) answerText = it },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text("Gõ từ tiếng Anh") },
-                                singleLine = true
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (!answered && answerText.isNotBlank()) {
+                                        submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.DEFINITION_TO_TERM)
+                                    }
+                                })
                             )
                             Button(
                                 onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.DEFINITION_TO_TERM) },
@@ -440,7 +452,13 @@ fun QuizScreen(
                                 onValueChange = { if (!answered) answerText = it },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text("Nhập từ nghe được") },
-                                singleLine = true
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (!answered && audioReady && answerText.isNotBlank()) {
+                                        submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.LISTEN_AND_TYPE)
+                                    }
+                                })
                             )
                             Button(
                                 onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.LISTEN_AND_TYPE) },
@@ -456,7 +474,13 @@ fun QuizScreen(
                                 onValueChange = { if (!answered) answerText = it },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text("Từ/cụm từ còn thiếu") },
-                                singleLine = true
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (!answered && answerText.isNotBlank() && clozeText != null) {
+                                        submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.CLOZE)
+                                    }
+                                })
                             )
                             Button(
                                 onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.CLOZE) },
