@@ -25,7 +25,17 @@ data class VocabularyWord(
     val lapses: Int = 0,
     val learningStep: Int = 0,
     val deckId: Long? = null
-)
+) {
+    val learningLevel: Int
+        get() = when {
+            repetitions >= 8 && intervalDays >= 60 -> 5
+            repetitions >= 5 && intervalDays >= 30 -> 4
+            repetitions >= 4 && intervalDays >= 14 -> 3
+            repetitions >= 3 && intervalDays >= 7 -> 2
+            repetitions >= 1 && intervalDays >= 3 -> 1
+            else -> 0
+        }
+}
 
 data class VocabularyDeck(
     val id: Long,
