@@ -327,9 +327,12 @@ private fun VocabularyScreen(
     var createDialog by rememberSaveable { mutableStateOf<String?>(null) }
     var newContainerName by rememberSaveable { mutableStateOf("") }
     var selectedFolderId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editingFolderId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deckMenuExpanded by remember { mutableStateOf(false) }
+    var moveDeckMenuExpanded by remember { mutableStateOf(false) }
     var movingWordId by remember { mutableStateOf<Long?>(null) }
     var confirmDeleteDeck by rememberSaveable { mutableStateOf(false) }
+    var confirmDeleteFolderId by rememberSaveable { mutableStateOf<Long?>(null) }
     val deckWords = if (activeDeckId == null) words else words.filter { it.deckId == activeDeckId }
     val topics = deckWords.map { it.topic.trim() }.filter { it.isNotBlank() }.distinct().sorted()
     val filtered = deckWords.filter {
@@ -365,14 +368,48 @@ private fun VocabularyScreen(
                 }
             }
             if (activeDeckId != null) {
+                Box {
+                    IconButton(onClick = { moveDeckMenuExpanded = true }) { Icon(Icons.Default.FolderOpen, "Chuyển thư mục") }
+                    DropdownMenu(expanded = moveDeckMenuExpanded, onDismissRequest = { moveDeckMenuExpanded = false }) {
+                        DropdownMenuItem(text = { Text("Không thư mục") }, onClick = {
+                            db.moveDeckToFolder(activeDeckId, null)
+                            moveDeckMenuExpanded = false
+                            decks = db.getDecks()
+                            refresh()
+                        })
+                        folders.forEach { folder ->
+                            DropdownMenuItem(text = { Text(folder.name) }, onClick = {
+                                db.moveDeckToFolder(activeDeckId, folder.id)
+                                moveDeckMenuExpanded = false
+                                decks = db.getDecks()
+                                refresh()
+                            })
+                        }
+                    }
+                }
                 IconButton(onClick = { createDialog = "renameDeck"; newContainerName = db.deckName(activeDeckId) }) {
                     Icon(Icons.Default.Edit, "Đổi tên bộ từ")
                 }
                 IconButton(onClick = { confirmDeleteDeck = true }) { Icon(Icons.Default.Delete, "Xóa bộ từ") }
             }
         }
-        if (folders.isNotEmpty()) Text("Thư mục: " + folders.joinToString(" • ") { it.name },
-            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (folders.isNotEmpty()) {
+            Text("THƯ MỤC", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(folders, key = { it.id }) { folder ->
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        AssistChip(onClick = {
+                            editingFolderId = folder.id
+                            createDialog = "renameFolder"
+                            newContainerName = folder.name
+                        }, label = { Text(folder.name) }, leadingIcon = { Icon(Icons.Default.Folder, null) })
+                        IconButton(onClick = { confirmDeleteFolderId = folder.id }) {
+                            Icon(Icons.Default.Close, "Xóa thư mục ${folder.name}")
+                        }
+                    }
+                }
+            }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { addWordDialog = true }, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Thêm từ")
@@ -478,12 +515,13 @@ private fun VocabularyScreen(
             dismissButton = { TextButton(onClick = { editingWord = null }) { Text("Huỷ") } }
         )
     }
-    if (createDialog == "folder" || createDialog == "deck" || createDialog == "renameDeck") {
+    if (createDialog == "folder" || createDialog == "deck" || createDialog == "renameDeck" || createDialog == "renameFolder") {
         AlertDialog(
             onDismissRequest = { createDialog = null },
             title = { Text(when (createDialog) {
                 "folder" -> "Tạo thư mục"
                 "renameDeck" -> "Đổi tên bộ từ"
+                "renameFolder" -> "Đổi tên thư mục"
                 else -> "Tạo bộ từ mới"
             }) },
             text = {
@@ -492,7 +530,7 @@ private fun VocabularyScreen(
                         value = newContainerName,
                         onValueChange = { newContainerName = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text(if (createDialog == "folder") "Tên thư mục" else "Tên bộ từ") },
+                        label = { Text(if (createDialog == "folder" || createDialog == "renameFolder") "Tên thư mục" else "Tên bộ từ") },
                         singleLine = true
                     )
                     if (createDialog == "deck" && folders.isNotEmpty()) {
@@ -511,6 +549,7 @@ private fun VocabularyScreen(
                     val ok = when (createDialog) {
                         "folder" -> db.createFolder(newContainerName) != null
                         "renameDeck" -> activeDeckId?.let { db.renameDeck(it, newContainerName) } == true
+                        "renameFolder" -> editingFolderId?.let { db.renameFolder(it, newContainerName) } == true
                         else -> db.createDeck(newContainerName, selectedFolderId) != null
                     }
                     if (ok) {
@@ -524,6 +563,24 @@ private fun VocabularyScreen(
                 }, enabled = newContainerName.isNotBlank()) { Text("Lưu") }
             },
             dismissButton = { TextButton(onClick = { createDialog = null }) { Text("Hủy") } }
+        )
+    }
+    if (confirmDeleteFolderId != null) {
+        val folderIdToDelete = confirmDeleteFolderId
+        AlertDialog(
+            onDismissRequest = { confirmDeleteFolderId = null },
+            title = { Text("Xóa thư mục?") },
+            text = { Text("Các bộ từ trong thư mục vẫn được giữ và chuyển sang trạng thái không thuộc thư mục.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    folderIdToDelete?.let { db.deleteFolder(it) }
+                    folders = db.getFolders()
+                    decks = db.getDecks()
+                    confirmDeleteFolderId = null
+                    refresh()
+                }) { Text("Xóa thư mục") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteFolderId = null }) { Text("Hủy") } }
         )
     }
     if (confirmDeleteDeck && activeDeckId != null) {
