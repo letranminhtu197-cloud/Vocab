@@ -33,12 +33,35 @@ object CsvTools {
         fun value(row: List<String>, key: String): String =
             columns[key]?.let { row.getOrNull(it)?.trim().orEmpty() }.orEmpty()
 
-        return dataRows.mapNotNull { row ->
+        val parsed = dataRows.mapNotNull { row ->
             val term = value(row, "term")
             val meaning = value(row, "meaning")
             if (term.isBlank() || meaning.isBlank()) null
             else CsvWord(term, meaning, value(row, "example"), value(row, "ipa"), value(row, "topic"))
         }
+        return if (parsed.isNotEmpty()) parsed else parsePlainText(text)
+    }
+
+    /**
+     * Plain-text fallback: one entry per line, using TAB, " - ", " — ", " – ",
+     * or ": " between the English term and its meaning.
+     */
+    private fun parsePlainText(text: String): List<CsvWord> {
+        return text.removePrefix("\uFEFF").lineSequence().mapNotNull { raw ->
+            val line = raw.trim()
+            if (line.isBlank() || line.startsWith("#")) return@mapNotNull null
+            val parts = when {
+                line.contains('\t') -> line.split('\t', limit = 2)
+                Regex("\\s+[—–-]\\s+").containsMatchIn(line) -> Regex("\\s+[—–-]\\s+").split(line, limit = 2)
+                Regex(":\\s+").containsMatchIn(line) -> Regex(":\\s+").split(line, limit = 2)
+                else -> return@mapNotNull null
+            }
+            if (parts.size < 2) return@mapNotNull null
+            val term = parts[0].trim()
+            val meaning = parts[1].trim()
+            if (term.isBlank() || meaning.isBlank() || term.equals("term", true) || term.equals("word", true)) null
+            else CsvWord(term, meaning)
+        }.distinctBy { it.term.lowercase() }.toList()
     }
 
     fun export(words: List<VocabularyWord>): String = buildString {
