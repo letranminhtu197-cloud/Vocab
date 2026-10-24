@@ -10,13 +10,13 @@
 - Nhập hàng loạt qua Room transaction: từ trùng bên trong file bị loại ở bước preview hoặc bị từ chối tại lớp nghiệp vụ; từ đã có trên máy được bỏ qua; batch được ghi trong một transaction.
 - Giao diện quản lý danh mục: tạo, xem, xóa; danh mục có thể được chọn làm chủ đề trong bộ soạn từ.
 - Room schema nâng từ version 4 lên 5 bằng migration tạo bảng danh mục và unique index; giữ nguyên chuỗi migration 1→2→3→4→5.
-- Unit tests cho chuẩn hóa từ (whitespace/Unicode), dòng CSV không hợp lệ và nhãn khoảng ôn SRS.
+- Unit tests cho chuẩn hóa từ (whitespace/Unicode), dòng CSV không hợp lệ, nhãn khoảng ôn SRS và câu lệnh migration tạo bảng/index danh mục.
 
 ## Giới hạn cần nêu rõ
 
 - `WordEntity.topic` vẫn là chuỗi để bảo toàn dữ liệu cũ; bảng `categories` chưa được nối bằng khóa ngoại `categoryId`. Giao diện dùng tên danh mục làm giá trị chủ đề tương thích ngược.
 - CSV tự ánh xạ các tên cột đã biết. File có tiêu đề hoàn toàn không nhận diện được vẫn cần đổi tên cột trước khi nhập; chưa có hộp thoại ánh xạ thủ công từng cột.
-- Chưa có bài kiểm thử Android instrumentation chuyên biệt cho migration 4→5 và tính nguyên tử của transaction. CI unit tests/build là bước xác minh đang chạy sau các thay đổi mới nhất.
+- Migration 4→5 hiện có unit test xác nhận câu lệnh tạo bảng/index và phiên bản migration; vẫn cần kiểm thử Room instrumentation trên SQLite thật để xác nhận schema thực tế và tính nguyên tử của transaction. CI unit tests/build là bước xác minh đang chạy sau các thay đổi mới nhất.
 
 ## Ràng buộc offline
 
