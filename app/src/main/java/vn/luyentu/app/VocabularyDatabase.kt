@@ -143,7 +143,7 @@ class VocabularyDatabase(context: Context) :
     @Synchronized
     fun getDueWords(limit: Int = 30): List<VocabularyWord> {
         val now = System.currentTimeMillis()
-        return getAllWords().filter { it.nextReviewAt <= now }.take(limit)
+        return getAllWords().asSequence().filter { it.nextReviewAt <= now }.sortedBy { it.nextReviewAt }.take(limit).toList()
     }
 
     @Synchronized
@@ -246,6 +246,10 @@ class VocabularyDatabase(context: Context) :
 
     fun masteredWordCount(): Int = readableDatabase.rawQuery(
         "SELECT COUNT(*) FROM vocabulary WHERE repetitions >= 3 AND interval_days >= 7", null
+    ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+
+    fun totalLapses(): Int = readableDatabase.rawQuery(
+        "SELECT COALESCE(SUM(lapses), 0) FROM vocabulary", null
     ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
     fun currentStreakDays(): Int {
