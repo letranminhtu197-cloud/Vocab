@@ -800,6 +800,10 @@ private fun PracticeScreen(
     }
     var mode by rememberSaveable { mutableStateOf("Thẻ từ") }
     var index by rememberSaveable { mutableIntStateOf(0) }
+    var sessionLimit by rememberSaveable { mutableIntStateOf(20) }
+    var sessionTotal by rememberSaveable { mutableIntStateOf(0) }
+    var sessionStarted by rememberSaveable { mutableStateOf(false) }
+    var sessionIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var revealed by rememberSaveable { mutableStateOf(false) }
     var typedAnswer by rememberSaveable { mutableStateOf("") }
     var chosenAnswer by rememberSaveable { mutableStateOf<String?>(null) }
@@ -809,8 +813,9 @@ private fun PracticeScreen(
     var selectedPairTermId by rememberSaveable { mutableStateOf<Long?>(null) }
     var matchedPairIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var pairFeedback by rememberSaveable { mutableStateOf("") }
-    val safeIndex = index.coerceIn(0, (dueWords.size - 1).coerceAtLeast(0))
-    val current = dueWords.getOrNull(safeIndex)
+    val sessionWords = if (sessionStarted) sessionIds.mapNotNull { id -> dueWords.firstOrNull { it.id == id } } else emptyList()
+    val safeIndex = index.coerceIn(0, (sessionWords.size - 1).coerceAtLeast(0))
+    val current = sessionWords.getOrNull(safeIndex)
     val activeMode = remember(current?.id, mode) {
         if (mode == "Ôn hỗn hợp") listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Dịch từ").random()
         else mode
@@ -819,7 +824,7 @@ private fun PracticeScreen(
         if (current == null) emptyList()
         else (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled().take(3) + current.meaning).shuffled()
     }
-    val matchBatch = if (activeMode == "Ghép cặp") dueWords.take(4) else emptyList()
+    val matchBatch = if (activeMode == "Ghép cặp") sessionWords.take(4) else emptyList()
     val shuffledMatchTerms = remember(matchBatch.map { it.id }) { matchBatch.shuffled() }
     val shuffledMatchMeanings = remember(matchBatch.map { it.id }) { matchBatch.shuffled() }
 
@@ -836,9 +841,10 @@ private fun PracticeScreen(
     }
 
     fun normalize(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ").trimEnd('.', '!', '?')
-    fun recordAnswer(correct: Boolean) {
-        if (current == null) return
-        db.reviewWord(current.id, if (correct) 2 else 0)
+    fun recordGrade(grade: Int) {
+        val word = current ?: return
+        db.reviewWord(word.id, grade)
+        sessionIds = sessionIds.filterNot { it == word.id }
         refresh()
         index = 0
         revealed = false
@@ -847,6 +853,7 @@ private fun PracticeScreen(
         answered = false
         feedback = ""
     }
+    fun recordAnswer(correct: Boolean) = recordGrade(if (correct) 2 else 0)
 
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Luyện tập", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -861,17 +868,49 @@ private fun PracticeScreen(
                 FilterChip(selected = mode == item, onClick = { mode = item; index = 0 }, label = { Text(item) })
             }
         }
-        Text("Còn ${dueWords.size} từ đến hạn ôn.")
-        if (current == null) {
+        if (sessionStarted) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Còn ${sessionWords.size} / $sessionTotal câu trong phiên", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                TextButton(onClick = { sessionStarted = false; sessionIds = emptyList(); index = 0 }) { Text("Kết thúc phiên") }
+            }
+        } else {
+            Text("Còn ${dueWords.size} từ đến hạn ôn.")
+        }
+        if (!sessionStarted) {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Thiết lập phiên học", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Chọn số từ tối đa cho phiên này. Danh sách từ được cố định khi bạn bắt đầu.")
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(10, 20, 30, 50).forEach { amount ->
+                            FilterChip(selected = sessionLimit == amount, onClick = { sessionLimit = amount }, label = { Text("$amount từ") })
+                        }
+                    }
+                    Text("Phiên này sẽ có tối đa ${minOf(sessionLimit, dueWords.size)} từ.", style = MaterialTheme.typography.bodySmall)
+                    Button(
+                        onClick = {
+                            sessionIds = dueWords.take(sessionLimit).map { it.id }
+                            sessionTotal = sessionIds.size
+                            index = 0
+                            sessionStarted = sessionIds.isNotEmpty()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = dueWords.isNotEmpty()
+                    ) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text("Bắt đầu phiên học") }
+                    if (dueWords.isEmpty()) Text("Không có từ đến hạn trong bộ đang chọn.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else if (current == null) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
-                    Text(if (allWords.isEmpty()) "Sổ từ đang trống" else "Bạn đã ôn hết các từ đến hạn!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(if (allWords.isEmpty()) "Hãy thêm từ hoặc nhập bộ từ CSV trong mục Sổ từ/Cài đặt để bắt đầu." else "Thêm từ mới hoặc quay lại khi tới lịch ôn tiếp theo.")
+                    Text("Hoàn thành phiên học!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Bạn đã xử lý đủ ${sessionTotal} câu đã chọn. Các từ sai đã được lên lịch ôn lại.")
+                    Button(onClick = { sessionStarted = false; sessionIds = emptyList(); sessionTotal = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Thiết lập phiên tiếp theo") }
                 }
             }
         } else {
-            Text("Từ ${safeIndex + 1} / ${dueWords.size}  •  Dạng bài: $activeMode", style = MaterialTheme.typography.labelLarge)
+            Text("Từ ${sessionTotal - sessionWords.size + 1} / $sessionTotal  •  Dạng bài: $activeMode", style = MaterialTheme.typography.labelLarge)
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (activeMode) {
@@ -937,6 +976,8 @@ private fun PracticeScreen(
                                                             pairFeedback = "Chính xác: ${pair.term}"
                                                             selectedPairTermId = null
                                                             if (nextMatched.containsAll(matchBatch.map { it.id })) {
+                                                                val matchedIds = matchBatch.map { it.id }.toSet()
+                                                                sessionIds = sessionIds.filterNot { it in matchedIds }
                                                                 refresh()
                                                                 matchedPairIds = emptySet()
                                                                 pairFeedback = "Hoàn thành phiên ghép cặp!"
@@ -1014,12 +1055,12 @@ private fun PracticeScreen(
             if (activeMode == "Thẻ từ" && revealed) {
                 Text("Bạn nhớ từ này đến đâu?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { db.reviewWord(current.id, 0); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Quên") }
-                    OutlinedButton(onClick = { db.reviewWord(current.id, 1); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Khó") }
+                    OutlinedButton(onClick = { recordGrade(0) }, modifier = Modifier.weight(1f)) { Text("Quên") }
+                    OutlinedButton(onClick = { recordGrade(1) }, modifier = Modifier.weight(1f)) { Text("Khó") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { db.reviewWord(current.id, 2); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Nhớ") }
-                    Button(onClick = { db.reviewWord(current.id, 3); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Dễ") }
+                    Button(onClick = { recordGrade(2) }, modifier = Modifier.weight(1f)) { Text("Nhớ") }
+                    Button(onClick = { recordGrade(3) }, modifier = Modifier.weight(1f)) { Text("Dễ") }
                 }
             }
         }
