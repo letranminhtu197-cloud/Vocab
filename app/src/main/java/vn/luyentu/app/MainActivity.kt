@@ -801,8 +801,8 @@ private fun PracticeScreen(
     var mode by rememberSaveable { mutableStateOf("Thẻ từ") }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var sessionLimit by rememberSaveable { mutableIntStateOf(20) }
-    var sessionTotal by rememberSaveable { mutableIntStateOf(0) }
-    var sessionStarted by rememberSaveable { mutableStateOf(false) }
+    var sessionTotal by remember { mutableIntStateOf(0) }
+    var sessionStarted by remember { mutableStateOf(false) }
     var sessionIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var revealed by rememberSaveable { mutableStateOf(false) }
     var typedAnswer by rememberSaveable { mutableStateOf("") }
