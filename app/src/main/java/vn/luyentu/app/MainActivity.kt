@@ -989,13 +989,20 @@ private fun PracticeScreen(
                         "Trắc nghiệm" -> {
                             Text(current.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                             if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.primary)
-                            Text("Chọn nghĩa chính xác:")
-                            choices.forEach { choice ->
-                                OutlinedButton(
-                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice == current.meaning; feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: ${current.meaning}" } },
-                                    modifier = Modifier.fillMaxWidth(), enabled = !answered,
-                                    colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice == current.meaning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-                                ) { Text(choice) }
+                            if (choices.size < 2) {
+                                Text(
+                                    "Chưa đủ nghĩa khác nhau để tạo câu trắc nghiệm. Hãy nhập thêm từ vựng có nghĩa khác nhau, hoặc chuyển sang Thẻ từ / Gõ từ vựng.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Text("Chọn nghĩa chính xác:")
+                                choices.forEach { choice ->
+                                    OutlinedButton(
+                                        onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice == current.meaning; feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: ${current.meaning}" } },
+                                        modifier = Modifier.fillMaxWidth(), enabled = !answered,
+                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice == current.meaning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                                    ) { Text(choice) }
+                                }
                             }
                         }
                         "Nối từ" -> {
