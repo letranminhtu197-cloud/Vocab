@@ -8,6 +8,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class VocabularyWord(
     val id: Long,
@@ -19,7 +21,9 @@ data class VocabularyWord(
     val nextReviewAt: Long = 0L,
     val intervalDays: Int = 0,
     val repetitions: Int = 0,
-    val easeFactor: Double = 2.5
+    val easeFactor: Double = 2.5,
+    val lapses: Int = 0,
+    val learningStep: Int = 0
 )
 
 data class ReviewHistoryItem(val term: String, val grade: Int, val reviewedAt: Long)
@@ -47,7 +51,9 @@ class VocabularyDatabase(context: Context) :
                 interval_days INTEGER NOT NULL DEFAULT 0,
                 repetitions INTEGER NOT NULL DEFAULT 0,
                 ease_factor REAL NOT NULL DEFAULT 2.5,
-                last_reviewed_at INTEGER NOT NULL DEFAULT 0
+                last_reviewed_at INTEGER NOT NULL DEFAULT 0,
+                lapses INTEGER NOT NULL DEFAULT 0,
+                learning_step INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -76,6 +82,10 @@ class VocabularyDatabase(context: Context) :
             db.execSQL("ALTER TABLE vocabulary ADD COLUMN ease_factor REAL NOT NULL DEFAULT 2.5")
             db.execSQL("ALTER TABLE vocabulary ADD COLUMN last_reviewed_at INTEGER NOT NULL DEFAULT 0")
             createReviewLog(db)
+        }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE vocabulary ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE vocabulary ADD COLUMN learning_step INTEGER NOT NULL DEFAULT 0")
         }
     }
 
@@ -107,7 +117,7 @@ class VocabularyDatabase(context: Context) :
         val args = if (cleanQuery.isEmpty()) null else arrayOf("%$cleanQuery%", "%$cleanQuery%", "%$cleanQuery%")
         readableDatabase.query(
             "vocabulary",
-            arrayOf("id", "term", "meaning", "example", "ipa", "topic", "next_review_at", "interval_days", "repetitions", "ease_factor"),
+            arrayOf("id", "term", "meaning", "example", "ipa", "topic", "next_review_at", "interval_days", "repetitions", "ease_factor", "lapses", "learning_step"),
             selection, args, null, null, "term COLLATE NOCASE ASC"
         ).use { cursor ->
             while (cursor.moveToNext()) {
@@ -121,7 +131,9 @@ class VocabularyDatabase(context: Context) :
                     nextReviewAt = cursor.getLong(6),
                     intervalDays = cursor.getInt(7),
                     repetitions = cursor.getInt(8),
-                    easeFactor = cursor.getDouble(9)
+                    easeFactor = cursor.getDouble(9),
+                    lapses = cursor.getInt(10),
+                    learningStep = cursor.getInt(11)
                 )
             }
         }
@@ -143,36 +155,50 @@ class VocabularyDatabase(context: Context) :
         val nextRepetitions: Int
         val nextInterval: Int
         val nextEase: Double
+        val nextLapses = word.lapses + if (safeGrade == 0) 1 else 0
+        val nextStep: Int
+        val delayMs: Long
 
-        if (safeGrade == 0) {
-            nextRepetitions = 0
-            nextInterval = 0
-            nextEase = (word.easeFactor - 0.2).coerceAtLeast(1.3)
-        } else {
-            nextRepetitions = word.repetitions + 1
-            nextEase = when (safeGrade) {
-                1 -> (word.easeFactor - 0.15).coerceAtLeast(1.3)
-                3 -> word.easeFactor + 0.15
-                else -> word.easeFactor
+        when (safeGrade) {
+            0 -> {
+                nextRepetitions = 0
+                nextInterval = 0
+                nextEase = (word.easeFactor - 0.2).coerceAtLeast(1.3)
+                nextStep = 0
+                delayMs = 10 * 60 * 1000L
             }
-            nextInterval = when {
-                safeGrade == 1 -> 1
-                nextRepetitions == 1 -> 1
-                nextRepetitions == 2 -> if (safeGrade == 3) 4 else 3
-                else -> (word.intervalDays * nextEase * if (safeGrade == 3) 1.3 else 1.0).toInt().coerceAtLeast(1)
+            1 -> {
+                nextRepetitions = word.repetitions
+                nextInterval = if (word.intervalDays <= 1) 1 else (word.intervalDays * 1.2).toInt().coerceAtLeast(1)
+                nextEase = (word.easeFactor - 0.15).coerceAtLeast(1.3)
+                nextStep = 1
+                delayMs = if (word.repetitions == 0) 12 * 60 * 60 * 1000L else nextInterval * DAY_MS
             }
+            2, 3 -> {
+                nextRepetitions = word.repetitions + 1
+                nextEase = if (safeGrade == 3) (word.easeFactor + 0.15).coerceAtMost(3.0) else word.easeFactor
+                nextInterval = when {
+                    word.repetitions == 0 -> if (safeGrade == 3) 4 else 1
+                    word.repetitions == 1 -> if (safeGrade == 3) 7 else 3
+                    else -> (word.intervalDays * nextEase * if (safeGrade == 3) 1.3 else 1.0).toInt().coerceAtLeast(1)
+                }
+                nextStep = 0
+                delayMs = nextInterval * DAY_MS
+            }
+            else -> return
         }
 
-        val dueAt = if (safeGrade == 0) now + 10 * 60 * 1000L else now + nextInterval * DAY_MS
         val db = writableDatabase
         db.beginTransaction()
         try {
             db.update("vocabulary", ContentValues().apply {
-                put("next_review_at", dueAt)
+                put("next_review_at", now + delayMs)
                 put("interval_days", nextInterval)
                 put("repetitions", nextRepetitions)
                 put("ease_factor", nextEase)
                 put("last_reviewed_at", now)
+                put("lapses", nextLapses)
+                put("learning_step", nextStep)
             }, "id = ?", arrayOf(wordId.toString()))
             db.insert("review_log", null, ContentValues().apply {
                 put("word_id", wordId)
@@ -293,9 +319,87 @@ class VocabularyDatabase(context: Context) :
         return result
     }
 
+    @Synchronized
+    fun exportBackupJson(): String {
+        val root = JSONObject()
+        root.put("format", "luyentu-backup")
+        root.put("schemaVersion", 1)
+        root.put("exportedAt", System.currentTimeMillis())
+        val vocabulary = JSONArray()
+        readableDatabase.rawQuery("SELECT * FROM vocabulary ORDER BY id", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                val item = JSONObject()
+                for (i in 0 until cursor.columnCount) {
+                    val name = cursor.getColumnName(i)
+                    when (cursor.getType(i)) {
+                        android.database.Cursor.FIELD_TYPE_INTEGER -> item.put(name, cursor.getLong(i))
+                        android.database.Cursor.FIELD_TYPE_FLOAT -> item.put(name, cursor.getDouble(i))
+                        android.database.Cursor.FIELD_TYPE_STRING -> item.put(name, cursor.getString(i))
+                        android.database.Cursor.FIELD_TYPE_NULL -> item.put(name, JSONObject.NULL)
+                    }
+                }
+                vocabulary.put(item)
+            }
+        }
+        val reviews = JSONArray()
+        readableDatabase.rawQuery("SELECT id, word_id, grade, reviewed_at FROM review_log ORDER BY id", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                reviews.put(JSONObject().put("id", cursor.getLong(0)).put("word_id", cursor.getLong(1))
+                    .put("grade", cursor.getInt(2)).put("reviewed_at", cursor.getLong(3)))
+            }
+        }
+        root.put("vocabulary", vocabulary)
+        root.put("review_log", reviews)
+        return root.toString(2)
+    }
+
+    @Synchronized
+    fun restoreBackupJson(json: String): Pair<Int, Int> {
+        val root = JSONObject(json)
+        require(root.optString("format") == "luyentu-backup") { "Tệp không phải bản sao lưu LuyenTu." }
+        require(root.optInt("schemaVersion") == 1) { "Phiên bản bản sao lưu không được hỗ trợ." }
+        val vocabulary = root.getJSONArray("vocabulary")
+        val reviews = root.getJSONArray("review_log")
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete("review_log", null, null)
+            db.delete("vocabulary", null, null)
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name IN ('vocabulary', 'review_log')")
+            for (i in 0 until vocabulary.length()) {
+                val item = vocabulary.getJSONObject(i)
+                val term = item.optString("term").trim()
+                val meaning = item.optString("meaning").trim()
+                require(term.isNotBlank() && meaning.isNotBlank()) { "Bản sao lưu có từ hoặc nghĩa rỗng." }
+                val values = ContentValues().apply {
+                    put("id", item.getLong("id")); put("term", term); put("meaning", meaning)
+                    put("example", item.optString("example")); put("ipa", item.optString("ipa"))
+                    put("topic", item.optString("topic")); put("created_at", item.optLong("created_at"))
+                    put("next_review_at", item.optLong("next_review_at")); put("interval_days", item.optInt("interval_days"))
+                    put("repetitions", item.optInt("repetitions")); put("ease_factor", item.optDouble("ease_factor", 2.5))
+                    put("last_reviewed_at", item.optLong("last_reviewed_at")); put("lapses", item.optInt("lapses"))
+                    put("learning_step", item.optInt("learning_step"))
+                }
+                db.insertOrThrow("vocabulary", null, values)
+            }
+            for (i in 0 until reviews.length()) {
+                val item = reviews.getJSONObject(i)
+                val values = ContentValues().apply {
+                    put("id", item.getLong("id")); put("word_id", item.getLong("word_id"))
+                    put("grade", item.getInt("grade").coerceIn(0, 3)); put("reviewed_at", item.getLong("reviewed_at"))
+                }
+                db.insertOrThrow("review_log", null, values)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return vocabulary.length() to reviews.length()
+    }
+
     companion object {
         private const val DATABASE_NAME = "luyentu_personal.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
         private const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }
