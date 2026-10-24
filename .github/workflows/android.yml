@@ -1,7 +1,7 @@
 name: Android build
 on:
   push:
-    branches: [main, implementation]
+    branches: [main, implementation, rebuild/ielts-active-learning]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:

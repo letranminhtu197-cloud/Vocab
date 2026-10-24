@@ -69,6 +69,7 @@ object CsvCodec {
         val createdIndex = index("createdatmillis", "createdat")
         val lastReviewedIndex = index("lastreviewedatmillis", "lastreviewed")
         val excludedIndex = index("excludedfromreview", "skipreview", "khongon", "khôngôn")
+        val isNewIndex = index("isnew", "new", "isnewword")
         val result = mutableListOf<WordEntity>()
         var invalid = 0
         var metadataError: String? = null
@@ -105,7 +106,17 @@ object CsvCodec {
                 val nextReview = longField(nextIndex, "nextReviewAtMillis", 0L)
                 val created = longField(createdIndex, "createdAtMillis", System.currentTimeMillis())
                 val lastReviewed = longField(lastReviewedIndex, "lastReviewedAtMillis", 0L)
-                if (listOf(level, reviews, lapses, nextReview, created, lastReviewed).any { it == null }) {
+                val rawIsNew = value(isNewIndex).lowercase()
+                val isNew: Boolean? = when (rawIsNew) {
+                    "" -> (reviews == 0 && level == 0)
+                    "1", "true", "yes" -> true
+                    "0", "false", "no" -> false
+                    else -> {
+                        metadataError = "Giá trị is_new không hợp lệ ở dòng chứa từ \"${term}\"."
+                        null
+                    }
+                }
+                if (listOf(level, reviews, lapses, nextReview, created, lastReviewed, isNew).any { it == null }) {
                     return@forEach
                 }
                 result += WordEntity(
@@ -126,7 +137,8 @@ object CsvCodec {
                     lapseCount = lapses!!,
                     createdAtMillis = created!!,
                     lastReviewedAtMillis = lastReviewed!!,
-                    excludedFromReview = value(excludedIndex).let { it == "1" || it.equals("true", ignoreCase = true) || it.equals("yes", ignoreCase = true) }
+                    excludedFromReview = value(excludedIndex).let { it == "1" || it.equals("true", ignoreCase = true) || it.equals("yes", ignoreCase = true) },
+                    isNew = isNew!!
                 )
             }
         }
@@ -136,11 +148,11 @@ object CsvCodec {
 
     fun export(words: List<WordEntity>): String {
         val rows = mutableListOf(
-            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "collocations", "synonyms", "wordFamily", "notes", "tags", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis", "excludedFromReview")
+            listOf("term", "ipa", "partOfSpeech", "meaning", "example", "topic", "collocations", "synonyms", "wordFamily", "notes", "tags", "srsLevel", "nextReviewAtMillis", "reviewCount", "lapseCount", "createdAtMillis", "lastReviewedAtMillis", "excludedFromReview", "is_new")
         )
         words.forEach { w ->
             rows += listOf(w.term, w.ipa, w.partOfSpeech, w.meaning, w.example, w.topic, w.collocations, w.synonyms, w.wordFamily, w.notes, w.tags,
-                w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString(), w.createdAtMillis.toString(), w.lastReviewedAtMillis.toString(), if (w.excludedFromReview) "true" else "false")
+                w.srsLevel.toString(), w.nextReviewAtMillis.toString(), w.reviewCount.toString(), w.lapseCount.toString(), w.createdAtMillis.toString(), w.lastReviewedAtMillis.toString(), if (w.excludedFromReview) "true" else "false", if (w.isNew) "true" else "false")
         }
         return rows.joinToString("\r\n") { row -> row.joinToString(",") { escape(it) } } + "\r\n"
     }

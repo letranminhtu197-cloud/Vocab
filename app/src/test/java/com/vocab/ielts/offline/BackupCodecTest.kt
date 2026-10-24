@@ -30,6 +30,7 @@ class BackupCodecTest {
         assertEquals(original.lapseCount, copy.lapseCount)
         assertEquals(original.createdAtMillis, copy.createdAtMillis)
         assertEquals(original.lastReviewedAtMillis, copy.lastReviewedAtMillis)
+        assertEquals(original.isNew, copy.isNew)
     }
 
     @Test fun rejectsInvalidArchive() {

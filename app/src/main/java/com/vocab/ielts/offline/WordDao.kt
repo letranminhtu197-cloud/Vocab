@@ -33,4 +33,41 @@ interface WordDao {
 
     @Query("SELECT * FROM words WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): WordEntity?
+
+    /** Returns -1 when this stable attempt ID has already been recorded. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAttempt(attempt: LearningAttemptEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSession(session: LearningSessionEntity): Long
+
+    @Query("UPDATE learning_sessions SET endedAtMillis = :endedAtMillis, questionCount = :questionCount, uniqueWordCount = :uniqueWordCount, completed = 1 WHERE sessionId = :sessionId AND completed = 0")
+    suspend fun completeSession(sessionId: String, endedAtMillis: Long, questionCount: Int, uniqueWordCount: Int): Int
+
+    @Query("SELECT COUNT(*) FROM learning_sessions WHERE completed = 1")
+    suspend fun countCompletedSessions(): Int
+
+    @Query("SELECT COALESCE(SUM(endedAtMillis - startedAtMillis), 0) FROM learning_sessions WHERE completed = 1")
+    suspend fun totalCompletedSessionDurationMillis(): Long
+
+    @Query("SELECT COALESCE(SUM(uniqueWordCount), 0) FROM learning_sessions WHERE completed = 1")
+    suspend fun countSessionWordExposures(): Int
+
+    @Query("SELECT COUNT(*) FROM learning_attempts")
+    suspend fun countLearningAttempts(): Int
+
+    @Query("SELECT COUNT(*) FROM learning_attempts WHERE isSrsReview = 1")
+    suspend fun countSrsAttempts(): Int
+
+    @Query("SELECT COUNT(DISTINCT wordId) FROM learning_attempts WHERE isSrsReview = 0")
+    suspend fun countUniquePracticeWords(): Int
+
+    @Query("SELECT COUNT(DISTINCT wordId) FROM learning_attempts WHERE isSrsReview = 1")
+    suspend fun countUniqueSrsWords(): Int
+
+    @Query("SELECT COUNT(*) FROM learning_attempts WHERE exerciseType = :type")
+    suspend fun countAttemptsForType(type: String): Int
+
+    @Query("SELECT COUNT(*) FROM learning_attempts WHERE exerciseType = :type AND isCorrect = 1")
+    suspend fun countCorrectForType(type: String): Int
 }

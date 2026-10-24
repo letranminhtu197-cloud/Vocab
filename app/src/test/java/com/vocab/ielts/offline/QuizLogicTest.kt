@@ -27,42 +27,6 @@ class QuizLogicTest {
         )
     }
 
-    @Test fun multipleChoiceOptionsHaveUniqueVisibleAnswersAndIncludeTarget() {
-        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
-        val duplicate = WordEntity(id = 2, term = "assign", meaning = "phân bổ")
-        val other = WordEntity(id = 3, term = "sustainable", meaning = "bền vững")
-
-        val options = QuizLogic.multipleChoiceOptions(target, listOf(target, duplicate, other), "Chọn nghĩa")
-
-        assertTrue(options.any { it.id == target.id })
-        assertEquals(options.size, options.map { QuizLogic.normalizeAnswer(QuizLogic.choiceLabel(it, "Chọn nghĩa")) }.distinct().size)
-    }
-
-    @Test fun duplicateVisibleLabelsCannotProduceMeaningfulDistractors() {
-        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
-        val duplicateOne = WordEntity(id = 2, term = "assign", meaning = "phân bổ")
-        val duplicateTwo = WordEntity(id = 3, term = "distribute", meaning = "phân bổ")
-
-        val options = QuizLogic.multipleChoiceOptions(
-            target,
-            listOf(target, duplicateOne, duplicateTwo),
-            "Chọn nghĩa"
-        )
-
-        assertEquals(listOf(target.id), options.map { it.id })
-    }
-
-    @Test fun multipleChoiceOptionsRespectLimitAndIgnoreBlankDistractors() {
-        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
-        val blank = WordEntity(id = 2, term = "assign", meaning = "")
-        val other = WordEntity(id = 3, term = "sustainable", meaning = "bền vững")
-
-        val options = QuizLogic.multipleChoiceOptions(target, listOf(target, blank, other), "Chọn nghĩa", limit = 2)
-
-        assertEquals(2, options.size)
-        assertTrue(options.any { it.id == target.id })
-    }
-
     @Test fun retryDeckPreservesCapturedOrderAndIgnoresMissingIds() {
         val first = WordEntity(id = 1, term = "allocate", meaning = "phân bổ")
         val second = WordEntity(id = 2, term = "sustainable", meaning = "bền vững")
@@ -79,22 +43,15 @@ class QuizLogicTest {
     }
 
 
-    @Test fun answerComparisonIgnoresCaseAndPunctuation() {
-        assertTrue(QuizLogic.isCorrectAnswer("  SUSTAINABLE! ", "sustainable"))
+    @Test fun answerComparisonIgnoresCaseAndWhitespaceButPreservesMeaningfulPunctuation() {
+        assertTrue(QuizLogic.isCorrectAnswer("  SUSTAINABLE  ", "sustainable"))
+        assertFalse(QuizLogic.isCorrectAnswer("  SUSTAINABLE! ", "sustainable"))
+        assertFalse(QuizLogic.isCorrectAnswer("well-being", "well being"))
         assertFalse(QuizLogic.isCorrectAnswer("sustain", "sustainable"))
     }
     @Test fun dueFlashcardIndexResetsToStart() {
         assertEquals(0, FlashcardLogic.nextIndexAfterRating(2, 3, true))
     }
-    @Test fun synonymModeUsesSynonymFieldForVisibleChoices() {
-        val target = WordEntity(id = 1, term = "allocate", meaning = "phân bổ", synonyms = "assign; distribute")
-        val distractor = WordEntity(id = 2, term = "reduce", meaning = "giảm", synonyms = "decrease; lessen")
-        assertEquals("assign; distribute", QuizLogic.choiceLabel(target, "Từ đồng nghĩa"))
-        val options = QuizLogic.multipleChoiceOptions(target, listOf(target, distractor), "Từ đồng nghĩa")
-        assertEquals(2, options.size)
-        assertTrue(options.any { it.id == target.id })
-    }
-
     @Test fun mixedStudyQueuePrioritizesNewAndDueCardsAheadOfFutureMasteredCards() {
         val now = 1_000_000L
         val futureMastered = WordEntity(

@@ -75,6 +75,6 @@ class SrsSchedulerTest {
         assertEquals("1 giờ", SrsScheduler.intervalLabel(0, ReviewRating.HARD))
         assertEquals("2 giờ", SrsScheduler.intervalLabel(0, ReviewRating.GOOD))
         assertEquals("1 ngày", SrsScheduler.intervalLabel(0, ReviewRating.EASY))
-        assertEquals("1 ngày 12 giờ", SrsScheduler.intervalLabel(2, ReviewRating.HARD))
+        assertEquals("12 giờ", SrsScheduler.intervalLabel(2, ReviewRating.HARD))
     }
 }

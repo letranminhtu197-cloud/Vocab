@@ -3,43 +3,35 @@ package com.vocab.ielts.offline
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.UUID
 
-private const val QUIZ_MEANING = "Chọn nghĩa"
-private const val QUIZ_RECALL = "Tìm từ"
-private const val QUIZ_TYPED = "Gõ từ"
-private const val QUIZ_LISTENING = "Nghe & gõ"
-private const val QUIZ_SPEAKING = "Nói từ"
-private const val QUIZ_SENTENCE = "Viết câu"
-private const val QUIZ_CLOZE = "Điền từ"
-private const val QUIZ_WEAK = "Từ yếu"
-private const val QUIZ_DUE = "Đến hạn"
-private const val QUIZ_COLLOCATIONS = "Cụm từ"
-private const val QUIZ_FAMILY = "Họ từ"
-private const val QUIZ_SYNONYMS = "Từ đồng nghĩa"
-@Composable
-private fun QuizQuickStat(icon: String, label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(icon, fontSize = 20.sp)
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+private const val MODE_NEW = "Flashcard · từ mới"
+private const val MODE_RECALL = "Gõ từ theo nghĩa"
+private const val MODE_LISTEN = "Nghe và gõ"
+private const val MODE_CLOZE = "Điền vào ngữ cảnh"
+
+private fun defaultPracticeMode(words: List<WordEntity>): String {
+    val pool = words.filterNot { it.excludedFromReview }
+    if (pool.any { it.isNew }) return MODE_NEW
+    if (pool.any { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }) return MODE_CLOZE
+    if (pool.any { it.term.isNotBlank() && it.meaning.isNotBlank() }) return MODE_RECALL
+    if (pool.any { it.term.isNotBlank() }) return MODE_LISTEN
+    return MODE_NEW
 }
-
 
 @Composable
 fun QuizScreen(
@@ -47,566 +39,497 @@ fun QuizScreen(
     modifier: Modifier = Modifier,
     sessionScore: Int,
     sessionTotal: Int,
-    onAnswerRecorded: (WordEntity, Boolean) -> Unit,
+    onAnswerRecorded: (WordEntity, Boolean, Boolean, String, String, ActiveExerciseType) -> Unit,
+    onAudioReplay: () -> Unit = {},
+    onSessionStarted: (String, Long, Boolean) -> Unit = { _, _, _ -> },
+    onSessionCompleted: (String, Long, Long, Int, Int, Boolean) -> Unit = { _, _, _, _, _, _ -> },
+    onNewWordIntroduced: (WordEntity) -> Unit,
     onSessionReset: () -> Unit,
     startWithDue: Boolean = false
 ) {
-    var mode by remember(startWithDue) { mutableStateOf(if (startWithDue) QUIZ_DUE else QUIZ_MEANING) }
-    var selectedTopic by remember { mutableStateOf("Tất cả chủ đề") }
-    var index by remember { mutableIntStateOf(0) }
-    var selectedId by remember { mutableStateOf<Long?>(null) }
-    var answerText by remember { mutableStateOf("") }
-    var answered by remember { mutableStateOf(false) }
-    var lastCorrect by remember { mutableStateOf<Boolean?>(null) }
-    var showSummary by remember { mutableStateOf(false) }
-    var retryWrongOnly by remember { mutableStateOf(false) }
-    var sessionAttempts by remember { mutableIntStateOf(0) }
-    var sessionCorrect by remember { mutableIntStateOf(0) }
-    val wrongWordIds = remember { mutableStateListOf<Long>() }
-    // Freeze the replay deck for the duration of a retry session. The unresolved set can shrink
-    // after a correct answer, but changing the rendered deck mid-question would skip items.
-    val retryDeckIds = remember { mutableStateListOf<Long>() }
-    val modeAttempts = remember { mutableStateMapOf<String, Int>() }
-    val modeCorrect = remember { mutableStateMapOf<String, Int>() }
-    val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
-    val scopedWords = if (selectedTopic == "Tất cả chủ đề") words else words.filter {
-        it.topic.trim().equals(selectedTopic, ignoreCase = true)
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var isSrsReview by rememberSaveable(startWithDue) { mutableStateOf(startWithDue) }
+    var mode by rememberSaveable(startWithDue, words.map { it.id }) { mutableStateOf(if (startWithDue) MODE_RECALL else defaultPracticeMode(words)) }
+    var index by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var deckGeneration by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var answerText by rememberSaveable(startWithDue) { mutableStateOf("") }
+    var answered by rememberSaveable(startWithDue) { mutableStateOf(false) }
+    var revealed by rememberSaveable(startWithDue) { mutableStateOf(false) }
+    var correct by rememberSaveable(startWithDue) { mutableStateOf<Boolean?>(null) }
+    var showMatch by remember { mutableStateOf(false) }
+    var attempts by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var correctCount by rememberSaveable(startWithDue) { mutableIntStateOf(0) }
+    var lastType by rememberSaveable(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
+    var overrideType by rememberSaveable(startWithDue) { mutableStateOf<ActiveExerciseType?>(null) }
+    var audioReady by rememberSaveable(startWithDue) { mutableStateOf(false) }
+    var audioStatus by rememberSaveable(startWithDue) { mutableStateOf("Đang kiểm tra giọng đọc ngoại tuyến…") }
+    var sessionId by rememberSaveable(startWithDue) { mutableStateOf(UUID.randomUUID().toString()) }
+    var sessionStartedAtMillis by rememberSaveable(startWithDue) { mutableStateOf(System.currentTimeMillis()) }
+    var sessionCompleted by rememberSaveable(startWithDue) { mutableStateOf(false) }
+    val exerciseCounts = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
+    val exerciseErrors = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Int>() }
+    val exerciseLastUsed = remember(startWithDue) { mutableStateMapOf<ActiveExerciseType, Long>() }
+
+    // Freeze the SRS deck for this session: updating a due date must not skip the next card.
+    val srsDeckIds = remember(isSrsReview, words.map { it.id }, deckGeneration) {
+        val now = System.currentTimeMillis()
+        words.filter { !it.isNew && !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= now) }
+            .map { it.id }.toSet()
     }
-    val weakWords = scopedWords.filter { it.lapseCount > 0 }
-    val dueWords = scopedWords.filter { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() }
-    val clozeWords = scopedWords.filter { QuizLogic.clozeSentence(it.example, it.term) != null }
-    val collocationWords = scopedWords.filter { it.collocations.isNotBlank() }
-    val familyWords = scopedWords.filter { it.wordFamily.isNotBlank() }
-    val synonymWords = scopedWords.filter { it.synonyms.isNotBlank() }
-    val modeWords = when (mode) {
-        QUIZ_CLOZE -> clozeWords
-        QUIZ_WEAK -> weakWords.sortedWith(compareByDescending<WordEntity> { it.lapseCount }.thenBy { it.nextReviewAtMillis })
-        QUIZ_DUE -> dueWords.sortedBy { if (it.nextReviewAtMillis == 0L) Long.MIN_VALUE else it.nextReviewAtMillis }
-        QUIZ_COLLOCATIONS -> collocationWords
-        QUIZ_FAMILY -> familyWords
-        QUIZ_SYNONYMS -> synonymWords
-        else -> scopedWords
+    val srsDeck = words.filter { it.id in srsDeckIds && !it.isNew && !it.excludedFromReview }
+    val newWordIds = remember(words.map { it.id }, deckGeneration) {
+        words.filter { it.isNew && !it.excludedFromReview }.map { it.id }.toSet()
     }
-    val activeWords = if (retryWrongOnly) QuizLogic.retryWords(scopedWords, retryDeckIds.toList()) else modeWords
-    val optionPool = when (mode) {
-        QUIZ_COLLOCATIONS -> collocationWords
-        QUIZ_FAMILY -> familyWords
-        else -> scopedWords
+    val newWords = words.filter { it.id in newWordIds && !it.excludedFromReview }
+    val choicePool = words.filter { !it.excludedFromReview }
+    val practiceWords = if (isSrsReview) srsDeck else when (mode) {
+        MODE_NEW -> newWords
+        MODE_LISTEN -> choicePool.filter { it.term.isNotBlank() }
+        MODE_RECALL -> choicePool.filter { it.term.isNotBlank() && it.meaning.isNotBlank() }
+        MODE_CLOZE -> choicePool.filter { ActiveLearningLogic.validatedCloze(it.example, it.term) != null }
+        else -> choicePool
     }
-    val word = activeWords.getOrNull(if (activeWords.isEmpty()) 0 else index % activeWords.size)
-    val options = remember(word?.id, optionPool.map { it.id }, optionPool.map { QuizLogic.choiceLabel(it, mode) }, mode) {
-        if (word == null) emptyList() else QuizLogic.multipleChoiceOptions(word, optionPool, mode)
+    val targetDeck = if (isSrsReview) srsDeck else practiceWords
+    val word = targetDeck.getOrNull(index)
+    val clozeText = word?.let { ActiveLearningLogic.validatedCloze(it.example, it.term) }
+
+    fun availableTypes(target: WordEntity?): List<ActiveExerciseType> {
+        if (target == null) return emptyList()
+        return buildList {
+            if (target.term.isNotBlank() && target.meaning.isNotBlank()) add(ActiveExerciseType.DEFINITION_TO_TERM)
+            if (target.term.isNotBlank()) add(ActiveExerciseType.LISTEN_AND_TYPE)
+            if (ActiveLearningLogic.validatedCloze(target.example, target.term) != null) add(ActiveExerciseType.CLOZE)
+        }
     }
 
-    fun resetQuestionState() {
-        index = 0
-        selectedId = null
+    fun pickSrsExercise(target: WordEntity?): ActiveExerciseType? {
+        val available = availableTypes(target)
+        val evidence = available.map { type ->
+            ExerciseEvidence(
+                type = type,
+                valid = true,
+                attempts = exerciseCounts[type] ?: 0,
+                errors = exerciseErrors[type] ?: 0,
+                lastUsedAtMillis = exerciseLastUsed[type] ?: 0L
+            )
+        }
+        return ActiveLearningLogic.chooseNext(evidence, System.currentTimeMillis(), exerciseCounts.toMap())
+            ?: available.firstOrNull()
+    }
+
+    LaunchedEffect(sessionId) {
+        onSessionStarted(sessionId, sessionStartedAtMillis, isSrsReview)
+    }
+
+    LaunchedEffect(sessionId, index, targetDeck.size, mode) {
+        if (targetDeck.isNotEmpty() && index >= targetDeck.size && !sessionCompleted) {
+            sessionCompleted = true
+            val completedItems = if (!isSrsReview && mode == MODE_NEW) index else attempts
+            val endedAt = System.currentTimeMillis()
+            onSessionCompleted(sessionId, sessionStartedAtMillis, endedAt, completedItems, completedItems, isSrsReview)
+        }
+    }
+
+    fun resetAnswerState() {
         answerText = ""
         answered = false
-        lastCorrect = null
-    }
-    fun resetForMode(nextMode: String) {
-        mode = nextMode
-        retryWrongOnly = false
-        retryDeckIds.clear()
-        showSummary = false
-        resetQuestionState()
-    }
-    fun recordAnswer(wordToRecord: WordEntity, correct: Boolean) {
-        sessionAttempts += 1
-        modeAttempts[mode] = (modeAttempts[mode] ?: 0) + 1
-        if (correct) {
-            sessionCorrect += 1
-            modeCorrect[mode] = (modeCorrect[mode] ?: 0) + 1
-            if (retryWrongOnly) wrongWordIds.remove(wordToRecord.id)
-        } else if (wordToRecord.id !in wrongWordIds) {
-            wrongWordIds.add(wordToRecord.id)
-        }
-        onAnswerRecorded(wordToRecord, correct)
-    }
-    fun submitTypedAnswer() {
-        if (!answered && word != null && answerText.isNotBlank()) {
-            val correct = QuizLogic.isCorrectAnswer(answerText, word.term)
-            lastCorrect = correct
-            answered = true
-            recordAnswer(word, correct)
-        }
-    }
-    fun submitCloze() = submitTypedAnswer()
-    fun rateSentence(usedCorrectly: Boolean) {
-        if (mode == QUIZ_SENTENCE && answered && lastCorrect == null && word != null) {
-            lastCorrect = usedCorrectly
-            recordAnswer(word, usedCorrectly)
-        }
+        revealed = false
+        correct = null
+        lastType = null
+        overrideType = null
+        audioReady = false
+        audioStatus = "Đang kiểm tra giọng đọc ngoại tuyến…"
     }
 
-    LazyColumn(modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(color = MaterialTheme.colorScheme.secondary, shape = RoundedCornerShape(18.dp)) {
-                        Text("🧩", Modifier.padding(13.dp), fontSize = 29.sp)
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Luyện tập IELTS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Text("Chọn cách luyện phù hợp với bạn", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    }
-                    Text("⚡", fontSize = 26.sp)
-                }
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                QuizQuickStat("✅", "Đúng", "$sessionScore", Modifier.weight(1f))
-                QuizQuickStat("🎯", "Mục tiêu", "$sessionTotal", Modifier.weight(1f))
-                QuizQuickStat("🧠", "Cần ôn", "${wrongWordIds.size}", Modifier.weight(1f))
-            }
-        }
-        if (showSummary) {
-            item {
-                Card(shape = RoundedCornerShape(24.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Tổng kết phiên học", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("Đã trả lời: $sessionAttempts câu")
-                        Text("Đúng: $sessionCorrect câu")
-                        Text("Chưa đúng: ${(sessionAttempts - sessionCorrect).coerceAtLeast(0)} câu")
-                        val accuracy = if (sessionAttempts == 0) 0 else (sessionCorrect * 100 / sessionAttempts)
-                        Text("Độ chính xác: $accuracy%", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        Text("Số từ cần ôn lại: ${wrongWordIds.size}")
-                        if (modeAttempts.isNotEmpty()) {
-                            Text("Kết quả theo chế độ", fontWeight = FontWeight.SemiBold)
-                            modeAttempts.forEach { (modeName, attempts) ->
-                                val correctInMode = modeCorrect[modeName] ?: 0
-                                val modeAccuracy = if (attempts == 0) 0 else correctInMode * 100 / attempts
-                                Text("$modeName: $correctInMode/$attempts đúng ($modeAccuracy%)")
-                            }
-                        }
-                        if (wrongWordIds.isNotEmpty()) {
-                            Text("Từ cần ôn", fontWeight = FontWeight.SemiBold)
-                            words.filter { it.id in wrongWordIds }.forEach { wrong ->
-                                Text("• ${wrong.term} — ${wrong.meaning}")
-                            }
-                            Button(
-                                onClick = {
-                                    // Replay every wrong word in a stable, answerable mode. The due
-                                    // queue changes as SRS timestamps are updated after each answer.
-                                    selectedTopic = "Tất cả chủ đề"
-                                    mode = QUIZ_TYPED
-                                    retryDeckIds.clear()
-                                    retryDeckIds.addAll(wrongWordIds)
-                                    retryWrongOnly = true
-                                    showSummary = false
-                                    resetQuestionState()
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text("Luyện lại ${wrongWordIds.size} từ sai") }
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                sessionAttempts = 0
-                                sessionCorrect = 0
-                                wrongWordIds.clear()
-                                retryDeckIds.clear()
-                                modeAttempts.clear()
-                                modeCorrect.clear()
-                                retryWrongOnly = false
-                                retryDeckIds.clear()
-                                showSummary = false
-                                resetQuestionState()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Bắt đầu phiên mới") }
-                    }
-                }
-            }
-        } else if (sessionAttempts > 0) {
-            item {
-                TextButton(onClick = { showSummary = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Xem tổng kết phiên")
-                }
-            }
-        }
-        item {
+    fun changeMode(nextMode: String, srs: Boolean = false) {
+        isSrsReview = srs
+        mode = nextMode
+        deckGeneration++
+        index = 0
+        attempts = 0
+        correctCount = 0
+        resetAnswerState()
+        sessionId = UUID.randomUUID().toString()
+        sessionStartedAtMillis = System.currentTimeMillis()
+        sessionCompleted = false
+        onSessionReset()
+    }
+
+    fun submitAnswer(target: WordEntity, isCorrect: Boolean, type: ActiveExerciseType) {
+        if (answered) return
+        answered = true
+        keyboardController?.hide()
+        correct = isCorrect
+        attempts++
+        if (isCorrect) correctCount++
+        exerciseCounts[type] = (exerciseCounts[type] ?: 0) + 1
+        if (!isCorrect) exerciseErrors[type] = (exerciseErrors[type] ?: 0) + 1
+        exerciseLastUsed[type] = System.currentTimeMillis()
+        lastType = type
+        onAnswerRecorded(target, isCorrect, isSrsReview, UUID.randomUUID().toString(), sessionId, type)
+    }
+
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                Modifier.fillMaxWidth().padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                FilterChip(selected = mode == QUIZ_MEANING, onClick = { resetForMode(QUIZ_MEANING) }, label = { Text(QUIZ_MEANING) })
-                FilterChip(selected = mode == QUIZ_RECALL, onClick = { resetForMode(QUIZ_RECALL) }, label = { Text(QUIZ_RECALL) })
-                FilterChip(selected = mode == QUIZ_TYPED, onClick = { resetForMode(QUIZ_TYPED) }, label = { Text(QUIZ_TYPED) })
-                FilterChip(selected = mode == QUIZ_LISTENING, onClick = { resetForMode(QUIZ_LISTENING) }, label = { Text(QUIZ_LISTENING) })
-                FilterChip(selected = mode == QUIZ_SPEAKING, onClick = { resetForMode(QUIZ_SPEAKING) }, label = { Text(QUIZ_SPEAKING) })
-                FilterChip(selected = mode == QUIZ_CLOZE, onClick = { resetForMode(QUIZ_CLOZE) }, label = { Text(QUIZ_CLOZE) })
-                FilterChip(selected = mode == QUIZ_SENTENCE, onClick = { resetForMode(QUIZ_SENTENCE) }, label = { Text(QUIZ_SENTENCE) })
-                FilterChip(selected = mode == QUIZ_WEAK, onClick = { resetForMode(QUIZ_WEAK) }, label = { Text(QUIZ_WEAK) })
-                FilterChip(selected = mode == QUIZ_DUE, onClick = { resetForMode(QUIZ_DUE) }, label = { Text("$QUIZ_DUE (${dueWords.size})") })
-                FilterChip(selected = mode == QUIZ_COLLOCATIONS, onClick = { resetForMode(QUIZ_COLLOCATIONS) }, label = { Text("$QUIZ_COLLOCATIONS (${collocationWords.size})") })
-                FilterChip(selected = mode == QUIZ_FAMILY, onClick = { resetForMode(QUIZ_FAMILY) }, label = { Text("$QUIZ_FAMILY (${familyWords.size})") })
-                FilterChip(selected = mode == QUIZ_SYNONYMS, onClick = { resetForMode(QUIZ_SYNONYMS) }, label = { Text("$QUIZ_SYNONYMS (${synonymWords.size})") })
+                Surface(shape = RoundedCornerShape(15.dp), color = MaterialTheme.colorScheme.primary) {
+                    Text("V", modifier = Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onPrimary)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (isSrsReview) "Ôn tập thông minh" else "Học chủ động",
+                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                    Text(if (isSrsReview) "Chỉ từ đến hạn · mỗi câu ghi nhận một lần"
+                        else "Gợi nhớ · nghe và gõ · ngữ cảnh",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
             }
         }
-        if (topics.isNotEmpty()) {
-            item {
-                Text("Khu vực IELTS · Chủ đề luyện tập", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                ) {
-                    (listOf("Tất cả chủ đề") + topics).forEach { topic ->
-                        FilterChip(
-                            selected = selectedTopic.equals(topic, ignoreCase = true),
-                            onClick = {
-                                selectedTopic = topic
-                                retryWrongOnly = false
-                                retryDeckIds.clear()
-                                index = 0
-                                selectedId = null
-                                answerText = ""
-                                answered = false
-                                lastCorrect = null
-                            },
-                            label = { Text(topic) }
-                        )
-                    }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Card(Modifier.weight(1f)) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Đúng", style = MaterialTheme.typography.labelMedium)
+                    Text("$sessionScore", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                }
+            }
+            Card(Modifier.weight(1f)) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Đã trả lời", style = MaterialTheme.typography.labelMedium)
+                    Text("$sessionTotal", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                }
+            }
+            Card(Modifier.weight(1f)) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Phiên này", style = MaterialTheme.typography.labelMedium)
+                    Text("$attempts", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Card(shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Chế độ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    FilterChip(
+                        selected = isSrsReview,
+                        onClick = { if (!isSrsReview) changeMode(MODE_RECALL, true) },
+                        label = { Text("Ôn SRS") }
+                    )
+                    FilterChip(
+                        selected = !isSrsReview,
+                        onClick = { if (isSrsReview) changeMode(defaultPracticeMode(words), false) },
+                        label = { Text("Luyện tự do") }
+                    )
                 }
                 Text(
-                    if (selectedTopic == "Tất cả chủ đề") "Luyện trên toàn bộ sổ từ" else "Đang luyện chủ đề: $selectedTopic",
+                    if (isSrsReview) "Chỉ từ đã được giới thiệu và đến hạn mới vào hàng đợi SRS. Mỗi câu được ghi nhận một lần."
+                    else "Flashcard chỉ dùng để làm quen từ mới; luyện tập tự do không thay đổi lịch SRS.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-        if (mode == QUIZ_DUE && dueWords.isEmpty() && words.isNotEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Bạn đã ôn hết từ đến hạn", fontWeight = FontWeight.Bold)
-                        Text("Chế độ này chỉ lấy từ chưa có lịch ôn hoặc đã đến hạn. Từ sắp đến hạn sẽ xuất hiện khi tới thời điểm ôn.")
-                    }
-                }
+
+        if (!isSrsReview) {
+            Text("Chọn dạng bài", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                FilterChip(selected = mode == MODE_NEW, onClick = { changeMode(MODE_NEW) }, label = { Text("Từ mới") })
+                FilterChip(selected = mode == MODE_RECALL, onClick = { changeMode(MODE_RECALL) }, label = { Text("Gõ từ theo nghĩa") })
             }
-        } else if (mode == QUIZ_COLLOCATIONS && collocationWords.size < 2 && words.isNotEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Chưa đủ dữ liệu collocations", fontWeight = FontWeight.Bold)
-                        Text("Cần ít nhất hai từ trong phạm vi đã chọn có trường Collocations. Bạn có thể thêm cụm từ đi kèm trong Sổ từ hoặc CSV.")
-                    }
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                FilterChip(selected = mode == MODE_LISTEN, onClick = { changeMode(MODE_LISTEN) }, label = { Text("Nghe & gõ") })
+                FilterChip(selected = mode == MODE_CLOZE, onClick = { changeMode(MODE_CLOZE) }, label = { Text("Điền ngữ cảnh") })
+                FilterChip(selected = false, onClick = { showMatch = true }, label = { Text("Ghép cặp") })
             }
-        } else if (mode == QUIZ_FAMILY && familyWords.size < 2 && words.isNotEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Chưa đủ dữ liệu họ từ", fontWeight = FontWeight.Bold)
-                        Text("Cần ít nhất hai từ trong phạm vi đã chọn có trường Word family. Thêm họ từ vào các mục từ vựng của bạn để luyện phân biệt.")
-                    }
-                }
-            }
-        } else if (mode == QUIZ_SYNONYMS && synonymWords.size < 2 && words.isNotEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Chưa đủ dữ liệu từ đồng nghĩa", fontWeight = FontWeight.Bold)
-                        Text("Cần ít nhất hai mục từ có trường Synonyms khác nhau. Thêm từ đồng nghĩa trong phần sửa từ hoặc nhập qua CSV.")
-                    }
-                }
-            }
-        } else if (mode == QUIZ_WEAK && weakWords.isEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Chưa có từ yếu được ghi nhận", fontWeight = FontWeight.Bold)
-                        Text("Khi ôn flashcard, chọn “Lại” cho từ chưa nhớ. Vocab sẽ ghi nhận số lần quên để gom các từ đó vào chế độ này.")
-                    }
-                }
-            }
-        } else if (mode == QUIZ_CLOZE && clozeWords.isEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Chưa có ví dụ phù hợp", fontWeight = FontWeight.Bold)
-                        Text("Thêm câu ví dụ có chứa đúng từ vựng đó vào trường Example trong sổ từ hoặc CSV. Ví dụ: “We need to allocate more resources.”")
-                    }
-                }
-            }
-        } else if (words.isEmpty()) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Tạo bộ từ của riêng bạn", fontWeight = FontWeight.Bold)
-                        Text("Thêm từ trong Sổ từ hoặc nhập CSV để bắt đầu luyện tập. Vocab không tự cài sẵn danh sách từ.")
-                    }
-                }
-            }
-        } else if (scopedWords.size < 2 && mode in listOf(QUIZ_MEANING, QUIZ_RECALL)) {
-            item {
-                Card(shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Cần ít nhất 2 từ để luyện trắc nghiệm", fontWeight = FontWeight.Bold)
-                        Text("Thêm từ của bạn hoặc nhập CSV. Vocab không tự nạp bộ từ vựng.")
-                    }
-                }
-            }
-        } else if (word != null && !showSummary) {
-            item {
-                Card(shape = RoundedCornerShape(24.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Điểm phiên: $sessionScore / $sessionTotal", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            "Câu ${index + 1} trong ${activeWords.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        LinearProgressIndicator(
-                            progress = { (index + 1).toFloat() / activeWords.size.coerceAtLeast(1) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            when (mode) {
-                                QUIZ_CLOZE -> "Điền từ còn thiếu"
-                                QUIZ_WEAK -> "Ôn từ từng quên"
-                                QUIZ_RECALL -> "Chọn từ khớp với nghĩa"
-                                QUIZ_TYPED -> "Tự nhớ và gõ từ tiếng Anh"
-                                QUIZ_LISTENING -> "Nghe phát âm ngoại tuyến rồi gõ từ"
-                                QUIZ_SPEAKING -> "Nói từ tiếng Anh bằng nhận diện ngoại tuyến"
-                                QUIZ_SENTENCE -> "Tự đặt câu với từ mục tiêu"
-                                QUIZ_SYNONYMS -> "Chọn nhóm từ đồng nghĩa phù hợp"
-                                else -> "Chọn nghĩa đúng"
-                            },
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        if (mode == QUIZ_CLOZE) {
-                            Text(QuizLogic.clozeSentence(word.example, word.term).orEmpty(), fontSize = 20.sp, lineHeight = 28.sp)
-                            if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            OutlinedTextField(
-                                value = answerText,
-                                onValueChange = { if (!answered) answerText = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Từ tiếng Anh còn thiếu") },
-                                singleLine = true
-                            )
-                            Button(onClick = { submitCloze() }, enabled = !answered && answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                                Text("Kiểm tra đáp án")
-                            }
-                        } else if (mode == QUIZ_TYPED) {
-                            Text(word.meaning, fontSize = 23.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
-                            if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            OutlinedTextField(
-                                value = answerText,
-                                onValueChange = { if (!answered) answerText = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Tự gõ từ/cụm từ tiếng Anh") },
-                                singleLine = true
-                            )
-                            Button(onClick = { submitTypedAnswer() }, enabled = !answered && answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                                Text("Kiểm tra đáp án")
-                            }
-                        } else if (mode == QUIZ_LISTENING) {
-                            Text(
-                                "Nghe từ tiếng Anh rồi nhập chính tả bạn nghe được. Đáp án không hiển thị trước khi kiểm tra.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OfflineSpeakButton(text = word.term, label = "Phát lại từ (offline)")
-                            if (word.topic.isNotBlank()) {
-                                Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            OutlinedTextField(
-                                value = answerText,
-                                onValueChange = { if (!answered) answerText = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Nhập từ bạn nghe được") },
-                                singleLine = true
-                            )
-                            Button(
-                                onClick = { submitTypedAnswer() },
-                                enabled = !answered && answerText.isNotBlank(),
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text("Kiểm tra chính tả") }
-                        } else if (mode == QUIZ_SPEAKING) {
-                            Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                            if (word.ipa.isNotBlank()) Text(word.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            OfflineSpeakButton(text = word.term, label = "Nghe phát âm mẫu (offline)")
-                            Text(
-                                "Đọc từ thành tiếng. Vocab chỉ kiểm tra từ mà bộ nhận diện nghe được, không chấm giọng hay trọng âm.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OfflineSpeechInput(
-                                enabled = !answered,
-                                onRecognized = { recognized ->
-                                    if (!answered) {
-                                        answerText = recognized
-                                        val correct = QuizLogic.isCorrectAnswer(recognized, word.term)
-                                        lastCorrect = correct
-                                        answered = true
-                                        recordAnswer(word, correct)
-                                    }
-                                }
-                            )
-                            if (answerText.isNotBlank()) Text("Bản nhận diện: $answerText", style = MaterialTheme.typography.bodyMedium)
-                        } else if (mode == QUIZ_SENTENCE) {
-                            Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                            OfflineSpeakButton(text = word.term)
-                            Text("Hãy tự viết một câu tiếng Anh tự nhiên có sử dụng từ mục tiêu.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}")
-                            OutlinedTextField(
-                                value = answerText,
-                                onValueChange = { if (!answered) answerText = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Câu tiếng Anh của bạn") },
-                                minLines = 3,
-                                maxLines = 5
-                            )
-                            if (!answered) {
-                                Button(onClick = { if (answerText.isNotBlank()) answered = true }, enabled = answerText.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                                    Text("Xem ví dụ và tự đánh giá")
-                                }
-                            } else if (lastCorrect == null) {
-                                if (word.example.isNotBlank()) Text("Ví dụ tham khảo: ${word.example}")
-                                if (word.collocations.isNotBlank()) Text("Collocations: ${word.collocations}")
-                                Text("Tự đánh giá câu của bạn:", fontWeight = FontWeight.SemiBold)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedButton(onClick = { rateSentence(false) }, modifier = Modifier.weight(1f)) { Text("Cần luyện") }
-                                    Button(onClick = { rateSentence(true) }, modifier = Modifier.weight(1f)) { Text("Dùng đúng") }
-                                }
-                            }
-                        } else {
-                            if (mode == QUIZ_RECALL) {
-                                Text(word.meaning, fontSize = 23.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
-                                if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            } else {
-                                Text(word.term, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                                OfflineSpeakButton(text = word.term)
-                                word.ipa.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                if (mode in listOf(QUIZ_COLLOCATIONS, QUIZ_FAMILY, QUIZ_SYNONYMS) && word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (options.size < 2) {
-                                Text(
-                                    "Chưa đủ đáp án khác nhau để tạo câu trắc nghiệm. Hãy bổ sung nghĩa, cụm từ hoặc họ từ khác nhau cho các mục trong phạm vi này.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                OutlinedButton(
-                                    onClick = {
-                                        if (index + 1 >= activeWords.size) {
-                                            showSummary = true
-                                        } else {
-                                            index += 1
-                                        }
-                                        selectedId = null
-                                        answerText = ""
-                                        answered = false
-                                        lastCorrect = null
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(if (index + 1 >= activeWords.size) "Bỏ qua và kết thúc phiên" else "Bỏ qua câu không thể trả lời")
-                                }
-                            }
-                            options.forEach { option ->
-                                val correct = option.id == word.id
-                                val chosen = option.id == selectedId
-                                val fill = when {
-                                    answered && correct -> MaterialTheme.colorScheme.primaryContainer
-                                    answered && chosen -> MaterialTheme.colorScheme.errorContainer
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                }
-                                Surface(
-                                    onClick = {
-                                        if (!answered && options.size >= 2) {
-                                            selectedId = option.id
-                                            lastCorrect = correct
-                                            answered = true
-                                            recordAnswer(word, correct)
-                                        }
-                                    },
-                                    color = fill,
-                                    shape = RoundedCornerShape(14.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        when (mode) {
-                                            QUIZ_RECALL -> option.term
-                                            QUIZ_COLLOCATIONS -> option.collocations
-                                            QUIZ_FAMILY -> option.wordFamily
-                                            QUIZ_SYNONYMS -> option.synonyms
-                                            else -> option.meaning
-                                        },
-                                        Modifier.padding(14.dp),
-                                        color = when {
-                                            answered && correct -> MaterialTheme.colorScheme.onPrimaryContainer
-                                            answered && chosen -> MaterialTheme.colorScheme.onErrorContainer
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
-                                    )
-                                }
-                            }
+        } else {
+            Text("Dạng bài được chọn thích ứng theo dữ liệu có sẵn", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        }
+
+        if (targetDeck.isEmpty()) {
+            Card(shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        when {
+                            words.isEmpty() -> "Bắt đầu bằng bộ từ của bạn"
+                            isSrsReview -> "Không có từ đến hạn"
+                            mode == MODE_NEW -> "Không còn từ mới"
+                            mode == MODE_CLOZE -> "Chưa có ví dụ phù hợp"
+                            else -> "Chưa có từ để luyện"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        when {
+                            words.isEmpty() -> "Nhập từ vựng qua Sổ từ hoặc file CSV/JSON/TXT. Ứng dụng không tự thêm từ."
+                            isSrsReview -> "Bạn đã ôn hết từ đến hạn. Từ sắp đến hạn sẽ không xuất hiện sớm."
+                            mode == MODE_NEW -> "Các mục đã có lịch SRS không được coi là từ mới."
+                            mode == MODE_CLOZE -> "Hãy nhập câu ví dụ có chứa từ mục tiêu đúng một lần."
+                            else -> "Hãy nhập dữ liệu từ vựng trước khi luyện."
                         }
-                        if (answered && (mode != QUIZ_SENTENCE || lastCorrect != null)) {
-                            Text(
-                                when {
-                                    mode == QUIZ_SENTENCE && lastCorrect == true -> "Đã ghi nhận: bạn tự đánh giá câu dùng từ đúng."
-                                    mode == QUIZ_SENTENCE && lastCorrect == false -> "Đã ghi nhận: câu này cần luyện thêm."
-                                    lastCorrect == true -> "Chính xác!"
-                                    lastCorrect == false -> "Chưa đúng — đáp án: ${word.term} — ${word.meaning}"
-                                    else -> ""
-                                },
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                    )
+                }
+            }
+        } else if (word == null) {
+            Card(shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        if (isSrsReview) "Đã hoàn thành hàng đợi ôn SRS" else "Đã hoàn thành lượt học",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (isSrsReview) "Bạn đã đi qua toàn bộ các từ đến hạn được chốt khi bắt đầu phiên. Từ đã ôn sẽ không bị lặp lại trong phiên này."
+                        else "Bạn đã đi hết các từ trong dạng bài hiện tại."
+                    )
+                    Button(
+                        onClick = { changeMode(mode, isSrsReview) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (isSrsReview) "Tạo hàng đợi SRS mới" else "Làm lại dạng bài") }
+                    if (isSrsReview) {
+                        OutlinedButton(
+                            onClick = { changeMode(MODE_NEW, false) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Chuyển sang học từ mới") }
+                    }
+                }
+            }
+        } else if (word != null) {
+            val activeType = if (!isSrsReview && mode == MODE_NEW) null else overrideType ?: if (isSrsReview) {
+                if (answered) lastType ?: pickSrsExercise(word) ?: ActiveExerciseType.DEFINITION_TO_TERM
+                else pickSrsExercise(word) ?: ActiveExerciseType.LISTEN_AND_TYPE
+            } else when (mode) {
+                MODE_LISTEN -> ActiveExerciseType.LISTEN_AND_TYPE
+                MODE_RECALL -> ActiveExerciseType.DEFINITION_TO_TERM
+                MODE_CLOZE -> ActiveExerciseType.CLOZE
+                else -> null
+            }
+
+            Card(shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp)) {
+                            Text("Câu ${index + 1}/${targetDeck.size}", Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (isSrsReview) Text("SRS", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        when (activeType) {
+                            ActiveExerciseType.DEFINITION_TO_TERM -> "GỢI NHỚ CHỦ ĐỘNG · TỰ GÕ"
+                            ActiveExerciseType.LISTEN_AND_TYPE -> "NGHE · NHẬN DIỆN · TỰ GÕ"
+                            ActiveExerciseType.CLOZE -> "NHỚ TỪ TRONG NGỮ CẢNH"
+                            null -> "LÀM QUEN TỪ MỚI"
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        "Đã trả lời: $attempts · Còn lại: ${(targetDeck.size - index - if (answered) 1 else 0).coerceAtLeast(0)} từ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    LinearProgressIndicator(
+                        progress = { (index + 1).toFloat() / targetDeck.size.coerceAtLeast(1) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (!isSrsReview && mode == MODE_NEW) {
+                        Text("Làm quen từ mới", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(word.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                        if (word.ipa.isNotBlank()) Text(word.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (word.partOfSpeech.isNotBlank()) Text(word.partOfSpeech, color = MaterialTheme.colorScheme.primary)
+                        if (revealed) {
                             HorizontalDivider()
-                            Text("Ghi nhớ từ vựng", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(word.term, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            if (word.ipa.isNotBlank()) Text("Phiên âm: ${word.ipa}")
-                            if (word.partOfSpeech.isNotBlank()) Text("Từ loại: ${word.partOfSpeech}")
-                            if (word.meaning.isNotBlank()) Text("Nghĩa: ${word.meaning}")
-                            if (word.topic.isNotBlank()) Text("Chủ đề IELTS: ${word.topic}")
-                            if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}")
-                            if (word.collocations.isNotBlank()) Text("Collocations: ${word.collocations}")
+                            Text(word.meaning, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}", style = MaterialTheme.typography.bodyLarge)
+                            if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
                             if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
                             if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
-                            if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
                             if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}")
+                            if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { index = (index - 1).coerceAtLeast(0); resetAnswerState() },
+                                    enabled = index > 0,
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Từ trước") }
+                                Button(
+                                    onClick = { onNewWordIntroduced(word); index++; resetAnswerState() },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text(if (index + 1 >= targetDeck.size) "Hoàn tất" else "Từ tiếp theo") }
+                            }
+                        } else {
+                            Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện nghĩa và ví dụ") }
+                        }
+                    } else when (activeType) {
+                        ActiveExerciseType.DEFINITION_TO_TERM -> {
+                            Text("Gợi nhớ chủ động · viết đáp án", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Đọc nghĩa, nhớ lại từ tiếng Anh rồi tự gõ — không có đáp án gợi ý.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("NGHĨA / ĐỊNH NGHĨA", style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Text(word.meaning, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    if (word.partOfSpeech.isNotBlank()) Text(word.partOfSpeech,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}",
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                }
+                            }
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Gõ từ tiếng Anh") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (!answered && answerText.isNotBlank()) {
+                                        submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.DEFINITION_TO_TERM)
+                                    }
+                                })
+                            )
+                            Button(
+                                onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.DEFINITION_TO_TERM) },
+                                enabled = !answered && answerText.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Kiểm tra đáp án") }
+                        }
+                        ActiveExerciseType.LISTEN_AND_TYPE -> {
+                            Text("Nghe và gõ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Nghe cách phát âm, sau đó nhập từ tiếng Anh bạn nghe được.")
+                            OfflineSpeakButton(
+                                text = word.term,
+                                label = "Phát âm từ",
+                                onAvailabilityChanged = { ready, status ->
+                                    audioReady = ready
+                                    audioStatus = status
+                                },
+                                onAudioReplay = onAudioReplay
+                            )
+                            if (!audioReady) {
+                                Text(audioStatus, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                val alternative = availableTypes(word).firstOrNull { it != ActiveExerciseType.LISTEN_AND_TYPE }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (alternative != null) {
+                                            overrideType = alternative
+                                            answered = false
+                                            answerText = ""
+                                            correct = null
+                                        } else {
+                                            index++
+                                            resetAnswerState()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(if (alternative != null) "Chuyển sang dạng bài khả dụng" else "Bỏ qua từ này, không ghi kết quả") }
+                            }
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Nhập từ nghe được") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (!answered && audioReady && answerText.isNotBlank()) {
+                                        submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.LISTEN_AND_TYPE)
+                                    }
+                                })
+                            )
+                            Button(
+                                onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.LISTEN_AND_TYPE) },
+                                enabled = !answered && audioReady && answerText.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Kiểm tra") }
+                        }
+                        ActiveExerciseType.CLOZE -> {
+                            Text("Điền vào ngữ cảnh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(clozeText.orEmpty(), style = MaterialTheme.typography.titleLarge, lineHeight = 30.sp)
+                            OutlinedTextField(
+                                value = answerText,
+                                onValueChange = { if (!answered) answerText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Từ/cụm từ còn thiếu") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (!answered && answerText.isNotBlank() && clozeText != null) {
+                                        submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.CLOZE)
+                                    }
+                                })
+                            )
+                            Button(
+                                onClick = { submitAnswer(word, QuizLogic.isCorrectAnswer(answerText, word.term), ActiveExerciseType.CLOZE) },
+                                enabled = !answered && answerText.isNotBlank() && clozeText != null,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Kiểm tra") }
+                        }
+                        null -> Unit
+                    }
+
+                    if (answered) {
+                        Surface(
+                            color = if (correct == true) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(if (correct == true) "Chính xác!" else "Chưa chính xác", fontWeight = FontWeight.Bold)
+                                Text("${word.term} — ${word.meaning}", style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold)
+                                if (correct != true && answerText.isNotBlank()) {
+                                    Text("Bạn đã nhập: $answerText", color = MaterialTheme.colorScheme.onErrorContainer)
+                                }
+                                if (word.ipa.isNotBlank()) Text("IPA: ${word.ipa}")
+                                if (word.partOfSpeech.isNotBlank()) Text("Từ loại: ${word.partOfSpeech}")
+                                if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}")
+                                if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}")
+                                if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}")
+                                if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}")
+                                if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}")
+                            }
                         }
                         Button(
                             onClick = {
-                                if (index + 1 >= activeWords.size) {
-                                    showSummary = true
-                                } else {
-                                    index += 1
-                                }
-                                selectedId = null
-                                answerText = ""
-                                answered = false
-                                lastCorrect = null
+                                index++
+                                resetAnswerState()
                             },
-                            enabled = answered && (mode != QUIZ_SENTENCE || lastCorrect != null),
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (index + 1 >= activeWords.size) "Hoàn thành phiên" else "Câu tiếp theo") }
-                        TextButton(
-                            onClick = {
-                                onSessionReset()
-                                sessionAttempts = 0
-                                sessionCorrect = 0
-                                wrongWordIds.clear()
-                                modeAttempts.clear()
-                                modeCorrect.clear()
-                                retryWrongOnly = false
-                                showSummary = false
-                                resetQuestionState()
-                            },
-                            modifier = Modifier.align(Alignment.End)
-                        ) { Text("Đặt lại điểm") }
+                        ) { Text(if (index + 1 >= targetDeck.size) "Tiếp tục / bắt đầu lại" else "Câu tiếp theo") }
                     }
                 }
             }
         }
+
+        if (attempts > 0) {
+            Text("Kết quả lượt học: $correctCount/$attempts đúng",
+                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
+
+    if (showMatch) MatchGameDialog(words = words.filterNot { it.excludedFromReview }, onDismiss = { showMatch = false })
 }

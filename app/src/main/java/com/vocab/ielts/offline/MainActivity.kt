@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.room.withTransaction
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
@@ -42,21 +44,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = VocabDatabase.getInstance(applicationContext)
-        setContent { VocabApp(database.wordDao()) }
+        setContent { VocabApp(database) }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VocabApp(dao: WordDao) {
+private fun VocabApp(database: VocabDatabase) {
+    val dao = database.wordDao()
     var tab by remember { mutableIntStateOf(0) }
     var quizStartWithDue by remember { mutableStateOf(true) }
-    var learningPathTopic by remember { mutableStateOf<String?>(null) }
-    var showPathLesson by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var libraryFilter by remember { mutableStateOf("Tất cả") }
     var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
     var currentIndex by remember { mutableIntStateOf(0) }
+    var expandedWordDetails by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var revealed by remember { mutableStateOf(false) }
     val ratingInProgress = remember { mutableStateOf(false) }
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
@@ -71,9 +73,6 @@ private fun VocabApp(dao: WordDao) {
     val context = LocalContext.current
     val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
     var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", true)) }
-    var lessonTarget by remember(settingsPrefs) {
-        mutableIntStateOf(settingsPrefs.getInt("lesson_target", 5).let { if (it in listOf(5, 10, 15, 20)) it else 5 })
-    }
     var dailyGoal by remember(settingsPrefs) {
         mutableIntStateOf(StudyGoalLogic.normalizeGoal(settingsPrefs.getInt("daily_goal", 10)))
     }
@@ -82,7 +81,20 @@ private fun VocabApp(dao: WordDao) {
     var quizTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_total", 0)) }
     var quizSessionCorrect by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_correct", 0)) }
     var quizSessionTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_total", 0)) }
+    var exerciseAnalytics by remember { mutableStateOf<Map<String, Pair<Int, Int>>>(emptyMap()) }
+    var uniqueWordAnalytics by remember { mutableStateOf(0 to 0) }
+    var sessionAnalytics by remember { mutableStateOf(0 to 0L) }
+    var completedSessionCount by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(dao, quizTotal, completedSessionCount) {
+        withContext(Dispatchers.IO) {
+            exerciseAnalytics = ActiveExerciseType.values().associate { type ->
+                type.name to (dao.countAttemptsForType(type.name) to dao.countCorrectForType(type.name))
+            }
+            uniqueWordAnalytics = dao.countUniquePracticeWords() to dao.countUniqueSrsWords()
+            sessionAnalytics = dao.countCompletedSessions() to dao.totalCompletedSessionDurationMillis()
+        }
+    }
     val words by dao.observeAll().collectAsState(initial = emptyList())
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val filtered = words.filter { word ->
@@ -158,6 +170,7 @@ private fun VocabApp(dao: WordDao) {
         }
     }
 
+    val tabStateHolder = rememberSaveableStateHolder()
     MaterialTheme(
         colorScheme = if (darkTheme) {
             darkColorScheme(
@@ -235,7 +248,7 @@ private fun VocabApp(dao: WordDao) {
             },
             bottomBar = {
                 NavigationBar {
-                    listOf("Trang chủ", "Sổ từ", "Lộ trình", "Ôn tập", "Thống kê").forEachIndexed { i, label ->
+                    listOf(0 to "Học", 1 to "Sổ từ", 3 to "Ôn tập", 4 to "Tiến độ").forEach { (i, label) ->
                         NavigationBarItem(
                             selected = tab == i,
                             onClick = {
@@ -247,7 +260,6 @@ private fun VocabApp(dao: WordDao) {
                                     when (i) {
                                         0 -> Icons.Default.Home
                                         1 -> Icons.Default.MenuBook
-                                        2 -> Icons.Default.School
                                         3 -> Icons.Default.Refresh
                                         else -> Icons.Default.QueryStats
                                     },
@@ -260,145 +272,23 @@ private fun VocabApp(dao: WordDao) {
                 }
             }
         ) { padding ->
-            when (tab) {
-                0 -> LazyColumn(
-                    Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item { StudyReminderControl(onMessage = { csvMessage = it }) }
-                    item {
-                        DashboardOverview(
-                            totalWords = words.size,
-                            dueWords = words.count { it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis() },
-                            learnedWords = words.count { it.reviewCount > 0 },
-                            activeStreak = StudyActivityTracker.activeDayCount(statsPrefs),
-                            todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
-                            dailyGoal = dailyGoal,
-                            onGoalChange = { goal ->
-                                dailyGoal = goal
-                                settingsPrefs.edit().putInt("daily_goal", goal).apply()
-                            },
-                            onStartReview = {
-                                quizStartWithDue = true
-                                tab = if (words.isEmpty()) 1 else 3
-                            },
-                            onOpenPractice = {
-                                quizStartWithDue = false
-                                tab = 3
-                            },
-                            onOpenLibrary = { tab = 1 },
-                            onOpenLearningPath = { tab = 2 },
-                            onOpenStats = { tab = 4 }
-                        )
-                    }
-                    item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Ôn flashcard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); FilterChip(selected = dueOnly, onClick = { dueOnly = !dueOnly; currentIndex = 0; revealed = false }, label = { Text(if (dueOnly) "Chỉ từ đến hạn" else "Tất cả từ") }) } }
-                    if (current == null) {
-                        item {
-                            Card(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text(if (dueOnly && words.isNotEmpty()) "Không có từ đến hạn" else "Sổ từ đang trống", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    Text(if (dueOnly && words.isNotEmpty()) "Bạn đã ôn hết từ đến hạn hiện tại. Có thể xem toàn bộ sổ từ hoặc quay lại sau." else "Bạn có thể tự nhập từ hoặc thêm vài từ mẫu để kiểm tra ứng dụng.")
-                                    if (dueOnly && words.isNotEmpty()) OutlinedButton(onClick = { dueOnly = false; currentIndex = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Xem toàn bộ từ") }
-                                    Button(
-                                        onClick = {
-                                            importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel"))
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("Nhập từ bằng CSV") }
-                                    OutlinedButton(onClick = { tab = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Mở sổ từ") }
-                                    OutlinedButton(onClick = { showSamplesConfirm = true }, modifier = Modifier.fillMaxWidth()) { Text("Thêm 3 từ mẫu để thử") }
-                                }
-                            }
-                        }
-                    } else {
-                        item {
-                            Text("Thẻ ${currentIndex + 1} / ${reviewDeck.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Card(Modifier.fillMaxWidth().heightIn(min = 250.dp), shape = RoundedCornerShape(24.dp)) {
-                                Column(
-                                    Modifier.fillMaxWidth().padding(24.dp),
-                                    verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(current.term, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                                     OfflineSpeakButton(text = current.term)
-                                    if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (current.partOfSpeech.isNotBlank()) Text(current.partOfSpeech, color = MaterialTheme.colorScheme.primary)
-                                     ReviewWindowLabel(current)
-                                    if (revealed) {
-                                        Spacer(Modifier.height(18.dp))
-                                        Text(current.meaning, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                                        if (current.example.isNotBlank()) {
-                                            Spacer(Modifier.height(10.dp))
-                                            Text(current.example)
-                                        }
-                                        if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
-                                        if (current.collocations.isNotBlank()) Text("Collocations: ${current.collocations}")
-                                        if (current.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${current.synonyms}")
-                                        if (current.wordFamily.isNotBlank()) Text("Họ từ: ${current.wordFamily}")
-                                        if (current.tags.isNotBlank()) Text("Thẻ: ${current.tags}", style = MaterialTheme.typography.labelSmall)
-                                        if (current.notes.isNotBlank()) Text("Ghi chú: ${current.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    Spacer(Modifier.height(16.dp))
-                                    OutlinedButton(onClick = { revealed = !revealed }, enabled = !ratingInProgress.value) {
-                                        Text(if (revealed) "Ẩn đáp án" else "Hiện đáp án")
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(
-                                    onClick = { currentIndex = (currentIndex - 1 + reviewDeck.size) % reviewDeck.size; revealed = false },
-                                    enabled = !ratingInProgress.value,
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("Trước") }
-                                Button(
-                                    onClick = { currentIndex = (currentIndex + 1) % reviewDeck.size; revealed = false },
-                                    enabled = !ratingInProgress.value,
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("Tiếp theo") }
-                            }
-                            Text(if (revealed) "Đánh giá mức độ ghi nhớ" else "Hãy hiện đáp án trước khi đánh giá", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf("Lại" to ReviewRating.AGAIN, "Khó" to ReviewRating.HARD, "Tốt" to ReviewRating.GOOD, "Dễ" to ReviewRating.EASY).forEach { (label, rating) ->
-                                    Button(
-                                        onClick = {
-                                            // Ignore rapid repeat taps before recording activity or calculating a second review.
-                                            if (ratingInProgress.value) return@Button
-                                            ratingInProgress.value = true
-                                            val now = Instant.now()
-                                            val state = ReviewState(
-                                                level = current.srsLevel,
-                                                nextReviewAt = current.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                                                reviewCount = current.reviewCount,
-                                                lapseCount = current.lapseCount
-                                            )
-                                            val next = SrsScheduler.review(state, rating, now)
-                                            StudyActivityTracker.recordEvent(statsPrefs)
-                                            scope.launch {
-                                                try {
-                                                    dao.update(current.copy(
-                                                        srsLevel = next.level,
-                                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                                        reviewCount = next.reviewCount,
-                                                        lapseCount = next.lapseCount,
-                                                        lastReviewedAtMillis = now.toEpochMilli()
-                                                    ))
-                                                    currentIndex = FlashcardLogic.nextIndexAfterRating(currentIndex, reviewDeck.size, dueOnly)
-                                                    revealed = false
-                                                } finally {
-                                                    ratingInProgress.value = false
-                                                }
-                                            }
-                                        },
-                                        enabled = revealed && !ratingInProgress.value,
-                                        modifier = Modifier.weight(1f),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
-                                    ) { Text(label, fontSize = 12.sp) }
-                                }
-                            }
-                        }
-                    }
-                }
+            tabStateHolder.SaveableStateProvider(key = tab.toString()) {
+                when (tab) {
+                0 -> LearningHomeScreen(
+                    words = words,
+                    dueCount = words.count { !it.isNew && !it.excludedFromReview && (it.nextReviewAtMillis == 0L || it.nextReviewAtMillis <= System.currentTimeMillis()) },
+                    newCount = words.count { it.isNew && !it.excludedFromReview },
+                    weakCount = words.count { it.lapseCount > 0 || (it.reviewCount > 0 && it.srsLevel <= 1) },
+                    todayActivities = StudyActivityTracker.countForDate(statsPrefs, java.time.LocalDate.now()),
+                    dailyGoal = dailyGoal,
+                    activeDays = StudyActivityTracker.activeDayCount(statsPrefs),
+                    onReview = { quizStartWithDue = true; tab = 3 },
+                    onPractice = { quizStartWithDue = false; tab = 3 },
+                    onLibrary = { tab = 1 },
+                    onStats = { tab = 4 },
+                    onImport = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                )
                 1 -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -413,7 +303,7 @@ private fun VocabApp(dao: WordDao) {
                                 color = MaterialTheme.colorScheme.primary,
                                 shape = RoundedCornerShape(18.dp)
                             ) {
-                                Text("📚", modifier = Modifier.padding(13.dp), fontSize = 28.sp)
+                                Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.padding(13.dp).size(28.dp), tint = MaterialTheme.colorScheme.onPrimary)
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("Sổ tay từ vựng", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -421,7 +311,7 @@ private fun VocabApp(dao: WordDao) {
                             }
                             Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), shape = RoundedCornerShape(14.dp)) {
                                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("🔤", fontSize = 18.sp)
+                                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                     Text("${words.size}", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
@@ -432,7 +322,7 @@ private fun VocabApp(dao: WordDao) {
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("🔎  Tìm từ, nghĩa, ví dụ hoặc ghi chú…") },
+                        label = { Text("Tìm từ, nghĩa, ví dụ hoặc ghi chú…") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         singleLine = true
                     )
@@ -440,7 +330,7 @@ private fun VocabApp(dao: WordDao) {
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("✨ Tất cả", "⏰ Đến hạn", "💪 Từ yếu", "🏷️ Có thẻ").forEach { option ->
+                        listOf("Tất cả", "Đến hạn", "Từ yếu", "Có thẻ").forEach { option ->
                             FilterChip(
                                 selected = libraryFilter == option,
                                 onClick = { libraryFilter = option },
@@ -456,7 +346,7 @@ private fun VocabApp(dao: WordDao) {
                             FilterChip(
                                 selected = selectedTopic == "Mọi chủ đề",
                                 onClick = { selectedTopic = "Mọi chủ đề" },
-                                label = { Text("🌈 Mọi chủ đề") }
+                                label = { Text("Mọi chủ đề") }
                             )
                             topics.forEach { topic ->
                                 FilterChip(
@@ -469,7 +359,7 @@ private fun VocabApp(dao: WordDao) {
                     }
                     Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(14.dp)) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("📖  Đang hiển thị", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Đang hiển thị", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${filtered.size} / ${words.size} từ", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         }
                     }
@@ -477,11 +367,11 @@ private fun VocabApp(dao: WordDao) {
                         OutlinedButton(
                             onClick = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
                             modifier = Modifier.weight(1f)
-                        ) { Text("📥  Nhập CSV") }
+                        ) { Text("Nhập CSV") }
                         OutlinedButton(
                             onClick = { exportLauncher.launch("vocab-words.csv") },
                             modifier = Modifier.weight(1f)
-                        ) { Text("📤  Xuất CSV") }
+                        ) { Text("Xuất CSV") }
                     }
                     Text("CSV hỗ trợ cột bắt buộc term và meaning; các cột ipa, partOfSpeech, example, topic là tùy chọn.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     BackupControls(dao = dao, onMessage = { csvMessage = it })
@@ -512,11 +402,11 @@ private fun VocabApp(dao: WordDao) {
                                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(14.dp)) {
-                                            Text("🔤", modifier = Modifier.padding(10.dp), fontSize = 21.sp)
+                                            Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.padding(10.dp).size(21.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                                         }
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(word.term, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, color = MaterialTheme.colorScheme.onSurface)
-                                            if (word.ipa.isNotBlank()) Text("🔊  ${word.ipa}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            if (word.ipa.isNotBlank()) Text("${word.ipa}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         IconButton(onClick = { editorWord = word; showEditor = true }) {
                                             Icon(Icons.Default.Edit, contentDescription = "Sửa từ")
@@ -527,21 +417,34 @@ private fun VocabApp(dao: WordDao) {
                                     }
                                     if (word.partOfSpeech.isNotBlank()) {
                                         Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(9.dp)) {
-                                            Text("🏷️  ${word.partOfSpeech}", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            Text("${word.partOfSpeech}", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                         }
                                     }
-                                    Text("🇻🇳  ${word.meaning}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("${word.meaning}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                                     if (word.example.isNotBlank()) {
                                         Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp)) {
-                                            Text("💬  ${word.example}", Modifier.fillMaxWidth().padding(11.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("${word.example}", Modifier.fillMaxWidth().padding(11.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
-                                    if (word.topic.isNotBlank()) Text("🌍  ${word.topic}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
-                                    if (word.collocations.isNotBlank()) Text("🧩  Cụm từ: ${word.collocations}", style = MaterialTheme.typography.bodySmall)
-                                    if (word.synonyms.isNotBlank()) Text("🔁  Từ đồng nghĩa: ${word.synonyms}", style = MaterialTheme.typography.bodySmall)
-                                    if (word.wordFamily.isNotBlank()) Text("🌱  Họ từ: ${word.wordFamily}", style = MaterialTheme.typography.bodySmall)
-                                    if (word.tags.isNotBlank()) Text("🏷️  ${word.tags}", style = MaterialTheme.typography.labelSmall)
-                                    if (word.notes.isNotBlank()) Text("📝  ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+                                    val hasExtraDetails = word.collocations.isNotBlank() || word.synonyms.isNotBlank() ||
+                                        word.wordFamily.isNotBlank() || word.tags.isNotBlank() || word.notes.isNotBlank()
+                                    if (hasExtraDetails) {
+                                        TextButton(
+                                            onClick = {
+                                                expandedWordDetails = if (word.id in expandedWordDetails) expandedWordDetails - word.id
+                                                else expandedWordDetails + word.id
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                                        ) { Text(if (word.id in expandedWordDetails) "Ẩn chi tiết từ vựng" else "Xem chi tiết từ vựng") }
+                                        if (word.id in expandedWordDetails) {
+                                            if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}", style = MaterialTheme.typography.bodySmall)
+                                            if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}", style = MaterialTheme.typography.bodySmall)
+                                            if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}", style = MaterialTheme.typography.bodySmall)
+                                            if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}", style = MaterialTheme.typography.labelSmall)
+                                            if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(if (word.excludedFromReview) "Đã tạm bỏ khỏi lịch ôn" else "Đang nằm trong lịch ôn", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = if (word.excludedFromReview) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
                                         TextButton(onClick = {
@@ -550,8 +453,8 @@ private fun VocabApp(dao: WordDao) {
                                     }
                                     Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
                                         Row(Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Text("🧠  SRS ${word.srsLevel}/5", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
-                                            Text("🔁 ${word.reviewCount} lần", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Text("SRS ${word.srsLevel}/5", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                                            Text("${word.reviewCount} lượt ôn", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                         }
                                     }
                                 }
@@ -559,91 +462,103 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 }
-                2 -> if (showPathLesson) {
-                    Column(Modifier.fillMaxSize().padding(padding)) {
-                        TextButton(onClick = { showPathLesson = false }) { Text("← Quay lại lộ trình") }
-                        val pathWords = when (learningPathTopic) {
-                            null -> words
-                            "Chưa phân loại" -> words.filter { it.topic.isBlank() }
-                            else -> words.filter { it.topic.trim().equals(learningPathTopic, ignoreCase = true) }
-                        }
-                        LessonScreen(
-                            words = pathWords,
-                            modifier = Modifier.fillMaxSize().weight(1f),
-                            sessionSize = lessonTarget,
-                            onReview = { word, rating ->
-                                val now = Instant.now()
-                                val state = ReviewState(
-                                    level = word.srsLevel,
-                                    nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                                    reviewCount = word.reviewCount,
-                                    lapseCount = word.lapseCount
-                                )
-                                val next = SrsScheduler.review(state, rating, now)
-                                StudyActivityTracker.recordEvent(statsPrefs)
-                                scope.launch {
-                                    dao.update(word.copy(
-                                        srsLevel = next.level,
-                                        nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                        reviewCount = next.reviewCount,
-                                        lapseCount = next.lapseCount,
-                                        lastReviewedAtMillis = now.toEpochMilli()
-                                    ))
-                                }
-                            }
-                        )
-                    }
-                } else {
-                    LearningPathScreen(
-                        words = words,
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        sessionSize = lessonTarget,
-                        onSessionSizeChange = { target ->
-                            lessonTarget = target
-                            settingsPrefs.edit().putInt("lesson_target", target).apply()
-                        },
-                        onStart = { topic -> learningPathTopic = topic; showPathLesson = true },
-                        onPractice = { showPathLesson = false; quizStartWithDue = false; tab = 3 },
-                        onOpenLibrary = { tab = 1 }
-                    )
-                }
                 3 -> QuizScreen(
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
                     sessionScore = quizSessionCorrect,
                     sessionTotal = quizSessionTotal,
-                    onAnswerRecorded = { word, correct ->
-                        StudyActivityTracker.recordEvent(statsPrefs)
-                        quizTotal += 1
-                        quizSessionTotal += 1
-                        if (correct) {
-                            quizCorrect += 1
-                            quizSessionCorrect += 1
-                        }
-                        statsPrefs.edit()
-                            .putInt("quiz_total", quizTotal)
-                            .putInt("quiz_correct", quizCorrect)
-                            .putInt("quiz_session_total", quizSessionTotal)
-                            .putInt("quiz_session_correct", quizSessionCorrect)
-                            .apply()
-                        val now = Instant.now()
-                        val previous = ReviewState(
-                            level = word.srsLevel,
-                            nextReviewAt = word.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
-                            reviewCount = word.reviewCount,
-                            lapseCount = word.lapseCount
-                        )
-                        val rating = if (correct) ReviewRating.GOOD else ReviewRating.AGAIN
-                        val next = SrsScheduler.review(previous, rating, now)
+                    onSessionStarted = { sessionId, startedAt, isSrs ->
                         scope.launch {
-                            dao.update(word.copy(
-                                srsLevel = next.level,
-                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
-                                reviewCount = next.reviewCount,
-                                lapseCount = next.lapseCount,
-                                lastReviewedAtMillis = now.toEpochMilli()
-                            ))
+                            dao.insertSession(
+                                LearningSessionEntity(
+                                    sessionId = sessionId,
+                                    startedAtMillis = startedAt,
+                                    isSrsReview = isSrs
+                                )
+                            )
                         }
+                    },
+                    onSessionCompleted = { sessionId, startedAt, endedAt, questions, uniqueWords, isSrs ->
+                        scope.launch {
+                            val changed = database.withTransaction {
+                                dao.insertSession(
+                                    LearningSessionEntity(
+                                        sessionId = sessionId,
+                                        startedAtMillis = startedAt,
+                                        isSrsReview = isSrs
+                                    )
+                                )
+                                dao.completeSession(sessionId, endedAt, questions, uniqueWords)
+                            }
+                            if (changed > 0) completedSessionCount++
+                        }
+                    },
+                    onAudioReplay = {
+                        val replays = statsPrefs.getInt("audio_replay_count", 0) + 1
+                        statsPrefs.edit().putInt("audio_replay_count", replays).apply()
+                    },
+                    onAnswerRecorded = { word, correct, applySrs, attemptId, sessionId, exerciseType ->
+                        val answeredAt = System.currentTimeMillis()
+                        scope.launch {
+                            val inserted = database.withTransaction {
+                                val rowId = dao.insertAttempt(
+                                    LearningAttemptEntity(
+                                        attemptId = attemptId,
+                                        wordId = word.id,
+                                        sessionId = sessionId,
+                                        exerciseType = exerciseType.name,
+                                        isCorrect = correct,
+                                        isSrsReview = applySrs,
+                                        answeredAtMillis = answeredAt
+                                    )
+                                )
+                                if (rowId == -1L) {
+                                    false
+                                } else {
+                                    if (applySrs) {
+                                        val latestWord = dao.findById(word.id)
+                                        if (latestWord != null) {
+                                            val now = Instant.ofEpochMilli(answeredAt)
+                                            val previous = ReviewState(
+                                                level = latestWord.srsLevel,
+                                                nextReviewAt = latestWord.nextReviewAtMillis.takeIf { it > 0L }?.let(Instant::ofEpochMilli),
+                                                reviewCount = latestWord.reviewCount,
+                                                lapseCount = latestWord.lapseCount
+                                            )
+                                            val rating = if (correct) ReviewRating.GOOD else ReviewRating.AGAIN
+                                            val next = SrsScheduler.review(previous, rating, now)
+                                            dao.update(latestWord.copy(
+                                                srsLevel = next.level,
+                                                nextReviewAtMillis = next.nextReviewAt?.toEpochMilli() ?: 0L,
+                                                reviewCount = next.reviewCount,
+                                                lapseCount = next.lapseCount,
+                                                lastReviewedAtMillis = now.toEpochMilli(),
+                                                isNew = false
+                                            ))
+                                        }
+                                    }
+                                    true
+                                }
+                            }
+                            if (inserted) {
+                                StudyActivityTracker.recordEvent(statsPrefs)
+                                quizTotal += 1
+                                quizSessionTotal += 1
+                                if (correct) {
+                                    quizCorrect += 1
+                                    quizSessionCorrect += 1
+                                }
+                                statsPrefs.edit()
+                                    .putInt("quiz_total", quizTotal)
+                                    .putInt("quiz_correct", quizCorrect)
+                                    .putInt("quiz_session_total", quizSessionTotal)
+                                    .putInt("quiz_session_correct", quizSessionCorrect)
+                                    .apply()
+                            }
+                        }
+                    },
+                    onNewWordIntroduced = { word ->
+                        scope.launch { dao.update(word.copy(isNew = false)) }
                     },
                     onSessionReset = {
                         quizSessionCorrect = 0
@@ -737,6 +652,58 @@ private fun VocabApp(dao: WordDao) {
                     item {
                         Card(shape = RoundedCornerShape(22.dp)) {
                             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Độ chính xác theo dạng bài", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                                Text("Chỉ tính câu đã gửi đáp án. Trò chơi ghép cặp và lỗi kỹ thuật không được gộp vào điểm quiz.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                listOf(
+                                    ActiveExerciseType.DEFINITION_TO_TERM to "Gõ từ theo nghĩa",
+                                    ActiveExerciseType.LISTEN_AND_TYPE to "Nghe và gõ",
+                                    ActiveExerciseType.CLOZE to "Điền ngữ cảnh"
+                                ).forEach { (type, label) ->
+                                    val values = exerciseAnalytics[type.name] ?: (0 to 0)
+                                    val total = values.first
+                                    val correctCount = values.second
+                                    val percent = if (total == 0) 0 else correctCount * 100 / total
+                                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                                            Text(if (total == 0) "Chưa có dữ liệu" else "$correctCount/$total · $percent%",
+                                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        LinearProgressIndicator(
+                                            progress = { percent / 100f },
+                                            modifier = Modifier.fillMaxWidth().height(7.dp)
+                                        )
+                                    }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMini("Từ luyện tự do", uniqueWordAnalytics.first.toString(), Modifier.weight(1f))
+                                    StatsMini("Từ ôn qua SRS", uniqueWordAnalytics.second.toString(), Modifier.weight(1f))
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMini("Phiên hoàn tất", sessionAnalytics.first.toString(), Modifier.weight(1f))
+                                    val averageMinutes = if (sessionAnalytics.first == 0) 0L else sessionAnalytics.second / sessionAnalytics.first / 60_000L
+                                    StatsMini("Thời lượng TB", if (sessionAnalytics.first == 0) "—" else "$averageMinutes phút", Modifier.weight(1f))
+                                }
+                                StatsMini("Lượt phát âm", statsPrefs.getInt("audio_replay_count", 0).toString(), Modifier.fillMaxWidth())
+                                val matchAttempts = statsPrefs.getInt("match_attempts", 0)
+                                val matchCorrect = statsPrefs.getInt("match_correct", 0)
+                                val matchGames = statsPrefs.getInt("match_games_completed", 0)
+                                val matchAccuracy = if (matchAttempts == 0) "—" else "${matchCorrect * 100 / matchAttempts}%"
+                                Text("Trò chơi ghép cặp", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    StatsMini("Hoàn thành", matchGames.toString(), Modifier.weight(1f))
+                                    StatsMini("Lượt thử", matchAttempts.toString(), Modifier.weight(1f))
+                                    StatsMini("Độ chính xác", matchAccuracy, Modifier.weight(1f))
+                                }
+                                Text("Kết quả trò chơi được theo dõi riêng và không làm thay đổi lịch SRS.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
                                         Text("Nhịp học 7 ngày", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
@@ -812,9 +779,9 @@ private fun VocabApp(dao: WordDao) {
                                         }
                                     }
                                     if (LearningPathLogic.topics(words, nowStats).size > topicProgress.size) {
-                                        Text("Mở Lộ trình để xem toàn bộ ${LearningPathLogic.topics(words, nowStats).size} chủ đề.",
+                                        Text("Mở Sổ từ để lọc và quản lý các chủ đề.",
                                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                                        OutlinedButton(onClick = { tab = 2 }, modifier = Modifier.fillMaxWidth()) { Text("Xem toàn bộ lộ trình") }
+                                        OutlinedButton(onClick = { tab = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Mở Sổ từ") }
                                     }
                                 }
                             }
@@ -877,6 +844,7 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                 }
+            }
             }
         }
     }
