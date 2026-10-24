@@ -321,6 +321,7 @@ private fun VocabularyScreen(
     var editTopic by remember(editingWord?.id) { mutableStateOf(editingWord?.topic.orEmpty()) }
     var editExample by remember(editingWord?.id) { mutableStateOf(editingWord?.example.orEmpty()) }
     var editError by remember { mutableStateOf("") }
+    var addWordDialog by rememberSaveable { mutableStateOf(false) }
     var decks by remember { mutableStateOf(db.getDecks()) }
     var folders by remember { mutableStateOf(db.getFolders()) }
     var createDialog by rememberSaveable { mutableStateOf<String?>(null) }
@@ -372,23 +373,12 @@ private fun VocabularyScreen(
         }
         if (folders.isNotEmpty()) Text("Thư mục: " + folders.joinToString(" • ") { it.name },
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(term, { term = it; message = "" }, Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh *") }, singleLine = true)
-        OutlinedTextField(meaning, { meaning = it; message = "" }, Modifier.fillMaxWidth(), label = { Text("Nghĩa tiếng Việt *") })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(ipa, { ipa = it }, Modifier.weight(1f), label = { Text("IPA") }, singleLine = true)
-            OutlinedTextField(topic, { topic = it }, Modifier.weight(1f), label = { Text("Chủ đề") }, singleLine = true)
-        }
-        OutlinedTextField(example, { example = it }, Modifier.fillMaxWidth(), label = { Text("Câu ví dụ (tuỳ chọn)") })
-        Button(onClick = {
-            message = when {
-                term.isBlank() || meaning.isBlank() -> "Cần nhập từ và nghĩa."
-                db.addWord(term, meaning, example, ipa, topic, activeDeckId) -> {
-                    term = ""; meaning = ""; example = ""; ipa = ""; topic = ""; refresh()
-                    "Đã lưu trên thiết bị."
-                }
-                else -> "Từ đã tồn tại hoặc dữ liệu không hợp lệ."
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { addWordDialog = true }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Thêm từ")
             }
-        }, modifier = Modifier.fillMaxWidth()) { Text("Lưu từ") }
+            OutlinedButton(onClick = { search = "" }) { Icon(Icons.Default.FilterListOff, null); Spacer(Modifier.width(4.dp)); Text("Xóa lọc") }
+        }
         if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), label = { Text("Tìm từ") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -428,6 +418,38 @@ private fun VocabularyScreen(
             }
             if (filtered.isEmpty()) item { Text(if (search.isBlank()) "Chưa có từ. Hãy thêm từ đầu tiên ở biểu mẫu trên." else "Không tìm thấy từ.") }
         }
+    }
+    if (addWordDialog) {
+        AlertDialog(
+            onDismissRequest = { addWordDialog = false },
+            title = { Text("Thêm từ vào bộ") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(term, { term = it; message = "" }, modifier = Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh *") }, singleLine = true)
+                    OutlinedTextField(meaning, { meaning = it; message = "" }, modifier = Modifier.fillMaxWidth(), label = { Text("Nghĩa tiếng Việt *") })
+                    OutlinedTextField(ipa, { ipa = it }, modifier = Modifier.fillMaxWidth(), label = { Text("IPA / phiên âm") }, singleLine = true)
+                    OutlinedTextField(topic, { topic = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Chủ đề / tag") }, singleLine = true)
+                    OutlinedTextField(example, { example = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Câu ví dụ") })
+                    Text("Bộ đích: ${if (activeDeckId == null) "Bộ từ mặc định" else db.deckName(activeDeckId)}",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    message = when {
+                        term.isBlank() || meaning.isBlank() -> "Cần nhập từ và nghĩa."
+                        db.addWord(term, meaning, example, ipa, topic, activeDeckId) -> {
+                            term = ""; meaning = ""; example = ""; ipa = ""; topic = ""
+                            addWordDialog = false
+                            refresh()
+                            "Đã lưu từ trên thiết bị."
+                        }
+                        else -> "Từ đã tồn tại hoặc dữ liệu không hợp lệ."
+                    }
+                }) { Text("Lưu từ") }
+            },
+            dismissButton = { TextButton(onClick = { addWordDialog = false }) { Text("Hủy") } }
+        )
     }
     editingWord?.let { word ->
         AlertDialog(
