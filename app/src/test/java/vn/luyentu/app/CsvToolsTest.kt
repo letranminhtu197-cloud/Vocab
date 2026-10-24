@@ -19,8 +19,8 @@ class CsvToolsTest {
 
     @Test
     fun parsesVietnameseHeadersAndQuotedCommas() {
-        val csv = "từ tiếng anh,nghĩa tiếng việt,câu ví dụ,ipa,chủ đề\\n" +
-            "\\"break down\\",\\"phân tích, chia nhỏ\\",\\"The plan broke down.\\",/breɪk daʊn/,\\"IELTS, Work\\""
+        val csv = "từ tiếng anh,nghĩa tiếng việt,câu ví dụ,ipa,chủ đề\n" +
+            "\"break down\",\"phân tích, chia nhỏ\",\"The plan broke down.\",/breɪk daʊn/,\"IELTS, Work\""
         val words = CsvTools.parse(csv)
         assertEquals(1, words.size)
         assertEquals("break down", words[0].term)
@@ -54,7 +54,7 @@ class CsvToolsTest {
     @Test
     fun plainTextExportCanBeImportedAgain() {
         val original = listOf(
-            VocabularyWord(1, "take into account", "tính đến", "We must take it into account.", "/...", "Academic")
+            VocabularyWord(1, "take into account", "tính đến", "We must take it into account.", "/.../", "Academic")
         )
         val imported = CsvTools.parse(CsvTools.exportPlainText(original))
         assertEquals(1, imported.size)
