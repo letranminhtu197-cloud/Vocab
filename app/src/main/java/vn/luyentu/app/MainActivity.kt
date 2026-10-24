@@ -14,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -155,6 +156,7 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
     var example by rememberSaveable { mutableStateOf("") }
     var topic by rememberSaveable { mutableStateOf("") }
     var search by rememberSaveable { mutableStateOf("") }
+    var selectedTopic by rememberSaveable { mutableStateOf("Tất cả") }
     var message by rememberSaveable { mutableStateOf("") }
     var editingWord by remember { mutableStateOf<VocabularyWord?>(null) }
     var editTerm by remember(editingWord?.id) { mutableStateOf(editingWord?.term.orEmpty()) }
@@ -163,7 +165,11 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
     var editTopic by remember(editingWord?.id) { mutableStateOf(editingWord?.topic.orEmpty()) }
     var editExample by remember(editingWord?.id) { mutableStateOf(editingWord?.example.orEmpty()) }
     var editError by remember { mutableStateOf("") }
-    val filtered = words.filter { search.isBlank() || it.term.contains(search, true) || it.meaning.contains(search, true) || it.topic.contains(search, true) }
+    val topics = words.map { it.topic.trim() }.filter { it.isNotBlank() }.distinct().sorted()
+    val filtered = words.filter {
+        (search.isBlank() || it.term.contains(search, true) || it.meaning.contains(search, true) || it.topic.contains(search, true)) &&
+            (selectedTopic == "Tất cả" || it.topic == selectedTopic)
+    }
 
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text("Sổ từ của bạn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -186,6 +192,12 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
         }, modifier = Modifier.fillMaxWidth()) { Text("Lưu từ") }
         if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), label = { Text("Tìm từ") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            item { FilterChip(selected = selectedTopic == "Tất cả", onClick = { selectedTopic = "Tất cả" }, label = { Text("Tất cả") }) }
+            items(topics) { itemTopic ->
+                FilterChip(selected = selectedTopic == itemTopic, onClick = { selectedTopic = itemTopic }, label = { Text(itemTopic) })
+            }
+        }
         Text("${filtered.size} từ", style = MaterialTheme.typography.labelLarge)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
             items(filtered, key = { it.id }) { word ->
