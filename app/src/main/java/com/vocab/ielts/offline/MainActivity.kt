@@ -73,6 +73,7 @@ private fun VocabApp(database: VocabDatabase) {
     var pendingCsvWords by remember { mutableStateOf<List<WordEntity>?>(null) }
     var pendingCsvDuplicates by remember { mutableIntStateOf(0) }
     var pendingCsvInvalidRows by remember { mutableIntStateOf(0) }
+    var pendingCsvInvalidRowNumbers by remember { mutableStateOf<List<Int>>(emptyList()) }
     val context = LocalContext.current
     val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
     var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", true)) }
@@ -137,6 +138,7 @@ private fun VocabApp(database: VocabDatabase) {
                             pendingCsvWords = uniqueWords
                             pendingCsvDuplicates = duplicateCount
                             pendingCsvInvalidRows = parsed.invalidRows
+                            pendingCsvInvalidRowNumbers = parsed.invalidRowNumbers
                         }
                     }
                 }
@@ -912,6 +914,9 @@ private fun VocabApp(database: VocabDatabase) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Sẽ thêm ${previewWords.size} từ mới vào sổ. Không ghi đè từ hiện có.")
                     Text("Bỏ qua ${pendingCsvDuplicates} từ trùng và ${pendingCsvInvalidRows} dòng thiếu từ/nghĩa.")
+                    if (pendingCsvInvalidRowNumbers.isNotEmpty()) {
+                        Text("Dòng cần kiểm tra: ${pendingCsvInvalidRowNumbers.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                     Text("Xem trước", fontWeight = FontWeight.SemiBold)
                     previewWords.take(5).forEach { item ->
                         Text("• ${item.term} — ${item.meaning}")
