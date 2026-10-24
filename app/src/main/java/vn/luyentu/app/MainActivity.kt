@@ -884,7 +884,7 @@ private fun PracticeScreen(
         if (mode == "Đặc biệt") listOf("Thẻ từ", "Trắc nghiệm", "Nghe viết", "Điền từ", "Nối từ", "Gõ từ vựng").random()
         else mode
     }
-    val choices = remember(current?.id, allWords.size, activeMode) {
+    val choices = remember(current?.id, allWords.map { it.meaning }.hashCode(), activeMode) {
         if (current == null) {
             emptyList()
         } else {
@@ -946,7 +946,7 @@ private fun PracticeScreen(
         if (sessionStarted) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text("Còn ${sessionWords.size} / $sessionTotal câu trong phiên", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                TextButton(onClick = { sessionStarted = false; sessionIds = emptyList(); index = 0 }) { Text("Kết thúc phiên") }
+                TextButton(onClick = { sessionStarted = false; sessionIds = emptyList(); sessionSnapshot = emptyList(); sessionTotal = 0; index = 0; typedAnswer = ""; answered = false; feedback = "" }) { Text("Kết thúc phiên") }
             }
         } else {
             Text(if (sessionSource == "Tất cả từ") "Có ${allWords.size} từ trong bộ đang chọn." else "Còn ${dueWords.size} từ đến hạn ôn.")
@@ -991,7 +991,7 @@ private fun PracticeScreen(
                     Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
                     Text("Hoàn thành phiên học!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("Đã chấm ${sessionTotal - sessionWords.size} / ${sessionTotal} từ trong phiên. Các từ sai đã được lên lịch ôn lại.")
-                    Button(onClick = { sessionStarted = false; sessionIds = emptyList(); sessionTotal = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Thiết lập phiên tiếp theo") }
+                    Button(onClick = { sessionStarted = false; sessionIds = emptyList(); sessionSnapshot = emptyList(); sessionTotal = 0; index = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Thiết lập phiên tiếp theo") }
                 }
             }
         } else {
@@ -1116,7 +1116,7 @@ private fun PracticeScreen(
                                 Text(current.meaning, style = MaterialTheme.typography.headlineSmall)
                                 if (current.example.isNotBlank()) Text("Gợi ý ngữ cảnh: ${current.example}")
                             }
-                            OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = "" }, Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh") }, singleLine = true)
+                            OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = ""; answered = false; feedbackCorrect = false }, Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh") }, singleLine = true)
                             Button(onClick = {
                                 if (typedAnswer.isNotBlank() && !answered) {
                                     answered = true
@@ -1131,7 +1131,7 @@ private fun PracticeScreen(
                             Text("Hoàn thành câu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(sentence, style = MaterialTheme.typography.bodyLarge)
                             if (!sentenceHasTerm) Text("Chưa có câu ví dụ chứa từ này; hãy nhập từ tiếng Anh tương ứng.")
-                            OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = "" }, Modifier.fillMaxWidth(), label = { Text("Từ còn thiếu") }, singleLine = true)
+                            OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = ""; answered = false; feedbackCorrect = false }, Modifier.fillMaxWidth(), label = { Text("Từ còn thiếu") }, singleLine = true)
                             Button(onClick = {
                                 if (typedAnswer.isNotBlank() && !answered) {
                                     answered = true
