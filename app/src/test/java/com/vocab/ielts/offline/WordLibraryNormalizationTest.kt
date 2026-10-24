@@ -1,7 +1,6 @@
 package com.vocab.ielts.offline
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class WordLibraryNormalizationTest {
