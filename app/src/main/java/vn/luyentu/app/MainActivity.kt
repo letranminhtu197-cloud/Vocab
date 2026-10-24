@@ -84,8 +84,8 @@ private fun LuyenTuApp() {
             }
         }
     }
-    val titles = listOf("Tổng quan", "Sổ từ", "Luyện tập", "Thống kê", "Cài đặt")
-    val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings)
+    val titles = listOf("Tổng quan", "Sổ từ", "Luyện tập", "Thống kê", "Cài đặt", "Lộ trình")
+    val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings, Icons.Default.Route)
 
     MaterialTheme {
         Scaffold(
@@ -118,6 +118,10 @@ private fun LuyenTuApp() {
                         Spacer(Modifier.width(8.dp))
                         Text("Bắt đầu ôn tập")
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Metric("Chuỗi học", "${db.currentStreakDays()} ngày", Modifier.weight(1f))
+                        Metric("Ôn hôm nay", db.reviewedToday().toString(), Modifier.weight(1f))
+                    }
                     Text("Tiến độ và lịch ôn được lưu trên điện thoại; không cần kết nối mạng.")
                     Text("Các phần nhập/xuất bộ từ, bài tập đa dạng và thống kê chi tiết vẫn đang được phát triển.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -125,6 +129,13 @@ private fun LuyenTuApp() {
                 1 -> VocabularyScreen(padding, words, db, refresh)
                 2 -> PracticeScreen(padding, dueWords, words, db, refresh)
                 3 -> StatisticsScreen(padding, words, dueWords, db)
+                4 -> SettingsScreen(
+                    padding,
+                    onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
+                    onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") },
+                    onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") }
+                )
+                5 -> RoadmapScreen(padding, words, db)
                 else -> SettingsScreen(
                     padding,
                     onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
@@ -497,6 +508,40 @@ private fun StatisticsScreen(
                         }
                         Text(dateFormat.format(java.util.Date(entry.reviewedAt)), style = MaterialTheme.typography.labelSmall)
                     }
+                }
+            }
+        }
+    }
+}
+
+private data class RoadmapMilestone(val title: String, val detail: String, val progress: Int, val target: Int)
+
+@Composable
+private fun RoadmapScreen(padding: PaddingValues, words: List<VocabularyWord>, db: VocabularyDatabase) {
+    val milestones = listOf(
+        RoadmapMilestone("Bắt đầu bộ từ", "Thêm hoặc nhập 20 từ vựng đầu tiên.", words.size, 20),
+        RoadmapMilestone("Xây thói quen ôn", "Hoàn thành 100 lượt ôn chủ động.", db.reviewCount(), 100),
+        RoadmapMilestone("Củng cố trí nhớ", "Đạt 10 từ đã vững theo lịch ôn.", db.masteredWordCount(), 10),
+        RoadmapMilestone("Duy trì đều đặn", "Học liên tục 7 ngày để tạo chuỗi học.", db.currentStreakDays(), 7)
+    )
+    LazyColumn(
+        Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(top = 14.dp, bottom = 24.dp)
+    ) {
+        item { Text("Lộ trình học cá nhân", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item { Text("Các cột mốc chạy hoàn toàn trên thiết bị. Bạn có thể tự nhập bộ từ; không cần tài khoản hoặc gói trả phí.") }
+        items(milestones) { milestone ->
+            val done = milestone.progress >= milestone.target
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(if (done) Icons.Default.CheckCircle else Icons.Default.Flag, null, tint = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(milestone.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text(milestone.detail, style = MaterialTheme.typography.bodyMedium)
+                    LinearProgressIndicator(progress = (milestone.progress.toFloat() / milestone.target).coerceIn(0f, 1f), modifier = Modifier.fillMaxWidth())
+                    Text("${milestone.progress.coerceAtMost(milestone.target)} / ${milestone.target}" + if (done) " • Hoàn thành" else "", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
