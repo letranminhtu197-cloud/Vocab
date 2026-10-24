@@ -343,7 +343,7 @@ private fun PracticeScreen(
                 FilterChip(selected = mode == item, onClick = { mode = item; index = 0 }, label = { Text(item) })
             }
         }
-        Text("Còn \${dueWords.size} từ đến hạn ôn.")
+        Text("Còn ${dueWords.size} từ đến hạn ôn.")
         if (current == null) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -353,7 +353,7 @@ private fun PracticeScreen(
                 }
             }
         } else {
-            Text("Từ \${safeIndex + 1} / \${dueWords.size}  •  Dạng bài: $activeMode", style = MaterialTheme.typography.labelLarge)
+            Text("Từ ${safeIndex + 1} / ${dueWords.size}  •  Dạng bài: $activeMode", style = MaterialTheme.typography.labelLarge)
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (activeMode) {
@@ -364,7 +364,7 @@ private fun PracticeScreen(
                                 HorizontalDivider()
                                 Text(current.meaning, style = MaterialTheme.typography.titleLarge)
                                 if (current.example.isNotBlank()) Text(current.example)
-                                if (current.topic.isNotBlank()) Text("Chủ đề: \${current.topic}", style = MaterialTheme.typography.labelMedium)
+                                if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
                             } else {
                                 Text("Tự nhớ nghĩa và cách dùng trước khi xem đáp án.")
                                 Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện đáp án") }
@@ -376,7 +376,7 @@ private fun PracticeScreen(
                             Text("Chọn nghĩa chính xác:")
                             choices.forEach { choice ->
                                 OutlinedButton(
-                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice == current.meaning; feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: \${current.meaning}" } },
+                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice == current.meaning; feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: ${current.meaning}" } },
                                     modifier = Modifier.fillMaxWidth(), enabled = !answered,
                                     colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice == current.meaning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                 ) { Text(choice) }
@@ -387,7 +387,7 @@ private fun PracticeScreen(
                             Text("Chọn từ tiếng Anh khớp với nghĩa:")
                             choices.forEach { choice ->
                                 OutlinedButton(
-                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice.equals(current.term, true); feedback = if (feedbackCorrect) "Đã ghép đúng!" else "Đáp án đúng: \${current.term}" } },
+                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice.equals(current.term, true); feedback = if (feedbackCorrect) "Đã ghép đúng!" else "Đáp án đúng: ${current.term}" } },
                                     modifier = Modifier.fillMaxWidth(), enabled = !answered,
                                     colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice.equals(current.term, true)) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                 ) { Text(choice) }
@@ -395,8 +395,8 @@ private fun PracticeScreen(
                         }
                         "Nghe & gõ" -> {
                             Text("Nghe và nhập từ tiếng Anh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Nghĩa: \${current.meaning}")
-                            Text("IPA: \${current.ipa.ifBlank { "Chưa có IPA" }}", style = MaterialTheme.typography.bodySmall)
+                            Text("Nghĩa: ${current.meaning}")
+                            Text("IPA: ${current.ipa.ifBlank { "Chưa có IPA" }}", style = MaterialTheme.typography.bodySmall)
                             Button(onClick = { speechEngine?.speak(current.term, TextToSpeech.QUEUE_FLUSH, null, "luyentu-word-${current.id}") }, modifier = Modifier.fillMaxWidth(), enabled = speechReady) {
                                 Icon(Icons.Default.VolumeUp, null)
                                 Spacer(Modifier.width(8.dp))
@@ -408,13 +408,13 @@ private fun PracticeScreen(
                                 if (typedAnswer.isNotBlank() && !answered) {
                                     answered = true
                                     feedbackCorrect = normalize(typedAnswer) == normalize(current.term)
-                                    feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: \${current.term}"
+                                    feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: ${current.term}"
                                 }
                             }, modifier = Modifier.fillMaxWidth(), enabled = !answered && typedAnswer.isNotBlank()) { Text("Kiểm tra") }
                         }
                         "Điền từ" -> {
                             val sentenceHasTerm = current.example.contains(current.term, ignoreCase = true)
-                            val sentence = if (sentenceHasTerm) current.example.replace(Regex(Regex.escape(current.term), RegexOption.IGNORE_CASE), "______") else "Nghĩa tiếng Việt: \${current.meaning}"
+                            val sentence = if (sentenceHasTerm) current.example.replace(Regex(Regex.escape(current.term), RegexOption.IGNORE_CASE), "______") else "Nghĩa tiếng Việt: ${current.meaning}"
                             Text("Hoàn thành câu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(sentence, style = MaterialTheme.typography.bodyLarge)
                             if (!sentenceHasTerm) Text("Chưa có câu ví dụ chứa từ này; hãy nhập từ tiếng Anh tương ứng.")
@@ -423,7 +423,7 @@ private fun PracticeScreen(
                                 if (typedAnswer.isNotBlank() && !answered) {
                                     answered = true
                                     feedbackCorrect = normalize(typedAnswer) == normalize(current.term)
-                                    feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: \${current.term}"
+                                    feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: ${current.term}"
                                 }
                             }, modifier = Modifier.fillMaxWidth(), enabled = !answered && typedAnswer.isNotBlank()) { Text("Kiểm tra") }
                         }
