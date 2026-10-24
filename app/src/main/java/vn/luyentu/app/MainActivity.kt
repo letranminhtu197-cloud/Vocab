@@ -553,7 +553,7 @@ private fun VocabularyScreen(
                         else -> db.createDeck(newContainerName, selectedFolderId) != null
                     }
                     if (ok) {
-                        if (createDialog == "deck") activeDeckId = db.getDecks().lastOrNull()?.id ?: activeDeckId
+                        if (createDialog == "deck") onActiveDeckChange(db.getDecks().lastOrNull()?.id)
                         decks = db.getDecks()
                         folders = db.getFolders()
                         createDialog = null
