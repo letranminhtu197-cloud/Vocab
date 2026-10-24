@@ -50,17 +50,25 @@ object CsvTools {
         return text.removePrefix("\uFEFF").lineSequence().mapNotNull { raw ->
             val line = raw.trim()
             if (line.isBlank() || line.startsWith("#")) return@mapNotNull null
-            val parts = when {
-                line.contains('\t') -> line.split('\t', limit = 2)
-                Regex("\\s+[—–-]\\s+").containsMatchIn(line) -> Regex("\\s+[—–-]\\s+").split(line, limit = 2)
-                Regex(":\\s+").containsMatchIn(line) -> Regex(":\\s+").split(line, limit = 2)
-                else -> return@mapNotNull null
+            if (line.contains('\t')) {
+                val parts = line.split('\t', limit = 5)
+                if (parts.size < 2) return@mapNotNull null
+                val term = parts[0].trim()
+                val meaning = parts[1].trim()
+                if (term.isBlank() || meaning.isBlank() || term.equals("term", true) || term.equals("word", true)) null
+                else CsvWord(term, meaning, parts.getOrNull(2).orEmpty().trim(), parts.getOrNull(3).orEmpty().trim(), parts.getOrNull(4).orEmpty().trim())
+            } else {
+                val parts = when {
+                    Regex("\\s+[—–-]\\s+").containsMatchIn(line) -> Regex("\\s+[—–-]\\s+").split(line, limit = 2)
+                    Regex(":\\s+").containsMatchIn(line) -> Regex(":\\s+").split(line, limit = 2)
+                    else -> return@mapNotNull null
+                }
+                if (parts.size < 2) return@mapNotNull null
+                val term = parts[0].trim()
+                val meaning = parts[1].trim()
+                if (term.isBlank() || meaning.isBlank() || term.equals("term", true) || term.equals("word", true)) null
+                else CsvWord(term, meaning)
             }
-            if (parts.size < 2) return@mapNotNull null
-            val term = parts[0].trim()
-            val meaning = parts[1].trim()
-            if (term.isBlank() || meaning.isBlank() || term.equals("term", true) || term.equals("word", true)) null
-            else CsvWord(term, meaning)
         }.distinctBy { it.term.lowercase() }.toList()
     }
 
@@ -68,6 +76,14 @@ object CsvTools {
         appendLine("term,meaning,ipa,topic,example")
         words.forEach { word ->
             appendLine(listOf(word.term, word.meaning, word.ipa, word.topic, word.example).joinToString(",") { escape(it) })
+        }
+    }
+
+    fun exportPlainText(words: List<VocabularyWord>): String = buildString {
+        appendLine("term\\tmeaning\\texample\\tipa\\ttopic")
+        words.forEach { word ->
+            appendLine(listOf(word.term, word.meaning, word.example, word.ipa, word.topic)
+                .joinToString("\\t") { it.replace("\\t", " ").replace("\\r", " ").replace("\\n", " ") })
         }
     }
 
