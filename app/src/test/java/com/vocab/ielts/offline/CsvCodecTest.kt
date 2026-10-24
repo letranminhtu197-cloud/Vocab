@@ -43,6 +43,7 @@ class CsvCodecTest {
         val result = CsvCodec.parse("term,meaning\ngood,tốt\n,thiếu từ\nword,")
         assertEquals(1, result.words.size)
         assertEquals(2, result.invalidRows)
+        assertEquals(listOf(3, 4), result.invalidRowNumbers)
     }
 
     @Test fun rejectsMalformedQuotePlacement() {
