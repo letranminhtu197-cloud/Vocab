@@ -699,6 +699,9 @@ private fun PracticeScreen(
     var answered by rememberSaveable { mutableStateOf(false) }
     var feedback by rememberSaveable { mutableStateOf("") }
     var feedbackCorrect by rememberSaveable { mutableStateOf(false) }
+    var selectedPairTermId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var matchedPairIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var pairFeedback by rememberSaveable { mutableStateOf("") }
     val safeIndex = index.coerceIn(0, (dueWords.size - 1).coerceAtLeast(0))
     val current = dueWords.getOrNull(safeIndex)
     val activeMode = remember(current?.id, mode) {
@@ -707,12 +710,11 @@ private fun PracticeScreen(
     }
     val choices = remember(current?.id, allWords.size, activeMode) {
         if (current == null) emptyList()
-        else if (activeMode == "Ghép cặp") {
-            (allWords.map { it.term }.filter { it.isNotBlank() && !it.equals(current.term, true) }.distinct().shuffled().take(3) + current.term).shuffled()
-        } else {
-            (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled().take(3) + current.meaning).shuffled()
-        }
+        else (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled().take(3) + current.meaning).shuffled()
     }
+    val matchBatch = if (activeMode == "Ghép cặp") dueWords.take(4) else emptyList()
+    val shuffledMatchTerms = remember(matchBatch.map { it.id }) { matchBatch.shuffled() }
+    val shuffledMatchMeanings = remember(matchBatch.map { it.id }) { matchBatch.shuffled() }
 
     LaunchedEffect(current?.id, activeMode, mode) {
         revealed = false
@@ -721,6 +723,9 @@ private fun PracticeScreen(
         answered = false
         feedback = ""
         feedbackCorrect = false
+        selectedPairTermId = null
+        matchedPairIds = emptySet()
+        pairFeedback = ""
     }
 
     fun normalize(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ").trimEnd('.', '!', '?')
@@ -789,14 +794,64 @@ private fun PracticeScreen(
                             }
                         }
                         "Ghép cặp" -> {
-                            Text(current.meaning, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Text("Chọn từ tiếng Anh khớp với nghĩa:")
-                            choices.forEach { choice ->
-                                OutlinedButton(
-                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice.equals(current.term, true); feedback = if (feedbackCorrect) "Đã ghép đúng!" else "Đáp án đúng: ${current.term}" } },
-                                    modifier = Modifier.fillMaxWidth(), enabled = !answered,
-                                    colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice.equals(current.term, true)) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-                                ) { Text(choice) }
+                            Text("Nối từng từ tiếng Anh với nghĩa tương ứng.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            if (matchBatch.size < 2) {
+                                Text("Cần ít nhất 2 từ đến hạn để chơi ghép cặp. Hãy thêm từ hoặc chọn ôn một bộ lớn hơn.")
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.Top) {
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("TỪ VỰNG", style = MaterialTheme.typography.labelSmall)
+                                        shuffledMatchTerms.forEach { pair ->
+                                            OutlinedButton(
+                                                onClick = { if (pair.id !in matchedPairIds) { selectedPairTermId = pair.id; pairFeedback = "" } },
+                                                enabled = pair.id !in matchedPairIds,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    containerColor = when {
+                                                        pair.id in matchedPairIds -> MaterialTheme.colorScheme.primaryContainer
+                                                        selectedPairTermId == pair.id -> MaterialTheme.colorScheme.secondaryContainer
+                                                        else -> MaterialTheme.colorScheme.surface
+                                                    }
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                                            ) { Text(if (pair.id in matchedPairIds) "✓ ${pair.term}" else pair.term) }
+                                        }
+                                    }
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("NGHĨA", style = MaterialTheme.typography.labelSmall)
+                                        shuffledMatchMeanings.forEach { pair ->
+                                            OutlinedButton(
+                                                onClick = {
+                                                    if (selectedPairTermId != null && pair.id !in matchedPairIds) {
+                                                        if (selectedPairTermId == pair.id) {
+                                                            db.reviewWord(pair.id, 2)
+                                                            val nextMatched = matchedPairIds + pair.id
+                                                            matchedPairIds = nextMatched
+                                                            pairFeedback = "Chính xác: ${pair.term}"
+                                                            selectedPairTermId = null
+                                                            if (nextMatched.containsAll(matchBatch.map { it.id })) {
+                                                                refresh()
+                                                                matchedPairIds = emptySet()
+                                                                pairFeedback = "Hoàn thành phiên ghép cặp!"
+                                                            }
+                                                        } else {
+                                                            pairFeedback = "Chưa khớp — hãy thử lại."
+                                                            selectedPairTermId = null
+                                                        }
+                                                    }
+                                                },
+                                                enabled = pair.id !in matchedPairIds,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    containerColor = if (pair.id in matchedPairIds) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                                            ) { Text(if (pair.id in matchedPairIds) "✓ ${pair.meaning}" else pair.meaning) }
+                                        }
+                                    }
+                                }
+                                if (selectedPairTermId != null) Text("Đã chọn: ${matchBatch.firstOrNull { it.id == selectedPairTermId }?.term ?: ""}. Chọn nghĩa ở cột bên phải.")
+                                if (pairFeedback.isNotBlank()) Text(pairFeedback, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                             }
                         }
                         "Nghe & gõ", "Dịch từ" -> {
