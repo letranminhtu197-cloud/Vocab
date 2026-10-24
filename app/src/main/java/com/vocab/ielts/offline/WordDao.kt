@@ -16,6 +16,15 @@ interface WordDao {
     @Query("SELECT * FROM words WHERE nextReviewAtMillis = 0 OR nextReviewAtMillis <= :now ORDER BY nextReviewAtMillis ASC, term COLLATE NOCASE ASC")
     fun observeDue(now: Long): Flow<List<WordEntity>>
 
+    @Query("SELECT * FROM words ORDER BY term COLLATE NOCASE ASC")
+    suspend fun getAllSnapshot(): List<WordEntity>
+
+    @Query("SELECT * FROM words WHERE id = :id LIMIT 1")
+    suspend fun findById(id: Long): WordEntity?
+
+    @Query("SELECT * FROM words WHERE LOWER(TRIM(term)) = :normalizedTerm LIMIT 1")
+    suspend fun findByNormalizedTerm(normalizedTerm: String): WordEntity?
+
     @Query("SELECT COUNT(*) FROM words")
     suspend fun count(): Int
 
@@ -30,7 +39,4 @@ interface WordDao {
 
     @Delete
     suspend fun delete(word: WordEntity)
-
-    @Query("SELECT * FROM words WHERE id = :id LIMIT 1")
-    suspend fun findById(id: Long): WordEntity?
 }
