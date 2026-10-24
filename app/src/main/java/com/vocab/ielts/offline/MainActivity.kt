@@ -58,6 +58,7 @@ private fun VocabApp(database: VocabDatabase) {
     var libraryFilter by remember { mutableStateOf("Tất cả") }
     var selectedTopic by remember { mutableStateOf("Mọi chủ đề") }
     var currentIndex by remember { mutableIntStateOf(0) }
+    var expandedWordDetails by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var revealed by remember { mutableStateOf(false) }
     val ratingInProgress = remember { mutableStateOf(false) }
     var editorWord by remember { mutableStateOf<WordEntity?>(null) }
@@ -302,7 +303,7 @@ private fun VocabApp(database: VocabDatabase) {
                                 color = MaterialTheme.colorScheme.primary,
                                 shape = RoundedCornerShape(18.dp)
                             ) {
-                                Text("📚", modifier = Modifier.padding(13.dp), fontSize = 28.sp)
+                                Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.padding(13.dp).size(28.dp), tint = MaterialTheme.colorScheme.onPrimary)
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("Sổ tay từ vựng", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -310,7 +311,7 @@ private fun VocabApp(database: VocabDatabase) {
                             }
                             Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), shape = RoundedCornerShape(14.dp)) {
                                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("🔤", fontSize = 18.sp)
+                                    Icon(Icons.Default.LibraryBooks, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                     Text("${words.size}", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
@@ -321,7 +322,7 @@ private fun VocabApp(database: VocabDatabase) {
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("🔎  Tìm từ, nghĩa, ví dụ hoặc ghi chú…") },
+                        label = { Text("Tìm từ, nghĩa, ví dụ hoặc ghi chú…") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         singleLine = true
                     )
@@ -329,7 +330,7 @@ private fun VocabApp(database: VocabDatabase) {
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("✨ Tất cả", "⏰ Đến hạn", "💪 Từ yếu", "🏷️ Có thẻ").forEach { option ->
+                        listOf("Tất cả", "Đến hạn", "Từ yếu", "Có thẻ").forEach { option ->
                             FilterChip(
                                 selected = libraryFilter == option,
                                 onClick = { libraryFilter = option },
@@ -345,7 +346,7 @@ private fun VocabApp(database: VocabDatabase) {
                             FilterChip(
                                 selected = selectedTopic == "Mọi chủ đề",
                                 onClick = { selectedTopic = "Mọi chủ đề" },
-                                label = { Text("🌈 Mọi chủ đề") }
+                                label = { Text("Mọi chủ đề") }
                             )
                             topics.forEach { topic ->
                                 FilterChip(
@@ -358,7 +359,7 @@ private fun VocabApp(database: VocabDatabase) {
                     }
                     Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(14.dp)) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("📖  Đang hiển thị", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Đang hiển thị", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${filtered.size} / ${words.size} từ", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         }
                     }
@@ -366,11 +367,11 @@ private fun VocabApp(database: VocabDatabase) {
                         OutlinedButton(
                             onClick = { importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
                             modifier = Modifier.weight(1f)
-                        ) { Text("📥  Nhập CSV") }
+                        ) { Text("Nhập CSV") }
                         OutlinedButton(
                             onClick = { exportLauncher.launch("vocab-words.csv") },
                             modifier = Modifier.weight(1f)
-                        ) { Text("📤  Xuất CSV") }
+                        ) { Text("Xuất CSV") }
                     }
                     Text("CSV hỗ trợ cột bắt buộc term và meaning; các cột ipa, partOfSpeech, example, topic là tùy chọn.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     BackupControls(dao = dao, onMessage = { csvMessage = it })
@@ -401,11 +402,11 @@ private fun VocabApp(database: VocabDatabase) {
                                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(14.dp)) {
-                                            Text("🔤", modifier = Modifier.padding(10.dp), fontSize = 21.sp)
+                                            Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.padding(10.dp).size(21.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                                         }
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(word.term, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, color = MaterialTheme.colorScheme.onSurface)
-                                            if (word.ipa.isNotBlank()) Text("🔊  ${word.ipa}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            if (word.ipa.isNotBlank()) Text("${word.ipa}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         IconButton(onClick = { editorWord = word; showEditor = true }) {
                                             Icon(Icons.Default.Edit, contentDescription = "Sửa từ")
@@ -416,21 +417,34 @@ private fun VocabApp(database: VocabDatabase) {
                                     }
                                     if (word.partOfSpeech.isNotBlank()) {
                                         Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(9.dp)) {
-                                            Text("🏷️  ${word.partOfSpeech}", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            Text("${word.partOfSpeech}", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                         }
                                     }
-                                    Text("🇻🇳  ${word.meaning}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("${word.meaning}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                                     if (word.example.isNotBlank()) {
                                         Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp)) {
-                                            Text("💬  ${word.example}", Modifier.fillMaxWidth().padding(11.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("${word.example}", Modifier.fillMaxWidth().padding(11.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
-                                    if (word.topic.isNotBlank()) Text("🌍  ${word.topic}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
-                                    if (word.collocations.isNotBlank()) Text("🧩  Cụm từ: ${word.collocations}", style = MaterialTheme.typography.bodySmall)
-                                    if (word.synonyms.isNotBlank()) Text("🔁  Từ đồng nghĩa: ${word.synonyms}", style = MaterialTheme.typography.bodySmall)
-                                    if (word.wordFamily.isNotBlank()) Text("🌱  Họ từ: ${word.wordFamily}", style = MaterialTheme.typography.bodySmall)
-                                    if (word.tags.isNotBlank()) Text("🏷️  ${word.tags}", style = MaterialTheme.typography.labelSmall)
-                                    if (word.notes.isNotBlank()) Text("📝  ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (word.topic.isNotBlank()) Text("Chủ đề: ${word.topic}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+                                    val hasExtraDetails = word.collocations.isNotBlank() || word.synonyms.isNotBlank() ||
+                                        word.wordFamily.isNotBlank() || word.tags.isNotBlank() || word.notes.isNotBlank()
+                                    if (hasExtraDetails) {
+                                        TextButton(
+                                            onClick = {
+                                                expandedWordDetails = if (word.id in expandedWordDetails) expandedWordDetails - word.id
+                                                else expandedWordDetails + word.id
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                                        ) { Text(if (word.id in expandedWordDetails) "Ẩn chi tiết từ vựng" else "Xem chi tiết từ vựng") }
+                                        if (word.id in expandedWordDetails) {
+                                            if (word.collocations.isNotBlank()) Text("Cụm từ: ${word.collocations}", style = MaterialTheme.typography.bodySmall)
+                                            if (word.synonyms.isNotBlank()) Text("Từ đồng nghĩa: ${word.synonyms}", style = MaterialTheme.typography.bodySmall)
+                                            if (word.wordFamily.isNotBlank()) Text("Họ từ: ${word.wordFamily}", style = MaterialTheme.typography.bodySmall)
+                                            if (word.tags.isNotBlank()) Text("Thẻ: ${word.tags}", style = MaterialTheme.typography.labelSmall)
+                                            if (word.notes.isNotBlank()) Text("Ghi chú: ${word.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(if (word.excludedFromReview) "Đã tạm bỏ khỏi lịch ôn" else "Đang nằm trong lịch ôn", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = if (word.excludedFromReview) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
                                         TextButton(onClick = {
@@ -439,8 +453,8 @@ private fun VocabApp(database: VocabDatabase) {
                                     }
                                     Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
                                         Row(Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Text("🧠  SRS ${word.srsLevel}/5", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
-                                            Text("🔁 ${word.reviewCount} lần", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Text("SRS ${word.srsLevel}/5", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                                            Text("${word.reviewCount} lượt ôn", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                         }
                                     }
                                 }
