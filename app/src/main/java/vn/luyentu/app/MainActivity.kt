@@ -48,6 +48,7 @@ private fun LuyenTuApp() {
     val refresh = {
         words = db.getAllWords()
         dueWords = db.getDueWords()
+        LuyenTuWidgetProvider.updateAll(context)
     }
     val importCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
