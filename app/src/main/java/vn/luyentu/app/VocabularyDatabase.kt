@@ -222,6 +222,27 @@ class VocabularyDatabase(context: Context) :
         "SELECT COUNT(*) FROM vocabulary WHERE repetitions >= 3 AND interval_days >= 7", null
     ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
+    fun currentStreakDays(): Int {
+        val reviewedDays = mutableSetOf<String>()
+        readableDatabase.rawQuery(
+            "SELECT DISTINCT date(reviewed_at / 1000, 'unixepoch', 'localtime') FROM review_log",
+            null
+        ).use { cursor -> while (cursor.moveToNext()) reviewedDays += cursor.getString(0) }
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val calendar = Calendar.getInstance()
+        val today = format.format(calendar.time)
+        calendar.add(Calendar.DAY_OF_YEAR, -1)
+        val yesterday = format.format(calendar.time)
+        if (today !in reviewedDays && yesterday !in reviewedDays) return 0
+        if (today !in reviewedDays) calendar.timeInMillis = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }.timeInMillis
+        var streak = 0
+        while (format.format(calendar.time) in reviewedDays) {
+            streak++
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
+        }
+        return streak
+    }
+
     fun reviewedToday(): Int {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, 0)
