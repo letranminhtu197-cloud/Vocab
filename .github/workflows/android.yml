@@ -3,9 +3,11 @@ name: Android CI
 on:
   push:
     branches: [ "main", "luyentu2.0" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
