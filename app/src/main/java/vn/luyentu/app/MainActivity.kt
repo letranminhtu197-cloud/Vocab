@@ -271,7 +271,7 @@ private fun PracticeScreen(
     db: VocabularyDatabase,
     refresh: () -> Unit
 ) {
-    val modes = listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Ôn hỗn hợp")
+    val modes = listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Dịch từ", "Ôn hỗn hợp")
     var speechEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     var speechReady by remember { mutableStateOf(false) }
     DisposableEffect(context) {
@@ -296,7 +296,7 @@ private fun PracticeScreen(
     val safeIndex = index.coerceIn(0, (dueWords.size - 1).coerceAtLeast(0))
     val current = dueWords.getOrNull(safeIndex)
     val activeMode = remember(current?.id, mode) {
-        if (mode == "Ôn hỗn hợp") listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp").random()
+        if (mode == "Ôn hỗn hợp") listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Dịch từ").random()
         else mode
     }
     val choices = remember(current?.id, allWords.size, activeMode) {
@@ -308,7 +308,7 @@ private fun PracticeScreen(
         }
     }
 
-    LaunchedEffect(current?.id, activeMode) {
+    LaunchedEffect(current?.id, activeMode, mode) {
         revealed = false
         typedAnswer = ""
         chosenAnswer = null
@@ -393,16 +393,22 @@ private fun PracticeScreen(
                                 ) { Text(choice) }
                             }
                         }
-                        "Nghe & gõ" -> {
-                            Text("Nghe và nhập từ tiếng Anh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Nghĩa: ${current.meaning}")
-                            Text("IPA: ${current.ipa.ifBlank { "Chưa có IPA" }}", style = MaterialTheme.typography.bodySmall)
-                            Button(onClick = { speechEngine?.speak(current.term, TextToSpeech.QUEUE_FLUSH, null, "luyentu-word-${current.id}") }, modifier = Modifier.fillMaxWidth(), enabled = speechReady) {
-                                Icon(Icons.Default.VolumeUp, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(if (speechReady) "Phát âm từ" else "Đang khởi tạo giọng đọc")
+                        "Nghe & gõ", "Dịch từ" -> {
+                            if (activeMode == "Nghe & gõ") {
+                                Text("Nghe và nhập từ tiếng Anh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text("Nghĩa: ${current.meaning}")
+                                Text("IPA: ${current.ipa.ifBlank { "Chưa có IPA" }}", style = MaterialTheme.typography.bodySmall)
+                                Button(onClick = { speechEngine?.speak(current.term, TextToSpeech.QUEUE_FLUSH, null, "luyentu-word-${current.id}") }, modifier = Modifier.fillMaxWidth(), enabled = speechReady) {
+                                    Icon(Icons.Default.VolumeUp, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (speechReady) "Phát âm từ" else "Đang khởi tạo giọng đọc")
+                                }
+                                Text("Muốn phát âm hoàn toàn offline, hãy cài sẵn giọng tiếng Anh ngoại tuyến trong cài đặt Android.", style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                Text("Dịch nghĩa sang tiếng Anh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(current.meaning, style = MaterialTheme.typography.headlineSmall)
+                                if (current.example.isNotBlank()) Text("Gợi ý ngữ cảnh: ${current.example}")
                             }
-                            Text("Âm thanh dùng dịch vụ Text-to-Speech trên thiết bị. Muốn dùng hoàn toàn offline, hãy cài sẵn giọng tiếng Anh ngoại tuyến trong cài đặt Android.", style = MaterialTheme.typography.bodySmall)
                             OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = "" }, Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh") }, singleLine = true)
                             Button(onClick = {
                                 if (typedAnswer.isNotBlank() && !answered) {
