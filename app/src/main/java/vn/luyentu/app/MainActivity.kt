@@ -869,6 +869,7 @@ private fun PracticeScreen(
     var feedbackCorrect by rememberSaveable { mutableStateOf(false) }
     var selectedPairTermId by rememberSaveable { mutableStateOf<Long?>(null) }
     var matchedPairIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var pairMistakeIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var pairFeedback by rememberSaveable { mutableStateOf("") }
     val sessionWords = if (sessionStarted) sessionIds.mapNotNull { id -> dueWords.firstOrNull { it.id == id } } else emptyList()
     val safeIndex = index.coerceIn(0, (sessionWords.size - 1).coerceAtLeast(0))
@@ -894,6 +895,7 @@ private fun PracticeScreen(
         feedbackCorrect = false
         selectedPairTermId = null
         matchedPairIds = emptySet()
+        pairMistakeIds = emptySet()
         pairFeedback = ""
     }
 
@@ -1030,19 +1032,23 @@ private fun PracticeScreen(
                                                 onClick = {
                                                     if (selectedPairTermId != null && pair.id !in matchedPairIds) {
                                                         if (selectedPairTermId == pair.id) {
-                                                            db.reviewWord(pair.id, 2)
                                                             val nextMatched = matchedPairIds + pair.id
                                                             matchedPairIds = nextMatched
                                                             pairFeedback = "Chính xác: ${pair.term}"
                                                             selectedPairTermId = null
                                                             if (nextMatched.containsAll(matchBatch.map { it.id })) {
                                                                 val matchedIds = matchBatch.map { it.id }.toSet()
+                                                                matchBatch.forEach { matchedWord ->
+                                                                    db.reviewWord(matchedWord.id, if (matchedWord.id in pairMistakeIds) 0 else 2)
+                                                                }
                                                                 sessionIds = sessionIds.filterNot { it in matchedIds }
                                                                 refresh()
                                                                 matchedPairIds = emptySet()
+                                                                pairMistakeIds = emptySet()
                                                                 pairFeedback = "Hoàn thành phiên ghép cặp!"
                                                             }
                                                         } else {
+                                                            pairMistakeIds = pairMistakeIds + selectedPairTermId + pair.id
                                                             pairFeedback = "Chưa khớp — hãy thử lại."
                                                             selectedPairTermId = null
                                                         }
