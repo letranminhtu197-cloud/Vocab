@@ -42,12 +42,16 @@ private fun LuyenTuApp() {
     val db = remember(context) { VocabularyDatabase(context) }
     var words by remember { mutableStateOf(db.getAllWords()) }
     var dueWords by remember { mutableStateOf(db.getDueWords()) }
+    var decks by remember { mutableStateOf(db.getDecks()) }
+    var activeDeckId by rememberSaveable { mutableStateOf(db.getDecks().firstOrNull()?.id) }
     var reminderEnabled by remember { mutableStateOf(context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).getBoolean(DailyReminderWorker.ENABLED_KEY, false)) }
     var dailyGoal by remember { mutableIntStateOf(context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).getInt("daily_review_goal", 10)) }
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val refresh = {
         words = db.getAllWords()
         dueWords = db.getDueWords()
+        decks = db.getDecks()
+        if (activeDeckId != null && decks.none { it.id == activeDeckId }) activeDeckId = decks.firstOrNull()?.id
         LuyenTuWidgetProvider.updateAll(context)
     }
     val importCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -58,7 +62,7 @@ private fun LuyenTuApp() {
                 }.orEmpty()
                 val parsed = CsvTools.parse(csv)
                 var added = 0
-                parsed.forEach { row -> if (db.addWord(row.term, row.meaning, row.example, row.ipa, row.topic)) added++ }
+                parsed.forEach { row -> if (db.addWord(row.term, row.meaning, row.example, row.ipa, row.topic, activeDeckId)) added++ }
                 refresh()
                 Toast.makeText(context, "Đã nhập $added/${parsed.size} từ mới từ CSV/TXT. Từ trùng được bỏ qua.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
@@ -165,7 +169,9 @@ private fun LuyenTuApp() {
         dailyGoal = goal
         Toast.makeText(context, "Đã đặt mục tiêu ${goal} lượt ôn/ngày.", Toast.LENGTH_SHORT).show()
     }
-    val titles = listOf("Tổng quan", "Sổ từ", "Luyện tập", "Thống kê", "Cài đặt", "Lộ trình")
+    val activeWords = if (activeDeckId == null) words else words.filter { it.deckId == activeDeckId }
+    val activeDueWords = if (activeDeckId == null) dueWords else dueWords.filter { it.deckId == activeDeckId }
+    val titles = listOf("Trang chủ", "Bộ từ", "Luyện tập", "Thống kê", "Cá nhân", "Lộ trình")
     val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings, Icons.Default.Route)
 
     val luyenTuColors = darkColorScheme(
@@ -244,9 +250,9 @@ private fun LuyenTuApp() {
                     Text("Dữ liệu được lưu trên thiết bị. Không cần tài khoản hoặc kết nối mạng.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                1 -> VocabularyScreen(padding, words, db, refresh)
-                2 -> PracticeScreen(padding, dueWords, words, db, refresh)
-                3 -> StatisticsScreen(padding, words, dueWords, db)
+                1 -> VocabularyScreen(padding, words, activeDeckId, { newId -> activeDeckId = newId }, db, refresh)
+                2 -> PracticeScreen(padding, activeDueWords, activeWords, db, refresh)
+                3 -> StatisticsScreen(padding, activeWords, activeDueWords, db)
                 4 -> SettingsScreen(
                     padding,
                     onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
@@ -292,7 +298,14 @@ private fun DashboardAction(title: String, subtitle: String, color: androidx.com
 }
 
 @Composable
-private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>, db: VocabularyDatabase, refresh: () -> Unit) {
+private fun VocabularyScreen(
+    padding: PaddingValues,
+    words: List<VocabularyWord>,
+    activeDeckId: Long?,
+    onActiveDeckChange: (Long?) -> Unit,
+    db: VocabularyDatabase,
+    refresh: () -> Unit
+) {
     var term by rememberSaveable { mutableStateOf("") }
     var meaning by rememberSaveable { mutableStateOf("") }
     var ipa by rememberSaveable { mutableStateOf("") }
@@ -308,14 +321,57 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
     var editTopic by remember(editingWord?.id) { mutableStateOf(editingWord?.topic.orEmpty()) }
     var editExample by remember(editingWord?.id) { mutableStateOf(editingWord?.example.orEmpty()) }
     var editError by remember { mutableStateOf("") }
-    val topics = words.map { it.topic.trim() }.filter { it.isNotBlank() }.distinct().sorted()
-    val filtered = words.filter {
+    var decks by remember { mutableStateOf(db.getDecks()) }
+    var folders by remember { mutableStateOf(db.getFolders()) }
+    var createDialog by rememberSaveable { mutableStateOf<String?>(null) }
+    var newContainerName by rememberSaveable { mutableStateOf("") }
+    var selectedFolderId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deckMenuExpanded by remember { mutableStateOf(false) }
+    var movingWordId by remember { mutableStateOf<Long?>(null) }
+    var confirmDeleteDeck by rememberSaveable { mutableStateOf(false) }
+    val deckWords = if (activeDeckId == null) words else words.filter { it.deckId == activeDeckId }
+    val topics = deckWords.map { it.topic.trim() }.filter { it.isNotBlank() }.distinct().sorted()
+    val filtered = deckWords.filter {
         (search.isBlank() || it.term.contains(search, true) || it.meaning.contains(search, true) || it.topic.contains(search, true)) &&
             (selectedTopic == "Tất cả" || it.topic == selectedTopic)
     }
 
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text("Sổ từ của bạn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Bộ từ của bạn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("${deckWords.size} từ • ${if (activeDeckId == null) "tất cả bộ từ" else db.deckName(activeDeckId)}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = { createDialog = "folder"; newContainerName = "" }) { Icon(Icons.Default.CreateNewFolder, "Tạo thư mục") }
+            IconButton(onClick = { createDialog = "deck"; newContainerName = ""; selectedFolderId = null }) { Icon(Icons.Default.AddBox, "Tạo bộ từ") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Box {
+                OutlinedButton(onClick = { deckMenuExpanded = true }) {
+                    Text(if (activeDeckId == null) "Tất cả bộ từ" else db.deckName(activeDeckId), maxLines = 1)
+                    Icon(Icons.Default.ArrowDropDown, null)
+                }
+                DropdownMenu(expanded = deckMenuExpanded, onDismissRequest = { deckMenuExpanded = false }) {
+                    DropdownMenuItem(text = { Text("Tất cả bộ từ") }, onClick = {
+                        onActiveDeckChange(null); deckMenuExpanded = false
+                    })
+                    decks.forEach { deck ->
+                        DropdownMenuItem(text = { Text("${deck.name} (${deck.wordCount})") }, onClick = {
+                            onActiveDeckChange(deck.id); deckMenuExpanded = false
+                        })
+                    }
+                }
+            }
+            if (activeDeckId != null) {
+                IconButton(onClick = { createDialog = "renameDeck"; newContainerName = db.deckName(activeDeckId) }) {
+                    Icon(Icons.Default.Edit, "Đổi tên bộ từ")
+                }
+                IconButton(onClick = { confirmDeleteDeck = true }) { Icon(Icons.Default.Delete, "Xóa bộ từ") }
+            }
+        }
+        if (folders.isNotEmpty()) Text("Thư mục: " + folders.joinToString(" • ") { it.name },
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(term, { term = it; message = "" }, Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh *") }, singleLine = true)
         OutlinedTextField(meaning, { meaning = it; message = "" }, Modifier.fillMaxWidth(), label = { Text("Nghĩa tiếng Việt *") })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -326,7 +382,7 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
         Button(onClick = {
             message = when {
                 term.isBlank() || meaning.isBlank() -> "Cần nhập từ và nghĩa."
-                db.addWord(term, meaning, example, ipa, topic) -> {
+                db.addWord(term, meaning, example, ipa, topic, activeDeckId) -> {
                     term = ""; meaning = ""; example = ""; ipa = ""; topic = ""; refresh()
                     "Đã lưu trên thiết bị."
                 }
@@ -352,6 +408,19 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
                         if (word.example.isNotBlank()) Text(word.example, style = MaterialTheme.typography.bodySmall)
                         if (word.topic.isNotBlank()) Text(word.topic, style = MaterialTheme.typography.labelSmall)
                         if (word.repetitions > 0) Text("Đã ôn ${word.repetitions} lần", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Box {
+                        IconButton(onClick = { movingWordId = word.id }) { Icon(Icons.Default.DriveFileMove, "Chuyển bộ từ") }
+                        DropdownMenu(expanded = movingWordId == word.id, onDismissRequest = { movingWordId = null }) {
+                            decks.filter { it.id != word.deckId }.forEach { deck ->
+                                DropdownMenuItem(text = { Text(deck.name) }, onClick = {
+                                    db.assignWordToDeck(word.id, deck.id)
+                                    movingWordId = null
+                                    decks = db.getDecks()
+                                    refresh()
+                                })
+                            }
+                        }
                     }
                     IconButton(onClick = { editingWord = word; editError = "" }) { Icon(Icons.Default.Edit, "Sửa từ") }
                     IconButton(onClick = { db.deleteWord(word.id); refresh() }) { Icon(Icons.Default.Delete, "Xoá từ") }
@@ -385,6 +454,73 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
                 }) { Text("Lưu thay đổi") }
             },
             dismissButton = { TextButton(onClick = { editingWord = null }) { Text("Huỷ") } }
+        )
+    }
+    if (createDialog == "folder" || createDialog == "deck" || createDialog == "renameDeck") {
+        AlertDialog(
+            onDismissRequest = { createDialog = null },
+            title = { Text(when (createDialog) {
+                "folder" -> "Tạo thư mục"
+                "renameDeck" -> "Đổi tên bộ từ"
+                else -> "Tạo bộ từ mới"
+            }) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newContainerName,
+                        onValueChange = { newContainerName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(if (createDialog == "folder") "Tên thư mục" else "Tên bộ từ") },
+                        singleLine = true
+                    )
+                    if (createDialog == "deck" && folders.isNotEmpty()) {
+                        Text("Lưu trong thư mục", style = MaterialTheme.typography.labelLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(selected = selectedFolderId == null, onClick = { selectedFolderId = null }, label = { Text("Không thư mục") })
+                            folders.forEach { folder ->
+                                FilterChip(selected = selectedFolderId == folder.id, onClick = { selectedFolderId = folder.id }, label = { Text(folder.name) })
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val ok = when (createDialog) {
+                        "folder" -> db.createFolder(newContainerName) != null
+                        "renameDeck" -> activeDeckId?.let { db.renameDeck(it, newContainerName) } == true
+                        else -> db.createDeck(newContainerName, selectedFolderId) != null
+                    }
+                    if (ok) {
+                        if (createDialog == "deck") activeDeckId = db.getDecks().lastOrNull()?.id ?: activeDeckId
+                        decks = db.getDecks()
+                        folders = db.getFolders()
+                        createDialog = null
+                        newContainerName = ""
+                        refresh()
+                    }
+                }, enabled = newContainerName.isNotBlank()) { Text("Lưu") }
+            },
+            dismissButton = { TextButton(onClick = { createDialog = null }) { Text("Hủy") } }
+        )
+    }
+    if (confirmDeleteDeck && activeDeckId != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteDeck = false },
+            title = { Text("Xóa bộ từ?") },
+            text = { Text("Bộ từ sẽ bị xóa khỏi danh sách. Các từ sẽ không bị xóa mà trở thành từ chưa phân bộ.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val removedId = activeDeckId
+                    if (removedId != null && db.deleteDeck(removedId)) {
+                        decks = db.getDecks()
+                        onActiveDeckChange(decks.firstOrNull()?.id)
+                        refresh()
+                    }
+                    confirmDeleteDeck = false
+                }) { Text("Xóa bộ từ") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteDeck = false }) { Text("Hủy") } }
         )
     }
 }
