@@ -11,7 +11,8 @@ object CsvCodec {
     data class ImportResult(
         val words: List<WordEntity>,
         val invalidRows: Int,
-        val error: String? = null
+        val error: String? = null,
+        val invalidRowNumbers: List<Int> = emptyList()
     )
 
     const val MAX_IMPORT_BYTES: Int = 20 * 1024 * 1024
@@ -46,6 +47,7 @@ object CsvCodec {
         }
         val nonEmpty = rows.filter { row -> row.any { it.isNotBlank() } }
         if (nonEmpty.isEmpty()) return ImportResult(emptyList(), 0, "File CSV đang trống.")
+        val headerRowIndex = rows.indexOfFirst { row -> row.any { it.isNotBlank() } }
         val header = nonEmpty.first().map { it.trim().lowercase().replace(" ", "").replace("_", "") }
         val termIndex = header.indexOfFirst { it in setOf("term", "word", "vocabulary", "từ", "từvựng", "từ/cụmtừ") }
         val meaningIndex = header.indexOfFirst { it in setOf("meaning", "definition", "translation", "nghĩa", "nghĩatiếngviệt") }
@@ -71,13 +73,17 @@ object CsvCodec {
         val excludedIndex = index("excludedfromreview", "skipreview", "khongon", "khôngôn")
         val result = mutableListOf<WordEntity>()
         var invalid = 0
+        val invalidRowNumbers = mutableListOf<Int>()
         var metadataError: String? = null
-        nonEmpty.drop(1).forEach { row ->
+        rows.withIndex().filter { indexed -> indexed.index > headerRowIndex && indexed.value.any { it.isNotBlank() } }.forEach { indexed ->
+            val row = indexed.value
+            val lineNumber = indexed.index + 1
             fun value(i: Int): String = if (i >= 0 && i < row.size) row[i].trim() else ""
             val term = value(termIndex)
             val meaning = value(meaningIndex)
             if (term.isBlank() || meaning.isBlank()) {
                 invalid++
+                invalidRowNumbers += lineNumber
             } else {
                 fun intField(index: Int, name: String, default: Int, range: IntRange): Int? {
                     val raw = value(index)
@@ -131,7 +137,7 @@ object CsvCodec {
             }
         }
         if (metadataError != null) return ImportResult(emptyList(), 0, metadataError)
-        return ImportResult(result, invalid)
+        return ImportResult(result, invalid, invalidRowNumbers = invalidRowNumbers)
     }
 
     fun export(words: List<WordEntity>): String {
