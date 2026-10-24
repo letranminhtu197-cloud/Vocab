@@ -65,6 +65,9 @@ private fun VocabApp(database: VocabDatabase) {
     var showEditor by remember { mutableStateOf(false) }
     var wordToDelete by remember { mutableStateOf<WordEntity?>(null) }
     var showSamplesConfirm by remember { mutableStateOf(false) }
+    var showCategoryManager by remember { mutableStateOf(false) }
+    var categoryNameInput by remember { mutableStateOf("") }
+    var categoryDescriptionInput by remember { mutableStateOf("") }
     var dueOnly by remember { mutableStateOf(false) }
     var csvMessage by remember { mutableStateOf<String?>(null) }
     var pendingCsvWords by remember { mutableStateOf<List<WordEntity>?>(null) }
@@ -86,6 +89,7 @@ private fun VocabApp(database: VocabDatabase) {
     var quizSessionTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_total", 0)) }
     val scope = rememberCoroutineScope()
     val words by dao.observeAll().collectAsState(initial = emptyList())
+    val categories by repository.observeCategories().collectAsState(initial = emptyList())
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val filtered = words.filter { word ->
         val matchesQuery = query.isBlank() || listOf(
@@ -430,6 +434,23 @@ private fun VocabApp(database: VocabDatabase) {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Danh mục từ vựng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Dùng danh mục thống nhất cho trường Chủ đề IELTS.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        OutlinedButton(onClick = { showCategoryManager = true }) { Text("Quản lý") }
+                    }
+                    if (categories.isNotEmpty()) {
+                        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            categories.forEach { category ->
+                                AssistChip(
+                                    onClick = { selectedTopic = category.name; query = "" },
+                                    label = { Text("${category.name} (${words.count { it.topic.trim().equals(category.name, ignoreCase = true) }})") }
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
@@ -929,9 +950,53 @@ private fun VocabApp(database: VocabDatabase) {
             confirmButton = { TextButton(onClick = { csvMessage = null }) { Text("Đóng") } }
         )
     }
+    if (showCategoryManager) {
+        AlertDialog(
+            onDismissRequest = { showCategoryManager = false },
+            title = { Text("Quản lý danh mục") },
+            text = {
+                Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(value = categoryNameInput, onValueChange = { categoryNameInput = it }, label = { Text("Tên danh mục") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = categoryDescriptionInput, onValueChange = { categoryDescriptionInput = it }, label = { Text("Mô tả (không bắt buộc)") }, modifier = Modifier.fillMaxWidth())
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                runCatching { repository.createCategory(categoryNameInput, categoryDescriptionInput) }
+                                    .onSuccess { categoryNameInput = ""; categoryDescriptionInput = "" }
+                                    .onFailure { csvMessage = it.message ?: "Không thể tạo danh mục." }
+                            }
+                        },
+                        enabled = categoryNameInput.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Thêm danh mục") }
+                    if (categories.isEmpty()) {
+                        Text("Chưa có danh mục. Bạn có thể thêm ở trên hoặc nhập chủ đề trực tiếp khi tạo từ.")
+                    } else {
+                        categories.forEach { category ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(category.name, fontWeight = FontWeight.SemiBold)
+                                    if (category.description.isNotBlank()) Text(category.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${words.count { it.topic.trim().equals(category.name, ignoreCase = true) }} từ đang dùng", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        runCatching { repository.deleteCategory(category) }
+                                            .onFailure { csvMessage = it.message ?: "Không thể xóa danh mục." }
+                                    }
+                                }) { Text("Xóa") }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showCategoryManager = false }) { Text("Đóng") } }
+        )
+    }
     if (showEditor) {
         WordEditorDialog(
             initial = editorWord,
+            categoryNames = categories.map { it.name },
             onDismiss = { showEditor = false; editorWord = null },
             onSave = { word ->
                 scope.launch {
@@ -991,6 +1056,7 @@ private fun VocabApp(database: VocabDatabase) {
 @Composable
 private fun WordEditorDialog(
     initial: WordEntity?,
+    categoryNames: List<String>,
     onDismiss: () -> Unit,
     onSave: (WordEntity) -> Unit
 ) {
@@ -1021,7 +1087,14 @@ private fun WordEditorDialog(
                 OutlinedTextField(ipa, { ipa = it }, label = { Text("Phiên âm IPA") }, singleLine = true)
                 OutlinedTextField(pos, { pos = it }, label = { Text("Từ loại") }, singleLine = true)
                 OutlinedTextField(example, { example = it }, label = { Text("Câu ví dụ") })
-                OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề IELTS") }, singleLine = true)
+                OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề IELTS / danh mục") }, singleLine = true)
+                if (categoryNames.isNotEmpty()) {
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        categoryNames.forEach { name ->
+                            FilterChip(selected = topic.equals(name, ignoreCase = true), onClick = { topic = name }, label = { Text(name) })
+                        }
+                    }
+                }
                 OutlinedTextField(collocations, { collocations = it }, label = { Text("Collocations / cụm từ đi kèm") }, minLines = 2)
                 OutlinedTextField(synonyms, { synonyms = it }, label = { Text("Synonyms / từ đồng nghĩa") }, minLines = 2)
                 OutlinedTextField(wordFamily, { wordFamily = it }, label = { Text("Word family / họ từ") }, minLines = 2)
