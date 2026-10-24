@@ -175,7 +175,10 @@ private fun LuyenTuApp() {
                     padding,
                     onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
                     onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") },
-                    onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") }
+                    onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") },
+                    reminderEnabled = reminderEnabled,
+                    onEnableReminder = enableReminder,
+                    onDisableReminder = disableReminder
                 )
             }
         }
@@ -300,7 +303,7 @@ private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExpor
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.FileOpen, null)
             Spacer(Modifier.width(8.dp))
-            Text("Nhập từ file CSV")
+            Text("Nhập từ file CSV/TXT")
         }
         OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.FileDownload, null)
