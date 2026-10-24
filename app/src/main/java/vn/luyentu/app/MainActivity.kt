@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.Toast
 import android.speech.tts.TextToSpeech
 import java.util.Locale
+import org.json.JSONObject
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import java.io.InputStreamReader
@@ -73,6 +74,46 @@ private fun LuyenTuApp() {
                 Toast.makeText(context, "Đã xuất bộ từ dạng TXT.", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "Không thể xuất TXT: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val backup = JSONObject(db.exportBackupJson())
+                backup.put("settings", JSONObject()
+                    .put("dailyGoal", dailyGoal)
+                    .put("reminderEnabled", reminderEnabled))
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    OutputStreamWriter(stream, StandardCharsets.UTF_8).use { it.write(backup.toString(2)) }
+                }
+                Toast.makeText(context, "Đã sao lưu ${words.size} từ và ${db.reviewCount()} lượt ôn.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Sao lưu thất bại: " + (e.localizedMessage ?: "lỗi không xác định"), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val importBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val backup = context.contentResolver.openInputStream(uri)?.use {
+                    InputStreamReader(it, StandardCharsets.UTF_8).readText()
+                } ?: error("Không đọc được tệp.")
+                val root = JSONObject(backup)
+                val counts = db.restoreBackupJson(backup)
+                val settings = root.optJSONObject("settings")
+                if (settings != null) {
+                    dailyGoal = settings.optInt("dailyGoal", 10).coerceIn(5, 20)
+                    reminderEnabled = settings.optBoolean("reminderEnabled", false)
+                    context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).edit()
+                        .putInt("daily_review_goal", dailyGoal)
+                        .putBoolean(DailyReminderWorker.ENABLED_KEY, reminderEnabled).apply()
+                    if (reminderEnabled) DailyReminderWorker.schedule(context) else DailyReminderWorker.cancel(context)
+                }
+                refresh()
+                Toast.makeText(context, "Khôi phục thành công: ${counts.first} từ, ${counts.second} lượt ôn.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Khôi phục thất bại: " + (e.localizedMessage ?: "tệp không hợp lệ"), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -173,6 +214,8 @@ private fun LuyenTuApp() {
                     onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
                     onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") },
                     onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") },
+                    onBackup = { exportBackup.launch("LuyenTu-backup.json") },
+                    onRestore = { importBackup.launch(arrayOf("application/json", "text/*", "*/*")) },
                     reminderEnabled = reminderEnabled,
                     onEnableReminder = enableReminder,
                     onDisableReminder = disableReminder,
@@ -185,6 +228,8 @@ private fun LuyenTuApp() {
                     onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
                     onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") },
                     onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") },
+                    onBackup = { exportBackup.launch("LuyenTu-backup.json") },
+                    onRestore = { importBackup.launch(arrayOf("application/json", "text/*", "*/*")) },
                     reminderEnabled = reminderEnabled,
                     onEnableReminder = enableReminder,
                     onDisableReminder = disableReminder,
@@ -296,7 +341,7 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
 
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit, dailyGoal: Int, onDailyGoalChange: (Int) -> Unit) {
+private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit, dailyGoal: Int, onDailyGoalChange: (Int) -> Unit) {
     Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Cài đặt & dữ liệu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Nhập và xuất bộ từ bằng CSV hoặc TXT/TSV. Dữ liệu được nhập vào bộ nhớ cục bộ của ứng dụng; không cần đăng nhập.")
@@ -336,6 +381,19 @@ private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExpor
             Icon(Icons.Default.TextSnippet, null)
             Spacer(Modifier.width(8.dp))
             Text("Xuất bộ từ ra TXT/TSV")
+        }
+        HorizontalDivider()
+        Text("Sao lưu toàn bộ dữ liệu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("Bao gồm từ vựng, lịch ôn, lịch sử ôn và mục tiêu/cài đặt nhắc nhở. Khôi phục sẽ thay thế dữ liệu hiện tại.")
+        Button(onClick = onBackup, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Backup, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Tạo bản sao lưu JSON")
+        }
+        OutlinedButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Restore, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Khôi phục bản sao lưu")
         }
         HorizontalDivider()
         Text("Định dạng CSV", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
