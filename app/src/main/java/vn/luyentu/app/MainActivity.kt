@@ -902,7 +902,7 @@ private fun PracticeScreen(
         pairFeedback = ""
     }
 
-    fun normalize(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ").trimEnd('.', '!', '?')
+    fun normalize(value: String) = AnswerNormalizer.normalize(value)
     fun recordGrade(grade: Int) {
         val word = current ?: return
         db.reviewWord(word.id, grade)
