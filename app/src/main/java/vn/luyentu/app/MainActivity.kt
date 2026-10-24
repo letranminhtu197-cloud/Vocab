@@ -109,7 +109,7 @@ private fun LuyenTuApp() {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 1 -> VocabularyScreen(padding, words, db, refresh)
-                2 -> PracticeScreen(padding, dueWords, db, refresh)
+                2 -> PracticeScreen(padding, dueWords, words, db, refresh)
                 3 -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Thống kê", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -202,19 +202,39 @@ private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExpor
 }
 
 @Composable
-private fun PracticeScreen(padding: PaddingValues, dueWords: List<VocabularyWord>, db: VocabularyDatabase, refresh: () -> Unit) {
+private fun PracticeScreen(
+    padding: PaddingValues,
+    dueWords: List<VocabularyWord>,
+    allWords: List<VocabularyWord>,
+    db: VocabularyDatabase,
+    refresh: () -> Unit
+) {
     var index by rememberSaveable { mutableIntStateOf(0) }
     var revealed by rememberSaveable { mutableStateOf(false) }
+    var quizMode by rememberSaveable { mutableStateOf(false) }
+    var chosenAnswer by rememberSaveable { mutableStateOf<String?>(null) }
+    var answered by rememberSaveable { mutableStateOf(false) }
     val current = dueWords.getOrNull(index.coerceAtMost((dueWords.size - 1).coerceAtLeast(0)))
-
-    LaunchedEffect(dueWords.size) {
-        if (dueWords.isEmpty()) index = 0 else if (index >= dueWords.size) index = 0
-        revealed = false
+    val choices = remember(current?.id, allWords.size) {
+        if (current == null) emptyList()
+        else (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled()
+            .take(3) + current.meaning).shuffled()
     }
 
-    Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Ôn tập cách quãng", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Còn ${dueWords.size} từ đến hạn. Hãy tự nhớ nghĩa trước khi mở đáp án.")
+    LaunchedEffect(dueWords.size, current?.id) {
+        if (dueWords.isEmpty()) index = 0 else if (index >= dueWords.size) index = 0
+        revealed = false
+        chosenAnswer = null
+        answered = false
+    }
+
+    Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Luyện tập", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = !quizMode, onClick = { quizMode = false; revealed = false; chosenAnswer = null; answered = false }, label = { Text("Thẻ từ") })
+            FilterChip(selected = quizMode, onClick = { quizMode = true; revealed = false; chosenAnswer = null; answered = false }, label = { Text("Trắc nghiệm") })
+        }
+        Text("Còn " + dueWords.size + " từ đến hạn ôn.")
         if (current == null) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -224,23 +244,52 @@ private fun PracticeScreen(padding: PaddingValues, dueWords: List<VocabularyWord
                 }
             }
         } else {
-            Text("Từ ${index + 1} / ${dueWords.size}", style = MaterialTheme.typography.labelLarge)
+            Text("Từ " + (index + 1) + " / " + dueWords.size, style = MaterialTheme.typography.labelLarge)
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(current.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.primary)
-                    if (revealed) {
-                        HorizontalDivider()
-                        Text(current.meaning, style = MaterialTheme.typography.titleLarge)
-                        if (current.example.isNotBlank()) Text(current.example, style = MaterialTheme.typography.bodyMedium)
-                        if (current.topic.isNotBlank()) Text("Chủ đề: ${current.topic}", style = MaterialTheme.typography.labelMedium)
+                    if (!quizMode) {
+                        if (revealed) {
+                            HorizontalDivider()
+                            Text(current.meaning, style = MaterialTheme.typography.titleLarge)
+                            if (current.example.isNotBlank()) Text(current.example, style = MaterialTheme.typography.bodyMedium)
+                            if (current.topic.isNotBlank()) Text("Chủ đề: " + current.topic, style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            Text("Hãy thử nhớ nghĩa tiếng Việt và cách dùng.")
+                            OutlinedButton(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện đáp án") }
+                        }
                     } else {
-                        Text("Hãy thử nhớ nghĩa tiếng Việt và cách dùng.", style = MaterialTheme.typography.bodyMedium)
-                        OutlinedButton(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện đáp án") }
+                        Text("Chọn nghĩa đúng:")
+                        choices.forEach { choice ->
+                            OutlinedButton(
+                                onClick = { if (!answered) { chosenAnswer = choice; answered = true } },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !answered,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (answered && choice == current.meaning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                                )
+                            ) { Text(choice) }
+                        }
+                        if (answered) {
+                            Text(
+                                if (chosenAnswer == current.meaning) "Chính xác!" else "Chưa chính xác. Đáp án: " + current.meaning,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Button(onClick = {
+                                db.reviewWord(current.id, if (chosenAnswer == current.meaning) 2 else 0)
+                                refresh()
+                                index = 0
+                                revealed = false
+                                chosenAnswer = null
+                                answered = false
+                            }, modifier = Modifier.fillMaxWidth()) { Text("Tiếp tục") }
+                        }
                     }
                 }
             }
-            if (revealed) {
+            if (!quizMode && revealed) {
                 Text("Bạn nhớ từ này đến đâu?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { db.reviewWord(current.id, 0); refresh(); revealed = false; index = 0 }, modifier = Modifier.weight(1f)) { Text("Quên") }
@@ -250,7 +299,6 @@ private fun PracticeScreen(padding: PaddingValues, dueWords: List<VocabularyWord
                     Button(onClick = { db.reviewWord(current.id, 2); refresh(); revealed = false; index = 0 }, modifier = Modifier.weight(1f)) { Text("Nhớ") }
                     Button(onClick = { db.reviewWord(current.id, 3); refresh(); revealed = false; index = 0 }, modifier = Modifier.weight(1f)) { Text("Dễ") }
                 }
-                Text("Lịch ôn được điều chỉnh theo mức độ nhớ và lưu cục bộ.", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
