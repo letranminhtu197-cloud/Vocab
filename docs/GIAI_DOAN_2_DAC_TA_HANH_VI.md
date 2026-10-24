@@ -41,17 +41,22 @@
 
 ## 5. Giai đoạn 2 đã xử lý trong mã
 
-- Đã sửa lựa chọn đáp án trắc nghiệm để chuẩn hóa nghĩa bằng cách trim, chuyển chữ thường và gộp khoảng trắng trước khi loại trùng. Ví dụ `"Đáng kể"`, `" đáng kể "` không còn bị coi là hai đáp án khác nhau.
-- Nếu thư viện không có đủ nghĩa khác nhau, UI hiện tại đã có thông báo thay vì tạo câu hỏi vô nghĩa.
-- Đã ghi rõ các hợp đồng hành vi cần dùng làm tiêu chí cho phần sửa lỗi tiếp theo.
+- Đã tách logic tạo lựa chọn trắc nghiệm thành `MultipleChoiceChoices` để kiểm thử độc lập, vẫn chạy hoàn toàn offline.
+- Hàm tạo đáp án trim, chuyển chữ thường và gộp khoảng trắng trước khi loại trùng; đáp án đúng chỉ xuất hiện một lần. Khi không đủ nghĩa khác nhau, hàm trả về ít hơn bốn lựa chọn thay vì bịa đáp án.
+- Đã thêm unit tests cho đáp án đúng, nghĩa trùng khác hoa/thường/khoảng trắng, thư viện ít từ và nghĩa đúng rỗng.
+- Đã bổ sung kiểm thử chuỗi SRS: Good nhiều lần làm tăng khoảng ôn, sau đó Again đặt lại repetitions/interval và tăng lapse.
+- Bộ test CSV hiện có kiểm thử tiêu đề tiếng Việt, trường có dấu phẩy, nhập/xuất vòng lại và bỏ dòng thiếu từ/nghĩa.
+- Đặc tả phiên học, SRS, nhập/xuất và điều kiện nghiệm thu đã được ghi rõ ở các mục trên.
 
-## 6. Việc còn lại trước khi chốt giai đoạn 2
+## 6. Giới hạn nghiệm thu cần nói rõ
 
-- [ ] Tách logic tạo lựa chọn trắc nghiệm thành hàm thuần và bổ sung unit tests cho nghĩa trùng.
-- [ ] Kiểm thử đầy đủ phiên học khi đã chấm nhiều từ, xóa/chuyển bộ từ hoặc thoát giữa phiên.
-- [ ] Kiểm thử SRS theo chuỗi nhiều lần, không chỉ từng trường hợp riêng lẻ.
-- [ ] Kiểm thử nhập/xuất trên các tệp mẫu thực tế, bao gồm dấu phẩy trong nghĩa và dữ liệu UTF-8.
-- [ ] Đối chiếu lịch SRS và luồng bài tập với bản LuyenTu tham chiếu.
-- [ ] Build/test trên commit chứa thay đổi giai đoạn 2 và kiểm tra artifact APK.
+- Luồng phiên học hiện đã chụp danh sách ID lúc bắt đầu và loại từ sau khi chấm; vẫn cần kiểm thử tương tác trên thiết bị khi xóa/chuyển bộ từ hoặc đóng app giữa phiên.
+- Chưa có bằng chứng đủ để khẳng định lịch SRS hoặc toàn bộ giao diện/hành vi trùng khớp bản LuyenTu gốc. Unit tests xác nhận quy tắc đang được triển khai, không xác nhận tương đương bản tham chiếu.
+- Kiểm thử UI tự động trên thiết bị thật và chế độ máy bay chưa được thực hiện trong môi trường này.
 
-**Trạng thái:** đang triển khai. Đặc tả và một sửa lỗi trắc nghiệm đã được đưa vào nhánh; chưa coi Giai đoạn 2 hoàn tất cho đến khi kiểm thử và CI của commit mới thành công.
+## 7. Kết quả kiểm thử
+
+- Các bài test unit được bổ sung trong `MultipleChoiceChoicesTest.kt` và `SrsSchedulerTest.kt`.
+- CI Android chạy `testDebugUnitTest assembleDebug`; cần xem trạng thái run mới nhất và artifact trên GitHub Actions trước khi phát hành APK.
+
+**Trạng thái:** phần sửa lỗi và unit tests thuộc phạm vi Giai đoạn 2 đã được commit lên nhánh `luyentu2.0`. Việc xác nhận cuối cùng phụ thuộc CI của commit mới nhất; kiểm thử thiết bị và đối chiếu trực tiếp với bản gốc được ghi nhận là bước nghiệm thu tiếp theo, không tuyên bố đã làm.
