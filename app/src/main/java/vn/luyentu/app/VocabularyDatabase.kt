@@ -23,8 +23,19 @@ data class VocabularyWord(
     val repetitions: Int = 0,
     val easeFactor: Double = 2.5,
     val lapses: Int = 0,
-    val learningStep: Int = 0
+    val learningStep: Int = 0,
+    val deckId: Long? = null
 )
+
+data class VocabularyDeck(
+    val id: Long,
+    val name: String,
+    val folderId: Long?,
+    val wordCount: Int,
+    val dueCount: Int
+)
+
+data class VocabularyFolder(val id: Long, val name: String)
 
 data class ReviewHistoryItem(val term: String, val grade: Int, val reviewedAt: Long)
 
@@ -37,6 +48,7 @@ class VocabularyDatabase(context: Context) :
     }
 
     override fun onCreate(db: SQLiteDatabase) {
+        createStudyContainers(db)
         db.execSQL(
             """
             CREATE TABLE vocabulary (
@@ -53,11 +65,42 @@ class VocabularyDatabase(context: Context) :
                 ease_factor REAL NOT NULL DEFAULT 2.5,
                 last_reviewed_at INTEGER NOT NULL DEFAULT 0,
                 lapses INTEGER NOT NULL DEFAULT 0,
-                learning_step INTEGER NOT NULL DEFAULT 0
+                learning_step INTEGER NOT NULL DEFAULT 0,
+                deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL
             )
             """.trimIndent()
         )
         createReviewLog(db)
+        ensureDefaultDeck(db)
+    }
+
+    private fun createStudyContainers(db: SQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                created_at INTEGER NOT NULL
+            )""".trimIndent()
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS decks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE,
+                folder_id INTEGER,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY(folder_id) REFERENCES folders(id) ON DELETE SET NULL
+            )""".trimIndent()
+        )
+    }
+
+    private fun ensureDefaultDeck(db: SQLiteDatabase): Long {
+        db.rawQuery("SELECT id FROM decks ORDER BY id LIMIT 1", null).use { cursor ->
+            if (cursor.moveToFirst()) return cursor.getLong(0)
+        }
+        return db.insertOrThrow("decks", null, ContentValues().apply {
+            put("name", "Bộ từ vựng của tôi")
+            put("created_at", System.currentTimeMillis())
+        })
     }
 
     private fun createReviewLog(db: SQLiteDatabase) {
@@ -87,10 +130,16 @@ class VocabularyDatabase(context: Context) :
             db.execSQL("ALTER TABLE vocabulary ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE vocabulary ADD COLUMN learning_step INTEGER NOT NULL DEFAULT 0")
         }
+        if (oldVersion < 4) {
+            createStudyContainers(db)
+            db.execSQL("ALTER TABLE vocabulary ADD COLUMN deck_id INTEGER REFERENCES decks(id) ON DELETE SET NULL")
+            val defaultDeck = ensureDefaultDeck(db)
+            db.execSQL("UPDATE vocabulary SET deck_id = ? WHERE deck_id IS NULL", arrayOf(defaultDeck))
+        }
     }
 
     @Synchronized
-    fun addWord(term: String, meaning: String, example: String = "", ipa: String = "", topic: String = ""): Boolean {
+    fun addWord(term: String, meaning: String, example: String = "", ipa: String = "", topic: String = "", deckId: Long? = null): Boolean {
         val cleanTerm = term.trim()
         val cleanMeaning = meaning.trim()
         if (cleanTerm.isEmpty() || cleanMeaning.isEmpty()) return false
@@ -101,6 +150,7 @@ class VocabularyDatabase(context: Context) :
             put("ipa", ipa.trim())
             put("topic", topic.trim())
             put("created_at", System.currentTimeMillis())
+            put("deck_id", deckId ?: ensureDefaultDeck(writableDatabase))
         }
         return try {
             writableDatabase.insertOrThrow("vocabulary", null, values) != -1L
@@ -110,15 +160,24 @@ class VocabularyDatabase(context: Context) :
     }
 
     @Synchronized
-    fun getAllWords(query: String = ""): List<VocabularyWord> {
+    fun getAllWords(query: String = "", deckId: Long? = null): List<VocabularyWord> {
         val result = mutableListOf<VocabularyWord>()
         val cleanQuery = query.trim()
-        val selection = if (cleanQuery.isEmpty()) null else "term LIKE ? OR meaning LIKE ? OR topic LIKE ?"
-        val args = if (cleanQuery.isEmpty()) null else arrayOf("%$cleanQuery%", "%$cleanQuery%", "%$cleanQuery%")
+        val clauses = mutableListOf<String>()
+        val args = mutableListOf<String>()
+        if (cleanQuery.isNotEmpty()) {
+            clauses += "(term LIKE ? OR meaning LIKE ? OR topic LIKE ?)"
+            repeat(3) { args += "%$cleanQuery%" }
+        }
+        if (deckId != null) {
+            clauses += "deck_id = ?"
+            args += deckId.toString()
+        }
+        val selection = clauses.takeIf { it.isNotEmpty() }?.joinToString(" AND ")
         readableDatabase.query(
             "vocabulary",
-            arrayOf("id", "term", "meaning", "example", "ipa", "topic", "next_review_at", "interval_days", "repetitions", "ease_factor", "lapses", "learning_step"),
-            selection, args, null, null, "term COLLATE NOCASE ASC"
+            arrayOf("id", "term", "meaning", "example", "ipa", "topic", "next_review_at", "interval_days", "repetitions", "ease_factor", "lapses", "learning_step", "deck_id"),
+            selection, args.takeIf { it.isNotEmpty() }?.toTypedArray(), null, null, "term COLLATE NOCASE ASC"
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 result += VocabularyWord(
@@ -133,7 +192,8 @@ class VocabularyDatabase(context: Context) :
                     repetitions = cursor.getInt(8),
                     easeFactor = cursor.getDouble(9),
                     lapses = cursor.getInt(10),
-                    learningStep = cursor.getInt(11)
+                    learningStep = cursor.getInt(11),
+                    deckId = if (cursor.isNull(12)) null else cursor.getLong(12)
                 )
             }
         }
@@ -236,6 +296,105 @@ class VocabularyDatabase(context: Context) :
         writableDatabase.delete("vocabulary", "id = ?", arrayOf(id.toString()))
     }
 
+    @Synchronized
+    fun getDecks(): List<VocabularyDeck> {
+        val result = mutableListOf<VocabularyDeck>()
+        val now = System.currentTimeMillis()
+        readableDatabase.rawQuery(
+            """SELECT d.id, d.name, d.folder_id, COUNT(v.id),
+                SUM(CASE WHEN v.id IS NOT NULL AND v.next_review_at <= $now THEN 1 ELSE 0 END)
+                FROM decks d LEFT JOIN vocabulary v ON v.deck_id = d.id
+                GROUP BY d.id, d.name, d.folder_id ORDER BY d.id""".trimIndent(), null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                result += VocabularyDeck(cursor.getLong(0), cursor.getString(1),
+                    if (cursor.isNull(2)) null else cursor.getLong(2),
+                    cursor.getInt(3), cursor.getInt(4))
+            }
+        }
+        return result
+    }
+
+    @Synchronized
+    fun getFolders(): List<VocabularyFolder> {
+        val result = mutableListOf<VocabularyFolder>()
+        readableDatabase.query("folders", arrayOf("id", "name"), null, null, null, null, "name COLLATE NOCASE ASC").use { c ->
+            while (c.moveToNext()) result += VocabularyFolder(c.getLong(0), c.getString(1))
+        }
+        return result
+    }
+
+    @Synchronized
+    fun createFolder(name: String): Long? {
+        val clean = name.trim()
+        if (clean.isBlank()) return null
+        return try {
+            writableDatabase.insertOrThrow("folders", null, ContentValues().apply {
+                put("name", clean); put("created_at", System.currentTimeMillis())
+            }).takeIf { it > 0 }
+        } catch (_: android.database.sqlite.SQLiteConstraintException) { null }
+    }
+
+    @Synchronized
+    fun renameFolder(id: Long, name: String): Boolean {
+        val clean = name.trim()
+        if (clean.isBlank()) return false
+        return try {
+            writableDatabase.update("folders", ContentValues().apply { put("name", clean) }, "id = ?", arrayOf(id.toString())) > 0
+        } catch (_: android.database.sqlite.SQLiteConstraintException) { false }
+    }
+
+    @Synchronized
+    fun deleteFolder(id: Long) { writableDatabase.delete("folders", "id = ?", arrayOf(id.toString())) }
+
+    @Synchronized
+    fun createDeck(name: String, folderId: Long? = null): Long? {
+        val clean = name.trim()
+        if (clean.isBlank()) return null
+        return try {
+            writableDatabase.insertOrThrow("decks", null, ContentValues().apply {
+                put("name", clean)
+                if (folderId == null) putNull("folder_id") else put("folder_id", folderId)
+                put("created_at", System.currentTimeMillis())
+            }).takeIf { it > 0 }
+        } catch (_: android.database.sqlite.SQLiteConstraintException) { null }
+    }
+
+    @Synchronized
+    fun renameDeck(id: Long, name: String): Boolean {
+        val clean = name.trim()
+        if (clean.isBlank()) return false
+        return try {
+            writableDatabase.update("decks", ContentValues().apply { put("name", clean) }, "id = ?", arrayOf(id.toString())) > 0
+        } catch (_: android.database.sqlite.SQLiteConstraintException) { false }
+    }
+
+    @Synchronized
+    fun moveDeckToFolder(id: Long, folderId: Long?): Boolean {
+        val values = ContentValues().apply { if (folderId == null) putNull("folder_id") else put("folder_id", folderId) }
+        return writableDatabase.update("decks", values, "id = ?", arrayOf(id.toString())) > 0
+    }
+
+    @Synchronized
+    fun deleteDeck(id: Long): Boolean {
+        val db = writableDatabase
+        val count = db.rawQuery("SELECT COUNT(*) FROM decks", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        if (count <= 1) return false
+        return db.delete("decks", "id = ?", arrayOf(id.toString())) > 0
+    }
+
+    @Synchronized
+    fun assignWordToDeck(wordId: Long, deckId: Long): Boolean =
+        writableDatabase.update("vocabulary", ContentValues().apply { put("deck_id", deckId) },
+            "id = ?", arrayOf(wordId.toString())) > 0
+
+    fun deckName(deckId: Long?): String {
+        if (deckId == null) return "Chưa phân bộ"
+        return readableDatabase.rawQuery("SELECT name FROM decks WHERE id = ?", arrayOf(deckId.toString())).use {
+            if (it.moveToFirst()) it.getString(0) else "Bộ từ đã xoá"
+        }
+    }
+
     fun wordCount(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM vocabulary", null).use {
         if (it.moveToFirst()) it.getInt(0) else 0
     }
@@ -327,7 +486,7 @@ class VocabularyDatabase(context: Context) :
     fun exportBackupJson(): String {
         val root = JSONObject()
         root.put("format", "luyentu-backup")
-        root.put("schemaVersion", 1)
+        root.put("schemaVersion", 2)
         root.put("exportedAt", System.currentTimeMillis())
         val vocabulary = JSONArray()
         readableDatabase.rawQuery("SELECT * FROM vocabulary ORDER BY id", null).use { cursor ->
@@ -352,6 +511,20 @@ class VocabularyDatabase(context: Context) :
                     .put("grade", cursor.getInt(2)).put("reviewed_at", cursor.getLong(3)))
             }
         }
+        val folders = JSONArray()
+        readableDatabase.rawQuery("SELECT id, name, created_at FROM folders ORDER BY id", null).use { c ->
+            while (c.moveToNext()) folders.put(JSONObject().put("id", c.getLong(0)).put("name", c.getString(1)).put("created_at", c.getLong(2)))
+        }
+        val decks = JSONArray()
+        readableDatabase.rawQuery("SELECT id, name, folder_id, created_at FROM decks ORDER BY id", null).use { c ->
+            while (c.moveToNext()) {
+                val d = JSONObject().put("id", c.getLong(0)).put("name", c.getString(1)).put("created_at", c.getLong(3))
+                if (c.isNull(2)) d.put("folder_id", JSONObject.NULL) else d.put("folder_id", c.getLong(2))
+                decks.put(d)
+            }
+        }
+        root.put("folders", folders)
+        root.put("decks", decks)
         root.put("vocabulary", vocabulary)
         root.put("review_log", reviews)
         return root.toString(2)
@@ -361,15 +534,39 @@ class VocabularyDatabase(context: Context) :
     fun restoreBackupJson(json: String): Pair<Int, Int> {
         val root = JSONObject(json)
         require(root.optString("format") == "luyentu-backup") { "Tệp không phải bản sao lưu LuyenTu." }
-        require(root.optInt("schemaVersion") == 1) { "Phiên bản bản sao lưu không được hỗ trợ." }
+        val backupVersion = root.optInt("schemaVersion", 1)
+        require(backupVersion in 1..2) { "Phiên bản bản sao lưu không được hỗ trợ." }
         val vocabulary = root.getJSONArray("vocabulary")
         val reviews = root.getJSONArray("review_log")
+        val folders = root.optJSONArray("folders") ?: JSONArray()
+        val decks = root.optJSONArray("decks") ?: JSONArray()
         val db = writableDatabase
         db.beginTransaction()
         try {
             db.delete("review_log", null, null)
             db.delete("vocabulary", null, null)
-            db.execSQL("DELETE FROM sqlite_sequence WHERE name IN ('vocabulary', 'review_log')")
+            db.delete("decks", null, null)
+            db.delete("folders", null, null)
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name IN ('vocabulary', 'review_log', 'decks', 'folders')")
+            for (i in 0 until folders.length()) {
+                val f = folders.getJSONObject(i)
+                db.insertOrThrow("folders", null, ContentValues().apply {
+                    put("id", f.getLong("id")); put("name", f.getString("name"))
+                    put("created_at", f.optLong("created_at", System.currentTimeMillis()))
+                })
+            }
+            for (i in 0 until decks.length()) {
+                val d = decks.getJSONObject(i)
+                val values = ContentValues().apply {
+                    put("id", d.getLong("id")); put("name", d.getString("name"))
+                    if (d.isNull("folder_id")) putNull("folder_id") else put("folder_id", d.getLong("folder_id"))
+                    put("created_at", d.optLong("created_at", System.currentTimeMillis()))
+                }
+                db.insertOrThrow("decks", null, values)
+            }
+            val defaultDeck = ensureDefaultDeck(db)
+            val existingDeckIds = mutableSetOf<Long>()
+            db.rawQuery("SELECT id FROM decks", null).use { c -> while (c.moveToNext()) existingDeckIds += c.getLong(0) }
             for (i in 0 until vocabulary.length()) {
                 val item = vocabulary.getJSONObject(i)
                 val term = item.optString("term").trim()
@@ -383,6 +580,8 @@ class VocabularyDatabase(context: Context) :
                     put("repetitions", item.optInt("repetitions")); put("ease_factor", item.optDouble("ease_factor", 2.5))
                     put("last_reviewed_at", item.optLong("last_reviewed_at")); put("lapses", item.optInt("lapses"))
                     put("learning_step", item.optInt("learning_step"))
+                    val requestedDeck = if (item.isNull("deck_id")) defaultDeck else item.optLong("deck_id", defaultDeck)
+                    put("deck_id", if (requestedDeck in existingDeckIds) requestedDeck else defaultDeck)
                 }
                 db.insertOrThrow("vocabulary", null, values)
             }
@@ -403,7 +602,7 @@ class VocabularyDatabase(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "luyentu_personal.db"
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 4
         private const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }
