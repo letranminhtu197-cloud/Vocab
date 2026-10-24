@@ -168,43 +168,80 @@ private fun LuyenTuApp() {
     val titles = listOf("Tổng quan", "Sổ từ", "Luyện tập", "Thống kê", "Cài đặt", "Lộ trình")
     val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings, Icons.Default.Route)
 
-    MaterialTheme {
+    val luyenTuColors = darkColorScheme(
+        primary = androidx.compose.ui.graphics.Color(0xFF35D07F),
+        onPrimary = androidx.compose.ui.graphics.Color(0xFF07130D),
+        secondary = androidx.compose.ui.graphics.Color(0xFF22B8F0),
+        tertiary = androidx.compose.ui.graphics.Color(0xFFB76BFF),
+        background = androidx.compose.ui.graphics.Color(0xFF111722),
+        surface = androidx.compose.ui.graphics.Color(0xFF1B2431),
+        surfaceVariant = androidx.compose.ui.graphics.Color(0xFF273243),
+        onSurface = androidx.compose.ui.graphics.Color(0xFFF3F5F8),
+        onBackground = androidx.compose.ui.graphics.Color(0xFFF3F5F8)
+    )
+    MaterialTheme(colorScheme = luyenTuColors) {
         Scaffold(
-            topBar = { TopAppBar(title = { Column {
-                Text("LuyenTu 2.0", fontWeight = FontWeight.Bold)
-                Text("Học từ vựng cá nhân • Offline", style = MaterialTheme.typography.labelMedium)
-            } }) },
-            bottomBar = { NavigationBar {
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = { TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                title = { Column {
+                    Text(if (selected == 0) "Luyện Từ" else titles.getOrElse(selected) { "Luyện Từ" }, fontWeight = FontWeight.Bold)
+                    Text("HỌC TỪ VỰNG • OFFLINE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } }
+            ) },
+            bottomBar = { NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 titles.forEachIndexed { i, title ->
-                    NavigationBarItem(selected == i, { selected = i; refresh() },
-                        icon = { Icon(icons[i], contentDescription = title) }, label = { Text(title) })
+                    NavigationBarItem(selected = selected == i, onClick = { selected = i; refresh() },
+                        icon = { Icon(icons[i], contentDescription = title) }, label = { Text(title, maxLines = 1) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.surfaceVariant))
                 }
             } }
         ) { padding ->
             when (selected) {
-                0 -> Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                        Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                            Text("Không tài khoản. Không quảng cáo. Không máy chủ.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(8.dp))
-                            Text("Từ vựng và tiến độ được lưu cục bộ trên thiết bị. Bạn tự quản lý bộ từ của mình.")
+                0 -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                                Text("TỔNG SỐ TỪ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(words.size.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                                Text("ĐẾN HẠN ÔN", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(dueWords.size.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFFFB547))
+                            }
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Metric("Tổng số từ", words.size.toString(), Modifier.weight(1f))
-                        Metric("Đến hạn ôn", dueWords.size.toString(), Modifier.weight(1f))
+                    Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF263D36))) {
+                        Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                            Text("Ôn tập ngắt quãng (SRS)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(5.dp))
+                            Text("Ôn đúng thời điểm để ghi nhớ từ lâu hơn.", color = androidx.compose.ui.graphics.Color(0xFFD4E9DF))
+                            Spacer(Modifier.height(12.dp))
+                            Button(onClick = { selected = 2; refresh() }, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.PlayArrow, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (dueWords.isEmpty()) "Bắt đầu luyện tập" else "Ôn ngay • ${dueWords.size} từ đến hạn")
+                            }
+                        }
                     }
-                    Button(onClick = { selected = 2; refresh() }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.PlayArrow, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Bắt đầu ôn tập")
+                    Text("LỐI TẮT LUYỆN TẬP", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        DashboardAction("Flashcard", "Lật thẻ và ghi nhớ", androidx.compose.ui.graphics.Color(0xFF646DE8), Modifier.weight(1f)) { selected = 2 }
+                        DashboardAction("Trắc nghiệm", "Chọn nghĩa đúng", androidx.compose.ui.graphics.Color(0xFFFF8A16), Modifier.weight(1f)) { selected = 2 }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        DashboardAction("Sổ từ", "Quản lý bộ từ", androidx.compose.ui.graphics.Color(0xFF168FCA), Modifier.weight(1f)) { selected = 1 }
+                        DashboardAction("Thống kê", "Theo dõi tiến độ", androidx.compose.ui.graphics.Color(0xFF8C43D8), Modifier.weight(1f)) { selected = 3 }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Metric("Chuỗi học", "${db.currentStreakDays()} ngày", Modifier.weight(1f))
-                        Metric("Mục tiêu hôm nay", "${db.reviewedToday()}/${dailyGoal}", Modifier.weight(1f))
+                        Metric("Hôm nay", "${db.reviewedToday()}/${dailyGoal}", Modifier.weight(1f))
                     }
-                    Text("Tiến độ và lịch ôn được lưu trên điện thoại; không cần kết nối mạng.")
-                    Text("Các phần nhập/xuất bộ từ, bài tập đa dạng và thống kê chi tiết vẫn đang được phát triển.",
+                    Text("Dữ liệu được lưu trên thiết bị. Không cần tài khoản hoặc kết nối mạng.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 1 -> VocabularyScreen(padding, words, db, refresh)
@@ -238,6 +275,18 @@ private fun LuyenTuApp() {
                     onDailyGoalChange = updateDailyGoal
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DashboardAction(title: String, subtitle: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(modifier = modifier.heightIn(min = 112.dp), onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = color)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                color = androidx.compose.ui.graphics.Color.White)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = androidx.compose.ui.graphics.Color.White)
         }
     }
 }
