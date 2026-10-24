@@ -42,13 +42,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = VocabDatabase.getInstance(applicationContext)
-        setContent { VocabApp(database.wordDao()) }
+        setContent { VocabApp(database) }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VocabApp(dao: WordDao) {
+private fun VocabApp(database: VocabDatabase) {
+    val dao = database.wordDao()
+    val repository = remember(database) { WordLibraryRepository(database) }
     var tab by remember { mutableIntStateOf(0) }
     var quizStartWithDue by remember { mutableStateOf(true) }
     var learningPathTopic by remember { mutableStateOf<String?>(null) }
@@ -63,11 +65,15 @@ private fun VocabApp(dao: WordDao) {
     var showEditor by remember { mutableStateOf(false) }
     var wordToDelete by remember { mutableStateOf<WordEntity?>(null) }
     var showSamplesConfirm by remember { mutableStateOf(false) }
+    var showCategoryManager by remember { mutableStateOf(false) }
+    var categoryNameInput by remember { mutableStateOf("") }
+    var categoryDescriptionInput by remember { mutableStateOf("") }
     var dueOnly by remember { mutableStateOf(false) }
     var csvMessage by remember { mutableStateOf<String?>(null) }
     var pendingCsvWords by remember { mutableStateOf<List<WordEntity>?>(null) }
     var pendingCsvDuplicates by remember { mutableIntStateOf(0) }
     var pendingCsvInvalidRows by remember { mutableIntStateOf(0) }
+    var pendingCsvInvalidRowNumbers by remember { mutableStateOf<List<Int>>(emptyList()) }
     val context = LocalContext.current
     val settingsPrefs = remember(context) { context.getSharedPreferences("vocab_settings", 0) }
     var darkTheme by remember(settingsPrefs) { mutableStateOf(settingsPrefs.getBoolean("dark_theme", true)) }
@@ -84,6 +90,7 @@ private fun VocabApp(dao: WordDao) {
     var quizSessionTotal by remember(statsPrefs) { mutableIntStateOf(statsPrefs.getInt("quiz_session_total", 0)) }
     val scope = rememberCoroutineScope()
     val words by dao.observeAll().collectAsState(initial = emptyList())
+    val categories by repository.observeCategories().collectAsState(initial = emptyList())
     val topics = words.map { it.topic.trim() }.filter { it.isNotEmpty() }.distinct().sortedBy { it.lowercase() }
     val filtered = words.filter { word ->
         val matchesQuery = query.isBlank() || listOf(
@@ -119,10 +126,10 @@ private fun VocabApp(dao: WordDao) {
                     if (parsed.error != null) {
                         csvMessage = parsed.error
                     } else {
-                        val existingTerms = dao.observeAll().first().map { it.term.trim().lowercase() }.toMutableSet()
+                        val existingTerms = dao.observeAll().first().map { WordLibraryRepository.normalizeTerm(it.term) }.toMutableSet()
                         var duplicateCount = 0
                         val uniqueWords = parsed.words.filter { word ->
-                            if (existingTerms.add(word.term.trim().lowercase())) true
+                            if (existingTerms.add(WordLibraryRepository.normalizeTerm(word.term))) true
                             else { duplicateCount++; false }
                         }
                         if (uniqueWords.isEmpty()) {
@@ -131,6 +138,7 @@ private fun VocabApp(dao: WordDao) {
                             pendingCsvWords = uniqueWords
                             pendingCsvDuplicates = duplicateCount
                             pendingCsvInvalidRows = parsed.invalidRows
+                            pendingCsvInvalidRowNumbers = parsed.invalidRowNumbers
                         }
                     }
                 }
@@ -428,6 +436,23 @@ private fun VocabApp(dao: WordDao) {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Danh mục từ vựng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Dùng danh mục thống nhất cho trường Chủ đề IELTS.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        OutlinedButton(onClick = { showCategoryManager = true }) { Text("Quản lý") }
+                    }
+                    if (categories.isNotEmpty()) {
+                        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            categories.forEach { category ->
+                                AssistChip(
+                                    onClick = { selectedTopic = category.name; query = "" },
+                                    label = { Text("${category.name} (${words.count { it.topic.trim().equals(category.name, ignoreCase = true) }})") }
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
@@ -607,11 +632,10 @@ private fun VocabApp(dao: WordDao) {
                         onOpenLibrary = { tab = 1 }
                     )
                 }
-                3 -> QuizScreen(
+                3 -> PracticeHub(
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    sessionScore = quizSessionCorrect,
-                    sessionTotal = quizSessionTotal,
+                    startWithDue = quizStartWithDue,
                     onAnswerRecorded = { word, correct ->
                         StudyActivityTracker.recordEvent(statsPrefs)
                         quizTotal += 1
@@ -644,16 +668,7 @@ private fun VocabApp(dao: WordDao) {
                                 lastReviewedAtMillis = now.toEpochMilli()
                             ))
                         }
-                    },
-                    onSessionReset = {
-                        quizSessionCorrect = 0
-                        quizSessionTotal = 0
-                        statsPrefs.edit()
-                            .putInt("quiz_session_total", 0)
-                            .putInt("quiz_session_correct", 0)
-                            .apply()
-                    },
-                    startWithDue = quizStartWithDue
+                    }
                 )
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -889,6 +904,9 @@ private fun VocabApp(dao: WordDao) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Sẽ thêm ${previewWords.size} từ mới vào sổ. Không ghi đè từ hiện có.")
                     Text("Bỏ qua ${pendingCsvDuplicates} từ trùng và ${pendingCsvInvalidRows} dòng thiếu từ/nghĩa.")
+                    if (pendingCsvInvalidRowNumbers.isNotEmpty()) {
+                        Text("Dòng cần kiểm tra: ${pendingCsvInvalidRowNumbers.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                     Text("Xem trước", fontWeight = FontWeight.SemiBold)
                     previewWords.take(5).forEach { item ->
                         Text("• ${item.term} — ${item.meaning}")
@@ -904,12 +922,12 @@ private fun VocabApp(dao: WordDao) {
                     pendingCsvWords = null
                     scope.launch {
                         val result = runCatching {
-                            withContext(Dispatchers.IO) { dao.insertAll(wordsToInsert) }
+                            repository.importWordsAtomically(wordsToInsert)
                         }
                         csvMessage = if (result.isFailure) {
                             "Nhập file thất bại: ${result.exceptionOrNull()?.message ?: "lỗi dữ liệu"}"
                         } else {
-                            "Đã nhập ${wordsToInsert.size} từ. Bỏ qua ${duplicates} từ trùng và ${invalidRows} dòng thiếu từ/nghĩa."
+                            "Đã nhập ${result.getOrThrow().inserted} từ. Bỏ qua ${duplicates + result.getOrThrow().skippedExisting} từ trùng và ${invalidRows} dòng thiếu từ/nghĩa."
                         }
                     }
                 }) { Text("Nhập ${previewWords.size} từ") }
@@ -927,24 +945,67 @@ private fun VocabApp(dao: WordDao) {
             confirmButton = { TextButton(onClick = { csvMessage = null }) { Text("Đóng") } }
         )
     }
+    if (showCategoryManager) {
+        AlertDialog(
+            onDismissRequest = { showCategoryManager = false },
+            title = { Text("Quản lý danh mục") },
+            text = {
+                Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(value = categoryNameInput, onValueChange = { categoryNameInput = it }, label = { Text("Tên danh mục") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = categoryDescriptionInput, onValueChange = { categoryDescriptionInput = it }, label = { Text("Mô tả (không bắt buộc)") }, modifier = Modifier.fillMaxWidth())
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                runCatching { repository.createCategory(categoryNameInput, categoryDescriptionInput) }
+                                    .onSuccess { categoryNameInput = ""; categoryDescriptionInput = "" }
+                                    .onFailure { csvMessage = it.message ?: "Không thể tạo danh mục." }
+                            }
+                        },
+                        enabled = categoryNameInput.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Thêm danh mục") }
+                    if (categories.isEmpty()) {
+                        Text("Chưa có danh mục. Bạn có thể thêm ở trên hoặc nhập chủ đề trực tiếp khi tạo từ.")
+                    } else {
+                        categories.forEach { category ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(category.name, fontWeight = FontWeight.SemiBold)
+                                    if (category.description.isNotBlank()) Text(category.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${words.count { it.topic.trim().equals(category.name, ignoreCase = true) }} từ đang dùng", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        runCatching { repository.deleteCategory(category) }
+                                            .onFailure { csvMessage = it.message ?: "Không thể xóa danh mục." }
+                                    }
+                                }) { Text("Xóa") }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showCategoryManager = false }) { Text("Đóng") } }
+        )
+    }
     if (showEditor) {
         WordEditorDialog(
             initial = editorWord,
+            categoryNames = categories.map { it.name },
             onDismiss = { showEditor = false; editorWord = null },
             onSave = { word ->
                 scope.launch {
-                    val normalizedTerm = word.term.trim()
-                    val editingId = editorWord?.id
-                    val duplicate = dao.observeAll().first().any {
-                        it.id != editingId && it.term.trim().equals(normalizedTerm, ignoreCase = true)
+                    val normalizedWord = word.copy(term = word.term.trim(), meaning = word.meaning.trim())
+                    val saveResult = runCatching {
+                        if (editorWord == null) repository.addWord(normalizedWord)
+                        else repository.updateWord(normalizedWord)
                     }
-                    if (duplicate) {
-                        csvMessage = "Từ/cụm từ \"$normalizedTerm\" đã có trong sổ. Hãy kiểm tra từ hiện có thay vì tạo bản trùng."
-                    } else {
-                        val normalizedWord = word.copy(term = normalizedTerm, meaning = word.meaning.trim())
-                        if (editorWord == null) dao.insert(normalizedWord) else dao.update(normalizedWord)
+                    if (saveResult.isSuccess) {
                         showEditor = false
                         editorWord = null
+                    } else {
+                        csvMessage = saveResult.exceptionOrNull()?.message
+                            ?: "Không thể lưu từ vựng. Hãy kiểm tra dữ liệu rồi thử lại."
                     }
                 }
             }
@@ -958,7 +1019,10 @@ private fun VocabApp(dao: WordDao) {
             text = { Text("Bạn có chắc muốn xóa \"${deleting.term}\" khỏi sổ từ vựng? Thao tác này không thể hoàn tác.") },
             confirmButton = {
                 TextButton(onClick = {
-                    scope.launch { dao.delete(deleting) }
+                    scope.launch {
+                        runCatching { repository.deleteWord(deleting) }
+                            .onFailure { csvMessage = it.message ?: "Không thể xóa từ." }
+                    }
                     wordToDelete = null
                 }) { Text("Xóa") }
             },
@@ -987,6 +1051,7 @@ private fun VocabApp(dao: WordDao) {
 @Composable
 private fun WordEditorDialog(
     initial: WordEntity?,
+    categoryNames: List<String>,
     onDismiss: () -> Unit,
     onSave: (WordEntity) -> Unit
 ) {
@@ -1017,7 +1082,14 @@ private fun WordEditorDialog(
                 OutlinedTextField(ipa, { ipa = it }, label = { Text("Phiên âm IPA") }, singleLine = true)
                 OutlinedTextField(pos, { pos = it }, label = { Text("Từ loại") }, singleLine = true)
                 OutlinedTextField(example, { example = it }, label = { Text("Câu ví dụ") })
-                OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề IELTS") }, singleLine = true)
+                OutlinedTextField(topic, { topic = it }, label = { Text("Chủ đề IELTS / danh mục") }, singleLine = true)
+                if (categoryNames.isNotEmpty()) {
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        categoryNames.forEach { name ->
+                            FilterChip(selected = topic.equals(name, ignoreCase = true), onClick = { topic = name }, label = { Text(name) })
+                        }
+                    }
+                }
                 OutlinedTextField(collocations, { collocations = it }, label = { Text("Collocations / cụm từ đi kèm") }, minLines = 2)
                 OutlinedTextField(synonyms, { synonyms = it }, label = { Text("Synonyms / từ đồng nghĩa") }, minLines = 2)
                 OutlinedTextField(wordFamily, { wordFamily = it }, label = { Text("Word family / họ từ") }, minLines = 2)
