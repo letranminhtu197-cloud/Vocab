@@ -1,6 +1,7 @@
 package com.vocab.ielts.offline
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -163,7 +164,7 @@ fun QuizScreen(
     }
 
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Card(
@@ -175,10 +176,17 @@ fun QuizScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("🧠", fontSize = 32.sp)
+                Surface(shape = RoundedCornerShape(15.dp), color = MaterialTheme.colorScheme.primary) {
+                    Text("V", modifier = Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onPrimary)
+                }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("IELTS Vocabulary Lab", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-                    Text(if (isSrsReview) "Ôn chủ động · chỉ từ đến hạn" else "Học từ mới và luyện tập tự do")
+                    Text(if (isSrsReview) "Ôn tập thông minh" else "Học chủ động",
+                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                    Text(if (isSrsReview) "Chỉ từ đến hạn · mỗi câu ghi nhận một lần"
+                        else "Gợi nhớ · nghe và gõ · ngữ cảnh",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
         }
@@ -207,7 +215,7 @@ fun QuizScreen(
         Card(shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Chế độ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     FilterChip(
                         selected = isSrsReview,
                         onClick = { if (!isSrsReview) changeMode(MODE_RECALL, true) },
@@ -230,11 +238,11 @@ fun QuizScreen(
 
         if (!isSrsReview) {
             Text("Chọn dạng bài", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 FilterChip(selected = mode == MODE_NEW, onClick = { changeMode(MODE_NEW) }, label = { Text("Từ mới") })
                 FilterChip(selected = mode == MODE_RECALL, onClick = { changeMode(MODE_RECALL) }, label = { Text("Gõ từ theo nghĩa") })
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 FilterChip(selected = mode == MODE_LISTEN, onClick = { changeMode(MODE_LISTEN) }, label = { Text("Nghe & gõ") })
                 FilterChip(selected = mode == MODE_CLOZE, onClick = { changeMode(MODE_CLOZE) }, label = { Text("Điền ngữ cảnh") })
                 FilterChip(selected = false, onClick = { showMatch = true }, label = { Text("Ghép cặp") })
@@ -313,7 +321,19 @@ fun QuizScreen(
                         if (isSrsReview) Text("SRS", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                     Text(
-                        "Đã trả lời: $attempts · Còn lại: ${(targetDeck.size - index - if (answered) 1 else 0).coerceAtLeast(0)} từ trong lượt này",
+                        when (activeType) {
+                            ActiveExerciseType.DEFINITION_TO_TERM -> "GỢI NHỚ CHỦ ĐỘNG · TỰ GÕ"
+                            ActiveExerciseType.LISTEN_AND_TYPE -> "NGHE · NHẬN DIỆN · TỰ GÕ"
+                            ActiveExerciseType.CLOZE -> "NHỚ TỪ TRONG NGỮ CẢNH"
+                            null -> "LÀM QUEN TỪ MỚI"
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        "Đã trả lời: $attempts · Còn lại: ${(targetDeck.size - index - if (answered) 1 else 0).coerceAtLeast(0)} từ",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -454,7 +474,11 @@ fun QuizScreen(
                         ) {
                             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(if (correct == true) "Chính xác!" else "Chưa chính xác", fontWeight = FontWeight.Bold)
-                                Text("${word.term} — ${word.meaning}")
+                                Text("${word.term} — ${word.meaning}", style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold)
+                                if (correct != true && answerText.isNotBlank()) {
+                                    Text("Bạn đã nhập: $answerText", color = MaterialTheme.colorScheme.onErrorContainer)
+                                }
                                 if (word.ipa.isNotBlank()) Text("IPA: ${word.ipa}")
                                 if (word.partOfSpeech.isNotBlank()) Text("Từ loại: ${word.partOfSpeech}")
                                 if (word.example.isNotBlank()) Text("Ví dụ: ${word.example}")
@@ -477,7 +501,9 @@ fun QuizScreen(
         }
 
         if (attempts > 0) {
-            Text("Kết quả phiên này: $correctCount/$attempts đúng", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Kết quả lượt học: $correctCount/$attempts đúng",
+                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 
