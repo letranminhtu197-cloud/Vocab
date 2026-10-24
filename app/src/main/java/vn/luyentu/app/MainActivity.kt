@@ -353,6 +353,7 @@ private fun PracticeScreen(
     db: VocabularyDatabase,
     refresh: () -> Unit
 ) {
+    val context = LocalContext.current
     val modes = listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Dịch từ", "Ôn hỗn hợp")
     var speechEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     var speechReady by remember { mutableStateOf(false) }
