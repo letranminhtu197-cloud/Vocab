@@ -30,9 +30,9 @@ data class VocabularyWord(
         get() = when {
             repetitions >= 8 && intervalDays >= 60 -> 5
             repetitions >= 5 && intervalDays >= 30 -> 4
-            repetitions >= 4 && intervalDays >= 14 -> 3
-            repetitions >= 3 && intervalDays >= 7 -> 2
-            repetitions >= 1 && intervalDays >= 3 -> 1
+            repetitions >= 3 && intervalDays >= 7 -> 3
+            repetitions >= 2 && intervalDays >= 3 -> 2
+            repetitions >= 1 && intervalDays >= 1 -> 1
             else -> 0
         }
 }
