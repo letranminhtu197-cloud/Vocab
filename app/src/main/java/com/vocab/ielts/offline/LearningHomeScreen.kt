@@ -24,7 +24,8 @@ fun LearningHomeScreen(
     words: List<WordEntity>, dueCount: Int, newCount: Int, weakCount: Int,
     todayActivities: Int, dailyGoal: Int, activeDays: Int,
     onReview: () -> Unit, onPractice: () -> Unit, onLibrary: () -> Unit,
-    onStats: () -> Unit, onImport: () -> Unit
+    onStats: () -> Unit, onImport: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val goal = dailyGoal.coerceAtLeast(1)
     val progress = (todayActivities.toFloat() / goal).coerceIn(0f, 1f)
@@ -42,7 +43,7 @@ fun LearningHomeScreen(
         else -> "Bạn đã xử lý hết từ đến hạn. Luyện gợi nhớ tự do nếu muốn học thêm."
     }
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
