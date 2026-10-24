@@ -917,7 +917,14 @@ private fun PracticeScreen(
     }
     fun recordAnswer(correct: Boolean) = recordGrade(if (correct) 2 else 0)
 
-    Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         Text("Luyện tập", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Chọn dạng bài tập", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
