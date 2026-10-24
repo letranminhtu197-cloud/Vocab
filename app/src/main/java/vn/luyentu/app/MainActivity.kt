@@ -948,7 +948,7 @@ private fun PracticeScreen(
                     Text("Phiên này sẽ có tối đa ${minOf(sessionLimit, dueWords.size)} từ.", style = MaterialTheme.typography.bodySmall)
                     Button(
                         onClick = {
-                            sessionIds = dueWords.take(sessionLimit).map { it.id }
+                            sessionIds = dueWords.shuffled().take(sessionLimit).map { it.id }
                             sessionTotal = sessionIds.size
                             index = 0
                             sessionStarted = sessionIds.isNotEmpty()
