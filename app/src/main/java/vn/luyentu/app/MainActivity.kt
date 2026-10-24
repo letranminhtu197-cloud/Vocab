@@ -1,6 +1,7 @@
 package vn.luyentu.app
 
 import android.os.Bundle
+import android.os.Build
 import android.net.Uri
 import android.widget.Toast
 import android.speech.tts.TextToSpeech
@@ -40,6 +41,7 @@ private fun LuyenTuApp() {
     val db = remember(context) { VocabularyDatabase(context) }
     var words by remember { mutableStateOf(db.getAllWords()) }
     var dueWords by remember { mutableStateOf(db.getDueWords()) }
+    var reminderEnabled by remember { mutableStateOf(context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).getBoolean(DailyReminderWorker.ENABLED_KEY, false)) }
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val refresh = {
         words = db.getAllWords()
@@ -84,6 +86,35 @@ private fun LuyenTuApp() {
                 Toast.makeText(context, "Không thể xuất CSV: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
             }
         }
+    }
+    val reminderPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean(DailyReminderWorker.ENABLED_KEY, true).apply()
+            DailyReminderWorker.schedule(context)
+            reminderEnabled = true
+            Toast.makeText(context, "Đã bật nhắc ôn hằng ngày lúc 20:00.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Bạn chưa cấp quyền thông báo nên nhắc ôn chưa được bật.", Toast.LENGTH_LONG).show()
+        }
+    }
+    val enableReminder: () -> Unit = {
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            reminderPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean(DailyReminderWorker.ENABLED_KEY, true).apply()
+            DailyReminderWorker.schedule(context)
+            reminderEnabled = true
+            Toast.makeText(context, "Đã bật nhắc ôn hằng ngày lúc 20:00.", Toast.LENGTH_SHORT).show()
+        }
+    }
+    val disableReminder: () -> Unit = {
+        context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean(DailyReminderWorker.ENABLED_KEY, false).apply()
+        DailyReminderWorker.cancel(context)
+        reminderEnabled = false
+        Toast.makeText(context, "Đã tắt nhắc ôn hằng ngày.", Toast.LENGTH_SHORT).show()
     }
     val titles = listOf("Tổng quan", "Sổ từ", "Luyện tập", "Thống kê", "Cài đặt", "Lộ trình")
     val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings, Icons.Default.Route)
@@ -134,7 +165,10 @@ private fun LuyenTuApp() {
                     padding,
                     onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
                     onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") },
-                    onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") }
+                    onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") },
+                    reminderEnabled = reminderEnabled,
+                    onEnableReminder = enableReminder,
+                    onDisableReminder = disableReminder
                 )
                 5 -> RoadmapScreen(padding, words, db)
                 else -> SettingsScreen(
@@ -248,10 +282,21 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
 
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit) {
+private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Cài đặt & dữ liệu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Nhập và xuất bộ từ bằng CSV hoặc TXT/TSV. Dữ liệu được nhập vào bộ nhớ cục bộ của ứng dụng; không cần đăng nhập.")
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Nhắc ôn hằng ngày", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(if (reminderEnabled) "Đang bật • 20:00 mỗi ngày" else "Nhận thông báo trên thiết bị lúc 20:00. Không gửi dữ liệu ra ngoài.")
+                if (reminderEnabled) {
+                    OutlinedButton(onClick = onDisableReminder, modifier = Modifier.fillMaxWidth()) { Text("Tắt nhắc ôn") }
+                } else {
+                    Button(onClick = onEnableReminder, modifier = Modifier.fillMaxWidth()) { Text("Bật nhắc ôn") }
+                }
+            }
+        }
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.FileOpen, null)
             Spacer(Modifier.width(8.dp))
