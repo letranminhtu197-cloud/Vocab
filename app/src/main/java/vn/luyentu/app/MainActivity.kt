@@ -930,6 +930,28 @@ private fun StatisticsScreen(
     val history = remember(db.reviewCount()) { db.recentReviewHistory(20) }
     val maxDaily = (daily.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1)
     val dateFormat = remember { java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()) }
+    var wordSearch by rememberSaveable { mutableStateOf("") }
+    var wordFilter by rememberSaveable { mutableStateOf("Tất cả") }
+    val dueIds = dueWords.map { it.id }.toSet()
+    val filteredWords = words.filter { word ->
+        (wordSearch.isBlank() || word.term.contains(wordSearch, true) || word.meaning.contains(wordSearch, true)) &&
+        when (wordFilter) {
+            "Đến hạn" -> word.id in dueIds
+            "Đang học" -> word.repetitions > 0 && word.learningLevel < 3
+            "Đã vững" -> word.learningLevel >= 3
+            else -> true
+        }
+    }
+    val levelCounts = (0..5).map { level -> level to words.count { it.learningLevel == level } }
+    val maxLevelCount = (levelCounts.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1)
+    val levelColors = listOf(
+        androidx.compose.ui.graphics.Color(0xFF8794A6),
+        androidx.compose.ui.graphics.Color(0xFFFFA24A),
+        androidx.compose.ui.graphics.Color(0xFFF2C744),
+        androidx.compose.ui.graphics.Color(0xFF35BDEB),
+        androidx.compose.ui.graphics.Color(0xFFBB83F6),
+        androidx.compose.ui.graphics.Color(0xFF45D18A)
+    )
     LazyColumn(
         Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -954,6 +976,25 @@ private fun StatisticsScreen(
                 Metric("Chuỗi học", "${db.currentStreakDays()} ngày", Modifier.weight(1f))
             }
         }
+        item { Text("Phân bố từ vựng theo cấp độ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+        item {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    levelCounts.forEach { (level, count) ->
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Lv $level", modifier = Modifier.width(38.dp), style = MaterialTheme.typography.labelSmall)
+                            LinearProgressIndicator(
+                                progress = count.toFloat() / maxLevelCount,
+                                modifier = Modifier.weight(1f).height(8.dp),
+                                color = levelColors[level],
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            Text(count.toString(), modifier = Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
         item { Text("Hoạt động 7 ngày gần nhất", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
         items(daily) { (day, count) ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -961,6 +1002,41 @@ private fun StatisticsScreen(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     LinearProgressIndicator(progress = count.toFloat() / maxDaily, modifier = Modifier.fillMaxWidth().height(8.dp))
                     Text("$count lượt ôn", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        item { Text("Danh sách từ đang học (${filteredWords.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+        item {
+            OutlinedTextField(
+                value = wordSearch,
+                onValueChange = { wordSearch = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Tìm từ...") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                singleLine = true
+            )
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(listOf("Tất cả", "Đến hạn", "Đang học", "Đã vững")) { filter ->
+                    FilterChip(selected = wordFilter == filter, onClick = { wordFilter = filter }, label = { Text(filter) })
+                }
+            }
+        }
+        if (filteredWords.isEmpty()) {
+            item { Text("Không có từ nào phù hợp với bộ lọc hiện tại.", style = MaterialTheme.typography.bodySmall) }
+        } else {
+            items(filteredWords, key = { it.id }) { word ->
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(word.term, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(word.meaning, style = MaterialTheme.typography.bodySmall)
+                            Text("Lv ${word.learningLevel} • ${if (word.id in dueIds) "Đến hạn" else if (word.learningLevel >= 3) "Đã vững" else "Đang học"}",
+                                style = MaterialTheme.typography.labelSmall, color = levelColors[word.learningLevel])
+                        }
+                        Text("${word.intervalDays} ngày", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
