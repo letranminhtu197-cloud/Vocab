@@ -45,7 +45,7 @@ class WordLibraryRepository(private val database: VocabDatabase) {
             "Danh mục '${trimmed}' đã tồn tại."
         }
         val now = System.currentTimeMillis()
-        return categories.insert(CategoryEntity(trimmed, normalized, description.trim(), colorArgb, now, now))
+        return categories.insert(CategoryEntity(id = 0, name = trimmed, normalizedName = normalized, description = description.trim(), colorArgb = colorArgb, createdAtMillis = now, updatedAtMillis = now))
     }
 
     suspend fun updateCategory(category: CategoryEntity, name: String, description: String, colorArgb: Long?) {
