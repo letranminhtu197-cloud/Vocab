@@ -1048,7 +1048,7 @@ private fun PracticeScreen(
                                                                 pairFeedback = "Hoàn thành phiên ghép cặp!"
                                                             }
                                                         } else {
-                                                            pairMistakeIds = pairMistakeIds + selectedPairTermId + pair.id
+                                                            pairMistakeIds = pairMistakeIds + selectedPairTermId!! + pair.id
                                                             pairFeedback = "Chưa khớp — hãy thử lại."
                                                             selectedPairTermId = null
                                                         }
