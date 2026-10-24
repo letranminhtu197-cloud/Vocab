@@ -54,9 +54,21 @@ private fun LuyenTuApp() {
                 var added = 0
                 parsed.forEach { row -> if (db.addWord(row.term, row.meaning, row.example, row.ipa, row.topic)) added++ }
                 refresh()
-                Toast.makeText(context, "Đã nhập $added/${parsed.size} từ mới. Từ trùng được bỏ qua.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Đã nhập $added/${parsed.size} từ mới từ CSV/TXT. Từ trùng được bỏ qua.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "Không thể nhập CSV: " + (e.localizedMessage ?: "lỗi đọc tệp"), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val exportTxt = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    OutputStreamWriter(stream, StandardCharsets.UTF_8).use { writer -> writer.write(CsvTools.exportPlainText(db.getAllWords())) }
+                }
+                Toast.makeText(context, "Đã xuất bộ từ dạng TXT.", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Không thể xuất TXT: " + (e.localizedMessage ?: "lỗi ghi tệp"), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -113,7 +125,12 @@ private fun LuyenTuApp() {
                 1 -> VocabularyScreen(padding, words, db, refresh)
                 2 -> PracticeScreen(padding, dueWords, words, db, refresh)
                 3 -> StatisticsScreen(padding, words, dueWords, db)
-                else -> SettingsScreen(padding, onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) }, onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") })
+                else -> SettingsScreen(
+                    padding,
+                    onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) },
+                    onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") },
+                    onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") }
+                )
             }
         }
     }
@@ -208,10 +225,10 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
 
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit) {
+private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Cài đặt & dữ liệu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Quản lý bộ từ bằng tệp CSV. Dữ liệu được nhập vào bộ nhớ cục bộ của ứng dụng; không cần đăng nhập.")
+        Text("Nhập và xuất bộ từ bằng CSV hoặc TXT/TSV. Dữ liệu được nhập vào bộ nhớ cục bộ của ứng dụng; không cần đăng nhập.")
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.FileOpen, null)
             Spacer(Modifier.width(8.dp))
@@ -222,11 +239,16 @@ private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExpor
             Spacer(Modifier.width(8.dp))
             Text("Xuất bộ từ ra CSV")
         }
+        OutlinedButton(onClick = onExportText, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.TextSnippet, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Xuất bộ từ ra TXT/TSV")
+        }
         HorizontalDivider()
         Text("Định dạng CSV", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text("Tiêu đề cột được hỗ trợ: term, meaning, ipa, topic, example. Một số tên tương đương như word, translation, definition và sentence cũng được nhận diện.")
         Text("Mỗi từ cần có từ tiếng Anh và nghĩa. Từ trùng sẽ được bỏ qua, không ghi đè dữ liệu đang có.")
-        Text("Nếu chọn vị trí lưu trữ đám mây trong bộ chọn Android, việc chuyển tệp qua dịch vụ đó có thể cần Internet. Bản thân ứng dụng không cần mạng để học và quản lý từ.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("TXT hỗ trợ một từ mỗi dòng theo dạng term - meaning hoặc TSV với các cột term, meaning, example, ipa, topic. Nếu chọn vị trí lưu trữ đám mây trong bộ chọn Android, việc chuyển tệp qua dịch vụ đó có thể cần Internet. Bản thân ứng dụng không cần mạng để học và quản lý từ.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
