@@ -770,7 +770,10 @@ private fun LibraryDeckCard(
 
 @Composable
 private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit, dailyGoal: Int, onDailyGoalChange: (Int) -> Unit) {
-    Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         Text("Cài đặt & dữ liệu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Nhập và xuất bộ từ bằng CSV hoặc TXT/TSV. Dữ liệu được nhập vào bộ nhớ cục bộ của ứng dụng; không cần đăng nhập.")
         Card(Modifier.fillMaxWidth()) {
@@ -1205,7 +1208,15 @@ private fun StatisticsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
     ) {
-        item { Text("Thống kê học tập", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Thống kê học tập", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Theo dõi lượng từ, lịch ôn và mức độ ghi nhớ ngay trên thiết bị.")
+                    Text("${db.reviewedToday()} lượt ôn đã ghi nhận hôm nay", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Metric("Tổng số từ", words.size.toString(), Modifier.weight(1f))
@@ -1321,13 +1332,22 @@ private fun RoadmapScreen(padding: PaddingValues, words: List<VocabularyWord>, d
         RoadmapMilestone("Củng cố trí nhớ", "Đạt 10 từ đã vững theo lịch ôn.", db.masteredWordCount(), 10),
         RoadmapMilestone("Duy trì đều đặn", "Học liên tục 7 ngày để tạo chuỗi học.", db.currentStreakDays(), 7)
     )
+    val completedMilestones = milestones.count { it.progress >= it.target }
     LazyColumn(
         Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(top = 14.dp, bottom = 24.dp)
     ) {
-        item { Text("Lộ trình học cá nhân", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-        item { Text("Các cột mốc chạy hoàn toàn trên thiết bị. Bạn có thể tự nhập bộ từ; không cần tài khoản hoặc gói trả phí.") }
+        item {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Lộ trình học cá nhân", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Tiến độ cột mốc: $completedMilestones/${milestones.size} hoàn thành")
+                    LinearProgressIndicator(progress = completedMilestones.toFloat() / milestones.size.coerceAtLeast(1), modifier = Modifier.fillMaxWidth())
+                    Text("Các cột mốc được tính từ dữ liệu lưu trên thiết bị.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         items(milestones) { milestone ->
             val done = milestone.progress >= milestone.target
             Card(Modifier.fillMaxWidth()) {
