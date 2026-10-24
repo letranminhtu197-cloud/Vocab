@@ -8,19 +8,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
     var round by remember { mutableIntStateOf(0) }
     val pairs = remember(words, round) { ActiveLearningLogic.matchPairs(words).shuffled() }
-    val terms = remember(pairs) { pairs.shuffled() }
-    val meanings = remember(pairs) { pairs.shuffled() }
+    val terms = remember(round, pairs) { pairs.shuffled() }
+    val meanings = remember(round, pairs) { pairs.shuffled() }
     val context = LocalContext.current
     val statsPrefs = remember(context) { context.getSharedPreferences("vocab_learning_stats", 0) }
-    val startedAtMillis = remember(pairs) { System.currentTimeMillis() }
-    val matched = remember(pairs) { mutableStateListOf<Long>() }
-    LaunchedEffect(pairs, matched.size) {
+    val startedAtMillis = remember(round, pairs) { System.currentTimeMillis() }
+    val matched = remember(round, pairs) { mutableStateListOf<Long>() }
+    LaunchedEffect(round, pairs, matched.size) {
         if (pairs.isNotEmpty() && matched.size == pairs.size) {
             statsPrefs.edit()
                 .putInt("match_games_completed", statsPrefs.getInt("match_games_completed", 0) + 1)
@@ -43,10 +44,21 @@ fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
                 Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Ghép tối đa 6 cặp từ và nghĩa đã nhập. Trò chơi không thay đổi lịch SRS.")
+                Text("Ghép từ với nghĩa dựa trên bộ dữ liệu của bạn. Trò chơi không thay đổi lịch ôn SRS.", style = MaterialTheme.typography.bodyMedium)
                 if (pairs.isEmpty()) {
                     Text("Chưa đủ dữ liệu: cần ít nhất hai từ có nghĩa khác nhau và không bị trùng.")
                 } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text("Tiến độ", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                            Text("${matched.size}/${pairs.size} cặp", fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
+                        LinearProgressIndicator(
+                            progress = { matched.size.toFloat() / pairs.size.coerceAtLeast(1) },
+                            modifier = Modifier.fillMaxWidth().height(7.dp)
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("TỪ", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -55,7 +67,7 @@ fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
                                     selected = selectedTerm == pair.wordId,
                                     enabled = pair.wordId !in matched,
                                     onClick = { selectedTerm = pair.wordId; feedback = null },
-                                    label = { Text(pair.term) },
+                                    label = { Text(pair.term, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
@@ -67,13 +79,13 @@ fun MatchGameDialog(words: List<WordEntity>, onDismiss: () -> Unit) {
                                     selected = selectedMeaning == pair.wordId,
                                     enabled = pair.wordId !in matched,
                                     onClick = { selectedMeaning = pair.wordId; feedback = null },
-                                    label = { Text(pair.meaning) },
+                                    label = { Text(pair.meaning, maxLines = 4, overflow = TextOverflow.Ellipsis) },
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
                     }
-                    Text("Đã ghép: ${matched.size}/${pairs.size} · Lượt thử: $attempts")
+                    Text("Lượt thử: $attempts", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     feedback?.let { Text(it, color = if (it == "Chính xác!") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
                     if (matched.size == pairs.size) Text("Hoàn thành!", fontWeight = FontWeight.Bold)
                 }
