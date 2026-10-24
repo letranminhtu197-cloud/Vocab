@@ -882,18 +882,7 @@ private fun PracticeScreen(
         if (current == null) {
             emptyList()
         } else {
-            // Meanings can differ only by case or whitespace; normalize before de-duplicating
-            // so a multiple-choice question never shows visually equivalent answers twice.
-            fun meaningKey(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ")
-            val correctMeaning = current.meaning.trim()
-            val correctKey = meaningKey(correctMeaning)
-            val distractors = allWords
-                .map { it.meaning.trim() }
-                .filter { it.isNotBlank() && meaningKey(it) != correctKey }
-                .distinctBy { meaningKey(it) }
-                .shuffled()
-                .take(3)
-            (distractors + correctMeaning).shuffled()
+            MultipleChoiceChoices.create(current.meaning, allWords.map { it.meaning })
         }
     }
     val matchBatch = if (activeMode == "Nối từ") sessionWords.take(4) else emptyList()
