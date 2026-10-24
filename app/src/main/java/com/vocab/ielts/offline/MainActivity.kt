@@ -632,11 +632,10 @@ private fun VocabApp(database: VocabDatabase) {
                         onOpenLibrary = { tab = 1 }
                     )
                 }
-                3 -> QuizScreen(
+                3 -> PracticeHub(
                     words = words,
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    sessionScore = quizSessionCorrect,
-                    sessionTotal = quizSessionTotal,
+                    startWithDue = quizStartWithDue,
                     onAnswerRecorded = { word, correct ->
                         StudyActivityTracker.recordEvent(statsPrefs)
                         quizTotal += 1
@@ -669,16 +668,7 @@ private fun VocabApp(database: VocabDatabase) {
                                 lastReviewedAtMillis = now.toEpochMilli()
                             ))
                         }
-                    },
-                    onSessionReset = {
-                        quizSessionCorrect = 0
-                        quizSessionTotal = 0
-                        statsPrefs.edit()
-                            .putInt("quiz_session_total", 0)
-                            .putInt("quiz_session_correct", 0)
-                            .apply()
-                    },
-                    startWithDue = quizStartWithDue
+                    }
                 )
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
