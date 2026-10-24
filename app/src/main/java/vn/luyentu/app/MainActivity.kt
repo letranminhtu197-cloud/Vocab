@@ -942,7 +942,10 @@ private fun PracticeScreen(
                         "Ghép cặp" -> {
                             Text("Nối từng từ tiếng Anh với nghĩa tương ứng.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (matchBatch.size < 2) {
-                                Text("Cần ít nhất 2 từ đến hạn để chơi ghép cặp. Hãy thêm từ hoặc chọn ôn một bộ lớn hơn.")
+                                Text("Cần ít nhất 2 từ trong phiên để chơi ghép cặp.")
+                                Button(onClick = { mode = "Thẻ từ" }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Chuyển từ còn lại sang Thẻ từ")
+                                }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.Top) {
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
