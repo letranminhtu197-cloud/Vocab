@@ -84,7 +84,7 @@ class WordLibraryRepository(private val database: VocabDatabase) {
             val existing = words.getAllSnapshot()
             val existingKeys = existing.map { normalizeTerm(it.term) }.toSet()
             val fresh = imported.filter { normalizeTerm(it.term) !in existingKeys }
-            if (fresh.isNotEmpty()) words.insertAll(fresh.map { it.copy(id = 0, term = it.term.trim() }))
+            if (fresh.isNotEmpty()) words.insertAll(fresh.map { it.copy(id = 0, term = it.term.trim()) })
             ImportResult(inserted = fresh.size, skippedExisting = imported.size - fresh.size)
         }
     }
