@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -171,6 +173,8 @@ private fun LuyenTuApp() {
     }
     val activeWords = if (activeDeckId == null) words else words.filter { it.deckId == activeDeckId }
     val activeDueWords = if (activeDeckId == null) dueWords else dueWords.filter { it.deckId == activeDeckId }
+    val masteredCount = db.masteredWordCount()
+    val masteryPercent = if (words.isEmpty()) 0 else (masteredCount * 100 / words.size).coerceIn(0, 100)
     val titles = listOf("Trang chủ", "Bộ từ", "Luyện tập", "Thống kê", "Cá nhân", "Lộ trình")
     val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings, Icons.Default.Route)
 
@@ -205,21 +209,15 @@ private fun LuyenTuApp() {
             } }
         ) { padding ->
             when (selected) {
-                0 -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp),
+                0 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                                Text("TỔNG SỐ TỪ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(words.size.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                                Text("ĐẾN HẠN ÔN", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(dueWords.size.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFFFFB547))
-                            }
-                        }
+                        Metric("Tổng số từ", words.size.toString(), Modifier.weight(1f))
+                        Metric("Đã thuộc", masteredCount.toString(), Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Metric("Tiến độ", "$masteryPercent%", Modifier.weight(1f))
+                        Metric("Đến hạn ôn", dueWords.size.toString(), Modifier.weight(1f))
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF263D36))) {
                         Column(Modifier.fillMaxWidth().padding(18.dp)) {
