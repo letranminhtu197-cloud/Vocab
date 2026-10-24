@@ -967,7 +967,7 @@ private fun PracticeScreen(
                 Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
                     Text("Hoàn thành phiên học!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Bạn đã xử lý đủ ${sessionTotal} câu đã chọn. Các từ sai đã được lên lịch ôn lại.")
+                    Text("Đã chấm ${sessionTotal - sessionWords.size} / ${sessionTotal} từ trong phiên. Các từ sai đã được lên lịch ôn lại.")
                     Button(onClick = { sessionStarted = false; sessionIds = emptyList(); sessionTotal = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Thiết lập phiên tiếp theo") }
                 }
             }
@@ -1001,9 +1001,9 @@ private fun PracticeScreen(
                                 Text("Chọn nghĩa chính xác:")
                                 choices.forEach { choice ->
                                     OutlinedButton(
-                                        onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice == current.meaning; feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: ${current.meaning}" } },
+                                        onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = normalize(choice) == normalize(current.meaning); feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: ${current.meaning}" } },
                                         modifier = Modifier.fillMaxWidth(), enabled = !answered,
-                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice == current.meaning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && normalize(choice) == normalize(current.meaning)) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                     ) { Text(choice) }
                                 }
                             }
