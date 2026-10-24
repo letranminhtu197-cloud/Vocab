@@ -42,13 +42,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = VocabDatabase.getInstance(applicationContext)
-        setContent { VocabApp(database.wordDao()) }
+        setContent { VocabApp(database) }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VocabApp(dao: WordDao) {
+private fun VocabApp(database: VocabDatabase) {
+    val dao = database.wordDao()
+    val repository = remember(database) { WordLibraryRepository(database) }
     var tab by remember { mutableIntStateOf(0) }
     var quizStartWithDue by remember { mutableStateOf(true) }
     var learningPathTopic by remember { mutableStateOf<String?>(null) }
@@ -119,10 +121,10 @@ private fun VocabApp(dao: WordDao) {
                     if (parsed.error != null) {
                         csvMessage = parsed.error
                     } else {
-                        val existingTerms = dao.observeAll().first().map { it.term.trim().lowercase() }.toMutableSet()
+                        val existingTerms = dao.observeAll().first().map { WordLibraryRepository.normalizeTerm(it.term) }.toMutableSet()
                         var duplicateCount = 0
                         val uniqueWords = parsed.words.filter { word ->
-                            if (existingTerms.add(word.term.trim().lowercase())) true
+                            if (existingTerms.add(WordLibraryRepository.normalizeTerm(word.term))) true
                             else { duplicateCount++; false }
                         }
                         if (uniqueWords.isEmpty()) {
@@ -904,12 +906,12 @@ private fun VocabApp(dao: WordDao) {
                     pendingCsvWords = null
                     scope.launch {
                         val result = runCatching {
-                            withContext(Dispatchers.IO) { dao.insertAll(wordsToInsert) }
+                            repository.importWordsAtomically(wordsToInsert)
                         }
                         csvMessage = if (result.isFailure) {
                             "Nhập file thất bại: ${result.exceptionOrNull()?.message ?: "lỗi dữ liệu"}"
                         } else {
-                            "Đã nhập ${wordsToInsert.size} từ. Bỏ qua ${duplicates} từ trùng và ${invalidRows} dòng thiếu từ/nghĩa."
+                            "Đã nhập ${result.getOrThrow().inserted} từ. Bỏ qua ${duplicates + result.getOrThrow().skippedExisting} từ trùng và ${invalidRows} dòng thiếu từ/nghĩa."
                         }
                     }
                 }) { Text("Nhập ${previewWords.size} từ") }
@@ -933,18 +935,17 @@ private fun VocabApp(dao: WordDao) {
             onDismiss = { showEditor = false; editorWord = null },
             onSave = { word ->
                 scope.launch {
-                    val normalizedTerm = word.term.trim()
-                    val editingId = editorWord?.id
-                    val duplicate = dao.observeAll().first().any {
-                        it.id != editingId && it.term.trim().equals(normalizedTerm, ignoreCase = true)
+                    val normalizedWord = word.copy(term = word.term.trim(), meaning = word.meaning.trim())
+                    val saveResult = runCatching {
+                        if (editorWord == null) repository.addWord(normalizedWord)
+                        else repository.updateWord(normalizedWord)
                     }
-                    if (duplicate) {
-                        csvMessage = "Từ/cụm từ \"$normalizedTerm\" đã có trong sổ. Hãy kiểm tra từ hiện có thay vì tạo bản trùng."
-                    } else {
-                        val normalizedWord = word.copy(term = normalizedTerm, meaning = word.meaning.trim())
-                        if (editorWord == null) dao.insert(normalizedWord) else dao.update(normalizedWord)
+                    if (saveResult.isSuccess) {
                         showEditor = false
                         editorWord = null
+                    } else {
+                        csvMessage = saveResult.exceptionOrNull()?.message
+                            ?: "Không thể lưu từ vựng. Hãy kiểm tra dữ liệu rồi thử lại."
                     }
                 }
             }
@@ -958,7 +959,10 @@ private fun VocabApp(dao: WordDao) {
             text = { Text("Bạn có chắc muốn xóa \"${deleting.term}\" khỏi sổ từ vựng? Thao tác này không thể hoàn tác.") },
             confirmButton = {
                 TextButton(onClick = {
-                    scope.launch { dao.delete(deleting) }
+                    scope.launch {
+                        runCatching { repository.deleteWord(deleting) }
+                            .onFailure { csvMessage = it.message ?: "Không thể xóa từ." }
+                    }
                     wordToDelete = null
                 }) { Text("Xóa") }
             },
