@@ -7,9 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WordEntity::class], version = 4, exportSchema = false)
+@Database(entities = [WordEntity::class, CategoryEntity::class], version = 5, exportSchema = false)
 abstract class VocabDatabase : RoomDatabase() {
     abstract fun wordDao(): WordDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -33,6 +34,25 @@ abstract class VocabDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS categories (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "normalizedName TEXT NOT NULL, " +
+                        "description TEXT NOT NULL, " +
+                        "colorArgb INTEGER, " +
+                        "createdAtMillis INTEGER NOT NULL, " +
+                        "updatedAtMillis INTEGER NOT NULL)"
+                )
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_categories_normalizedName " +
+                        "ON categories(normalizedName)"
+                )
+            }
+        }
+
         @Volatile private var INSTANCE: VocabDatabase? = null
 
         fun getInstance(context: Context): VocabDatabase =
@@ -41,7 +61,9 @@ abstract class VocabDatabase : RoomDatabase() {
                     context.applicationContext,
                     VocabDatabase::class.java,
                     "vocab-local.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { INSTANCE = it }
+                ).addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5
+                ).build().also { INSTANCE = it }
             }
     }
 }
