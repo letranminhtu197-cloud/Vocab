@@ -209,95 +209,163 @@ private fun PracticeScreen(
     db: VocabularyDatabase,
     refresh: () -> Unit
 ) {
+    val modes = listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp", "Ôn hỗn hợp")
+    var mode by rememberSaveable { mutableStateOf("Thẻ từ") }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var revealed by rememberSaveable { mutableStateOf(false) }
-    var quizMode by rememberSaveable { mutableStateOf(false) }
+    var typedAnswer by rememberSaveable { mutableStateOf("") }
     var chosenAnswer by rememberSaveable { mutableStateOf<String?>(null) }
     var answered by rememberSaveable { mutableStateOf(false) }
-    val current = dueWords.getOrNull(index.coerceAtMost((dueWords.size - 1).coerceAtLeast(0)))
-    val choices = remember(current?.id, allWords.size) {
+    var feedback by rememberSaveable { mutableStateOf("") }
+    var feedbackCorrect by rememberSaveable { mutableStateOf(false) }
+    val safeIndex = index.coerceIn(0, (dueWords.size - 1).coerceAtLeast(0))
+    val current = dueWords.getOrNull(safeIndex)
+    val activeMode = remember(current?.id, mode) {
+        if (mode == "Ôn hỗn hợp") listOf("Thẻ từ", "Trắc nghiệm", "Nghe & gõ", "Điền từ", "Ghép cặp").random()
+        else mode
+    }
+    val choices = remember(current?.id, allWords.size, activeMode) {
         if (current == null) emptyList()
-        else (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled()
-            .take(3) + current.meaning).shuffled()
+        else if (activeMode == "Ghép cặp") {
+            (allWords.map { it.term }.filter { it.isNotBlank() && !it.equals(current.term, true) }.distinct().shuffled().take(3) + current.term).shuffled()
+        } else {
+            (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled().take(3) + current.meaning).shuffled()
+        }
     }
 
-    LaunchedEffect(dueWords.size, current?.id) {
-        if (dueWords.isEmpty()) index = 0 else if (index >= dueWords.size) index = 0
+    LaunchedEffect(current?.id, activeMode) {
         revealed = false
+        typedAnswer = ""
         chosenAnswer = null
         answered = false
+        feedback = ""
+        feedbackCorrect = false
     }
 
-    Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    fun normalize(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ").trimEnd('.', '!', '?')
+    fun recordAnswer(correct: Boolean) {
+        if (current == null) return
+        db.reviewWord(current.id, if (correct) 2 else 0)
+        refresh()
+        index = 0
+        revealed = false
+        typedAnswer = ""
+        chosenAnswer = null
+        answered = false
+        feedback = ""
+    }
+
+    Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Luyện tập", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = !quizMode, onClick = { quizMode = false; revealed = false; chosenAnswer = null; answered = false }, label = { Text("Thẻ từ") })
-            FilterChip(selected = quizMode, onClick = { quizMode = true; revealed = false; chosenAnswer = null; answered = false }, label = { Text("Trắc nghiệm") })
+        Text("Chọn dạng bài tập", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            modes.take(3).forEach { item ->
+                FilterChip(selected = mode == item, onClick = { mode = item; index = 0 }, label = { Text(item) })
+            }
         }
-        Text("Còn " + dueWords.size + " từ đến hạn ôn.")
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            modes.drop(3).forEach { item ->
+                FilterChip(selected = mode == item, onClick = { mode = item; index = 0 }, label = { Text(item) })
+            }
+        }
+        Text("Còn \${dueWords.size} từ đến hạn ôn.")
         if (current == null) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
-                    Text("Bạn đã ôn hết các từ đến hạn!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Thêm từ mới trong Sổ từ hoặc quay lại sau khi đến lịch ôn tiếp theo.")
+                    Text(if (allWords.isEmpty()) "Sổ từ đang trống" else "Bạn đã ôn hết các từ đến hạn!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(if (allWords.isEmpty()) "Hãy thêm từ hoặc nhập bộ từ CSV trong mục Sổ từ/Cài đặt để bắt đầu." else "Thêm từ mới hoặc quay lại khi tới lịch ôn tiếp theo.")
                 }
             }
         } else {
-            Text("Từ " + (index + 1) + " / " + dueWords.size, style = MaterialTheme.typography.labelLarge)
+            Text("Từ \${safeIndex + 1} / \${dueWords.size}  •  Dạng bài: $activeMode", style = MaterialTheme.typography.labelLarge)
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(current.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.primary)
-                    if (!quizMode) {
-                        if (revealed) {
-                            HorizontalDivider()
-                            Text(current.meaning, style = MaterialTheme.typography.titleLarge)
-                            if (current.example.isNotBlank()) Text(current.example, style = MaterialTheme.typography.bodyMedium)
-                            if (current.topic.isNotBlank()) Text("Chủ đề: " + current.topic, style = MaterialTheme.typography.labelMedium)
-                        } else {
-                            Text("Hãy thử nhớ nghĩa tiếng Việt và cách dùng.")
-                            OutlinedButton(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện đáp án") }
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when (activeMode) {
+                        "Thẻ từ" -> {
+                            Text(current.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                            if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.primary)
+                            if (revealed) {
+                                HorizontalDivider()
+                                Text(current.meaning, style = MaterialTheme.typography.titleLarge)
+                                if (current.example.isNotBlank()) Text(current.example)
+                                if (current.topic.isNotBlank()) Text("Chủ đề: \${current.topic}", style = MaterialTheme.typography.labelMedium)
+                            } else {
+                                Text("Tự nhớ nghĩa và cách dùng trước khi xem đáp án.")
+                                Button(onClick = { revealed = true }, modifier = Modifier.fillMaxWidth()) { Text("Hiện đáp án") }
+                            }
                         }
-                    } else {
-                        Text("Chọn nghĩa đúng:")
-                        choices.forEach { choice ->
-                            OutlinedButton(
-                                onClick = { if (!answered) { chosenAnswer = choice; answered = true } },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !answered,
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = if (answered && choice == current.meaning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                                )
-                            ) { Text(choice) }
+                        "Trắc nghiệm" -> {
+                            Text(current.term, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                            if (current.ipa.isNotBlank()) Text(current.ipa, color = MaterialTheme.colorScheme.primary)
+                            Text("Chọn nghĩa chính xác:")
+                            choices.forEach { choice ->
+                                OutlinedButton(
+                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice == current.meaning; feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: \${current.meaning}" } },
+                                    modifier = Modifier.fillMaxWidth(), enabled = !answered,
+                                    colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice == current.meaning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                                ) { Text(choice) }
+                            }
                         }
-                        if (answered) {
-                            Text(
-                                if (chosenAnswer == current.meaning) "Chính xác!" else "Chưa chính xác. Đáp án: " + current.meaning,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        "Ghép cặp" -> {
+                            Text(current.meaning, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text("Chọn từ tiếng Anh khớp với nghĩa:")
+                            choices.forEach { choice ->
+                                OutlinedButton(
+                                    onClick = { if (!answered) { chosenAnswer = choice; answered = true; feedbackCorrect = choice.equals(current.term, true); feedback = if (feedbackCorrect) "Đã ghép đúng!" else "Đáp án đúng: \${current.term}" } },
+                                    modifier = Modifier.fillMaxWidth(), enabled = !answered,
+                                    colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answered && choice.equals(current.term, true)) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                                ) { Text(choice) }
+                            }
+                        }
+                        "Nghe & gõ" -> {
+                            Text("Nghe và nhập từ tiếng Anh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Nghĩa: \${current.meaning}")
+                            Text("IPA: \${current.ipa.ifBlank { "Chưa có IPA" }}", style = MaterialTheme.typography.bodySmall)
+                            Text("Chế độ này dùng câu trả lời gõ; phát âm tự động sẽ được bổ sung riêng.")
+                            OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = "" }, Modifier.fillMaxWidth(), label = { Text("Từ tiếng Anh") }, singleLine = true)
                             Button(onClick = {
-                                db.reviewWord(current.id, if (chosenAnswer == current.meaning) 2 else 0)
-                                refresh()
-                                index = 0
-                                revealed = false
-                                chosenAnswer = null
-                                answered = false
-                            }, modifier = Modifier.fillMaxWidth()) { Text("Tiếp tục") }
+                                if (typedAnswer.isNotBlank() && !answered) {
+                                    answered = true
+                                    feedbackCorrect = normalize(typedAnswer) == normalize(current.term)
+                                    feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: \${current.term}"
+                                }
+                            }, modifier = Modifier.fillMaxWidth(), enabled = !answered && typedAnswer.isNotBlank()) { Text("Kiểm tra") }
+                        }
+                        "Điền từ" -> {
+                            val sentenceHasTerm = current.example.contains(current.term, ignoreCase = true)
+                            val sentence = if (sentenceHasTerm) current.example.replace(Regex(Regex.escape(current.term), RegexOption.IGNORE_CASE), "______") else "Nghĩa tiếng Việt: \${current.meaning}"
+                            Text("Hoàn thành câu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(sentence, style = MaterialTheme.typography.bodyLarge)
+                            if (!sentenceHasTerm) Text("Chưa có câu ví dụ chứa từ này; hãy nhập từ tiếng Anh tương ứng.")
+                            OutlinedTextField(typedAnswer, { typedAnswer = it; feedback = "" }, Modifier.fillMaxWidth(), label = { Text("Từ còn thiếu") }, singleLine = true)
+                            Button(onClick = {
+                                if (typedAnswer.isNotBlank() && !answered) {
+                                    answered = true
+                                    feedbackCorrect = normalize(typedAnswer) == normalize(current.term)
+                                    feedback = if (feedbackCorrect) "Chính xác!" else "Đáp án đúng: \${current.term}"
+                                }
+                            }, modifier = Modifier.fillMaxWidth(), enabled = !answered && typedAnswer.isNotBlank()) { Text("Kiểm tra") }
+                        }
+                        else -> Unit
+                    }
+                    if (feedback.isNotBlank()) {
+                        Text(feedback, color = if (feedbackCorrect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        if (activeMode != "Thẻ từ") {
+                            Button(onClick = { recordAnswer(feedbackCorrect) }, modifier = Modifier.fillMaxWidth()) { Text("Lưu kết quả & tiếp tục") }
                         }
                     }
                 }
             }
-            if (!quizMode && revealed) {
+            if (activeMode == "Thẻ từ" && revealed) {
                 Text("Bạn nhớ từ này đến đâu?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { db.reviewWord(current.id, 0); refresh(); revealed = false; index = 0 }, modifier = Modifier.weight(1f)) { Text("Quên") }
-                    OutlinedButton(onClick = { db.reviewWord(current.id, 1); refresh(); revealed = false; index = 0 }, modifier = Modifier.weight(1f)) { Text("Khó") }
+                    OutlinedButton(onClick = { db.reviewWord(current.id, 0); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Quên") }
+                    OutlinedButton(onClick = { db.reviewWord(current.id, 1); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Khó") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { db.reviewWord(current.id, 2); refresh(); revealed = false; index = 0 }, modifier = Modifier.weight(1f)) { Text("Nhớ") }
-                    Button(onClick = { db.reviewWord(current.id, 3); refresh(); revealed = false; index = 0 }, modifier = Modifier.weight(1f)) { Text("Dễ") }
+                    Button(onClick = { db.reviewWord(current.id, 2); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Nhớ") }
+                    Button(onClick = { db.reviewWord(current.id, 3); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Dễ") }
                 }
             }
         }
