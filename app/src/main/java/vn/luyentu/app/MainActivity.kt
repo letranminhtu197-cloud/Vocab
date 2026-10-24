@@ -128,6 +128,13 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
     var topic by rememberSaveable { mutableStateOf("") }
     var search by rememberSaveable { mutableStateOf("") }
     var message by rememberSaveable { mutableStateOf("") }
+    var editingWord by remember { mutableStateOf<VocabularyWord?>(null) }
+    var editTerm by remember(editingWord?.id) { mutableStateOf(editingWord?.term.orEmpty()) }
+    var editMeaning by remember(editingWord?.id) { mutableStateOf(editingWord?.meaning.orEmpty()) }
+    var editIpa by remember(editingWord?.id) { mutableStateOf(editingWord?.ipa.orEmpty()) }
+    var editTopic by remember(editingWord?.id) { mutableStateOf(editingWord?.topic.orEmpty()) }
+    var editExample by remember(editingWord?.id) { mutableStateOf(editingWord?.example.orEmpty()) }
+    var editError by remember { mutableStateOf("") }
     val filtered = words.filter { search.isBlank() || it.term.contains(search, true) || it.meaning.contains(search, true) || it.topic.contains(search, true) }
 
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -163,11 +170,39 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
                         if (word.topic.isNotBlank()) Text(word.topic, style = MaterialTheme.typography.labelSmall)
                         if (word.repetitions > 0) Text("Đã ôn ${word.repetitions} lần", style = MaterialTheme.typography.labelSmall)
                     }
+                    IconButton(onClick = { editingWord = word; editError = "" }) { Icon(Icons.Default.Edit, "Sửa từ") }
                     IconButton(onClick = { db.deleteWord(word.id); refresh() }) { Icon(Icons.Default.Delete, "Xoá từ") }
                 } }
             }
             if (filtered.isEmpty()) item { Text(if (search.isBlank()) "Chưa có từ. Hãy thêm từ đầu tiên ở biểu mẫu trên." else "Không tìm thấy từ.") }
         }
+    }
+    editingWord?.let { word ->
+        AlertDialog(
+            onDismissRequest = { editingWord = null },
+            title = { Text("Chỉnh sửa từ vựng") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(editTerm, { editTerm = it }, label = { Text("Từ tiếng Anh *") }, singleLine = true)
+                    OutlinedTextField(editMeaning, { editMeaning = it }, label = { Text("Nghĩa tiếng Việt *") })
+                    OutlinedTextField(editIpa, { editIpa = it }, label = { Text("IPA") }, singleLine = true)
+                    OutlinedTextField(editTopic, { editTopic = it }, label = { Text("Chủ đề") }, singleLine = true)
+                    OutlinedTextField(editExample, { editExample = it }, label = { Text("Câu ví dụ") })
+                    if (editError.isNotBlank()) Text(editError, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (db.updateWord(word.id, editTerm, editMeaning, editExample, editIpa, editTopic)) {
+                        editingWord = null
+                        refresh()
+                    } else {
+                        editError = "Cần nhập từ và nghĩa; từ tiếng Anh không được trùng."
+                    }
+                }) { Text("Lưu thay đổi") }
+            },
+            dismissButton = { TextButton(onClick = { editingWord = null }) { Text("Huỷ") } }
+        )
     }
 }
 
