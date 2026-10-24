@@ -861,6 +861,8 @@ private fun PracticeScreen(
     var sessionTotal by remember { mutableIntStateOf(0) }
     var sessionStarted by remember { mutableStateOf(false) }
     var sessionIds by remember { mutableStateOf<List<Long>>(emptyList()) }
+    var sessionSnapshot by remember { mutableStateOf<List<VocabularyWord>>(emptyList()) }
+    var sessionSource by rememberSaveable { mutableStateOf("Đến hạn") }
     var revealed by rememberSaveable { mutableStateOf(false) }
     var typedAnswer by rememberSaveable { mutableStateOf("") }
     var chosenAnswer by rememberSaveable { mutableStateOf<String?>(null) }
@@ -871,7 +873,11 @@ private fun PracticeScreen(
     var matchedPairIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var pairMistakeIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var pairFeedback by rememberSaveable { mutableStateOf("") }
-    val sessionWords = if (sessionStarted) sessionIds.mapNotNull { id -> dueWords.firstOrNull { it.id == id } } else emptyList()
+    // Keep the selected words stable for the whole session. Grading a word changes
+    // its due date, so deriving the active session from dueWords would mutate its
+    // contents mid-session and make progress/counts unreliable.
+    val sessionWords = if (sessionStarted) sessionIds.mapNotNull { id -> sessionSnapshot.firstOrNull { it.id == id } } else emptyList()
+    val availableWords = if (sessionSource == "Tất cả từ") allWords else dueWords
     val safeIndex = index.coerceIn(0, (sessionWords.size - 1).coerceAtLeast(0))
     val current = sessionWords.getOrNull(safeIndex)
     val activeMode = remember(current?.id, mode) {
@@ -943,30 +949,40 @@ private fun PracticeScreen(
                 TextButton(onClick = { sessionStarted = false; sessionIds = emptyList(); index = 0 }) { Text("Kết thúc phiên") }
             }
         } else {
-            Text("Còn ${dueWords.size} từ đến hạn ôn.")
+            Text(if (sessionSource == "Tất cả từ") "Có ${allWords.size} từ trong bộ đang chọn." else "Còn ${dueWords.size} từ đến hạn ôn.")
         }
         if (!sessionStarted) {
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Thiết lập phiên học", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Chọn số từ tối đa cho phiên này. Danh sách từ được cố định khi bạn bắt đầu.")
+                    Text("Chọn nguồn từ và số lượng cho phiên học. Danh sách từ sẽ được cố định khi bạn bắt đầu.")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Đến hạn", "Tất cả từ").forEach { source ->
+                            FilterChip(selected = sessionSource == source, onClick = { sessionSource = source }, label = { Text(source) })
+                        }
+                    }
+                    Text(if (sessionSource == "Tất cả từ") "Luyện cả từ mới và từ đã học." else "Ưu tiên các từ đã đến lịch ôn.")
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(10, 20, 30, 50).forEach { amount ->
                             FilterChip(selected = sessionLimit == amount, onClick = { sessionLimit = amount }, label = { Text("$amount từ") })
                         }
                     }
-                    Text("Phiên này sẽ có tối đa ${minOf(sessionLimit, dueWords.size)} từ.", style = MaterialTheme.typography.bodySmall)
+                    Text("Phiên này sẽ có tối đa ${minOf(sessionLimit, availableWords.size)} từ.", style = MaterialTheme.typography.bodySmall)
                     Button(
                         onClick = {
-                            sessionIds = dueWords.shuffled().take(sessionLimit).map { it.id }
+                            sessionSnapshot = availableWords.shuffled().take(sessionLimit)
+                            sessionIds = sessionSnapshot.map { it.id }
                             sessionTotal = sessionIds.size
                             index = 0
                             sessionStarted = sessionIds.isNotEmpty()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = dueWords.isNotEmpty()
+                        enabled = availableWords.isNotEmpty()
                     ) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text("Bắt đầu phiên học") }
-                    if (dueWords.isEmpty()) Text("Không có từ đến hạn trong bộ đang chọn.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (availableWords.isEmpty()) Text(
+                        if (sessionSource == "Tất cả từ") "Chưa có từ vựng. Hãy nhập từ trong mục Bộ từ." else "Không có từ đến hạn. Chọn “Tất cả từ” để luyện từ mới hoặc từ chưa đến hạn.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         } else if (current == null) {
@@ -979,7 +995,7 @@ private fun PracticeScreen(
                 }
             }
         } else {
-            Text("Từ ${sessionTotal - sessionWords.size + 1} / $sessionTotal  •  Dạng bài: ${if (mode == "Đặc biệt") "Đặc biệt · $activeMode" else activeMode}", style = MaterialTheme.typography.labelLarge)
+            Text("Đã hoàn thành ${sessionTotal - sessionWords.size} / $sessionTotal  •  Dạng bài: ${if (mode == "Đặc biệt") "Đặc biệt · $activeMode" else activeMode}", style = MaterialTheme.typography.labelLarge)
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (activeMode) {
