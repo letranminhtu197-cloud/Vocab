@@ -27,6 +27,11 @@ data class ReviewHistoryItem(val term: String, val grade: Int, val reviewedAt: L
 class VocabularyDatabase(context: Context) :
     SQLiteOpenHelper(context.applicationContext, DATABASE_NAME, null, DATABASE_VERSION) {
 
+    override fun onConfigure(db: SQLiteDatabase) {
+        super.onConfigure(db)
+        db.setForeignKeyConstraintsEnabled(true)
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -177,6 +182,26 @@ class VocabularyDatabase(context: Context) :
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
+        }
+    }
+
+
+    @Synchronized
+    fun updateWord(id: Long, term: String, meaning: String, example: String = "", ipa: String = "", topic: String = ""): Boolean {
+        val cleanTerm = term.trim()
+        val cleanMeaning = meaning.trim()
+        if (cleanTerm.isBlank() || cleanMeaning.isBlank()) return false
+        return try {
+            val values = ContentValues().apply {
+                put("term", cleanTerm)
+                put("meaning", cleanMeaning)
+                put("example", example.trim())
+                put("ipa", ipa.trim())
+                put("topic", topic.trim())
+            }
+            writableDatabase.update("vocabulary", values, "id = ?", arrayOf(id.toString())) > 0
+        } catch (_: android.database.sqlite.SQLiteConstraintException) {
+            false
         }
     }
 
