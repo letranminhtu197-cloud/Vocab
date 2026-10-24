@@ -17,18 +17,19 @@
 - Sổ từ: thêm, sửa, xoá, tìm kiếm, lọc theo chủ đề; trường từ, nghĩa, IPA, ví dụ, chủ đề.
 - Nhập CSV và TXT/TSV; xuất CSV và TXT/TSV; nhận diện nhiều tên cột; bỏ qua từ trùng.
 - Các dạng luyện tập: thẻ từ, trắc nghiệm, nghe/phát âm và gõ từ, điền từ vào câu, ghép từ-nghĩa, dịch nghĩa sang tiếng Anh, ôn hỗn hợp.
-- Lịch ôn cách quãng cơ bản với lựa chọn Quên/Khó/Nhớ/Dễ.
+- Lịch ôn cách quãng nâng cấp: Again/Hard/Good/Easy, khoảng ôn thay đổi theo kết quả, hệ số dễ, số lần quên, bước học lại và ưu tiên từ quá hạn.
 - Thống kê tổng từ, lượt ôn, từ đến hạn, từ đã vững; biểu đồ hoạt động 7 ngày và lịch sử ôn gần đây.
 - Chuỗi ngày học, lộ trình cột mốc offline và mục tiêu ôn tập hằng ngày có thể chọn.
 - Nhắc ôn cục bộ hằng ngày lúc 20:00 (tuỳ chọn; cần cấp quyền thông báo).
+- Widget màn hình chính hiển thị từ vựng, nghĩa, chuỗi học và số từ đến hạn; nhấn widget để mở ứng dụng.
+- Sao lưu/khôi phục JSON đầy đủ từ vựng, trạng thái SRS, lịch sử ôn và các cài đặt mục tiêu/nhắc nhở. Khôi phục thay thế dữ liệu hiện có.
 - GitHub Actions chạy kiểm thử import/export và build APK debug.
 
 ## Còn thiếu so với mục tiêu tái tạo đầy đủ
 
 - Hai mini-game Monkey Rescue và Flappy.
-- Widget Android cho từ vựng/chuỗi học.
-- Hệ thống SRS đầy đủ theo các cấp độ và phiên học giống ứng dụng gốc; thuật toán gốc chưa được xác minh.
-- Sao lưu/khôi phục đầy đủ bao gồm tiến độ và lịch sử ôn (CSV/TXT hiện chỉ phục vụ dữ liệu từ vựng).
+- Tùy chỉnh avatar/widget và lựa chọn từ hiển thị; widget hiện dùng biểu tượng sách và từ đầu tiên theo thứ tự bảng chữ cái.
+- Hiệu chỉnh thuật toán SRS sau khi đối chiếu hành vi thực tế; lịch gốc chưa thể xác minh chính xác từ APK đã biên dịch.
 - Kiểm thử UI, hiệu năng, thông báo và offline trên Galaxy S22 Ultra thật.
 - Xác nhận CI thành công cho phiên bản mới nhất và kiểm tra APK đầu ra.
 
