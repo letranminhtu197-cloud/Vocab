@@ -6,6 +6,17 @@
         android:label="LuyenTu 2.0"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <receiver
+            android:name=".LuyenTuWidgetProvider"
+            android:exported="true"
+            android:label="LuyenTu 2.0">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/luyentu_widget_info" />
+        </receiver>
         <activity
             android:name=".MainActivity"
             android:exported="true">
