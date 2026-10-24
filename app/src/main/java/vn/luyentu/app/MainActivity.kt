@@ -112,15 +112,7 @@ private fun LuyenTuApp() {
                 }
                 1 -> VocabularyScreen(padding, words, db, refresh)
                 2 -> PracticeScreen(padding, dueWords, words, db, refresh)
-                3 -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Thống kê", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Metric("Tổng số từ", words.size.toString(), Modifier.weight(1f))
-                        Metric("Lượt ôn", db.reviewCount().toString(), Modifier.weight(1f))
-                    }
-                    Metric("Đến hạn ôn", dueWords.size.toString(), Modifier.fillMaxWidth())
-                    Text("Số liệu được tính từ cơ sở dữ liệu trên thiết bị.")
-                }
+                3 -> StatisticsScreen(padding, words, dueWords, db)
                 else -> SettingsScreen(padding, onImport = { importCsv.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel")) }, onExport = { exportCsv.launch("LuyenTu-vocabulary.csv") })
             }
         }
@@ -386,6 +378,68 @@ private fun PracticeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { db.reviewWord(current.id, 2); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Nhớ") }
                     Button(onClick = { db.reviewWord(current.id, 3); refresh(); index = 0 }, modifier = Modifier.weight(1f)) { Text("Dễ") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatisticsScreen(
+    padding: PaddingValues,
+    words: List<VocabularyWord>,
+    dueWords: List<VocabularyWord>,
+    db: VocabularyDatabase
+) {
+    val daily = remember(db.reviewCount()) { db.dailyReviewCounts() }
+    val history = remember(db.reviewCount()) { db.recentReviewHistory(20) }
+    val maxDaily = (daily.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1)
+    val dateFormat = remember { java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()) }
+    LazyColumn(
+        Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
+    ) {
+        item { Text("Thống kê học tập", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Metric("Tổng số từ", words.size.toString(), Modifier.weight(1f))
+                Metric("Đến hạn", dueWords.size.toString(), Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Metric("Lượt ôn hôm nay", db.reviewedToday().toString(), Modifier.weight(1f))
+                Metric("Từ đã vững", db.masteredWordCount().toString(), Modifier.weight(1f))
+            }
+        }
+        item { Text("Hoạt động 7 ngày gần nhất", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+        items(daily) { (day, count) ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(day, modifier = Modifier.width(42.dp), style = MaterialTheme.typography.labelMedium)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    LinearProgressIndicator(progress = count.toFloat() / maxDaily, modifier = Modifier.fillMaxWidth().height(8.dp))
+                    Text("$count lượt ôn", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        item { Text("Lịch sử ôn gần đây", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+        if (history.isEmpty()) {
+            item { Text("Chưa có lịch sử. Hoàn thành một lượt ôn để bắt đầu ghi nhận tiến độ.") }
+        } else {
+            items(history) { entry ->
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(entry.term, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                when (entry.grade) { 0 -> "Quên"; 1 -> "Khó"; 2 -> "Nhớ"; else -> "Dễ" },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (entry.grade == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Text(dateFormat.format(java.util.Date(entry.reviewedAt)), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
