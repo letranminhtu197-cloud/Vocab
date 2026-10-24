@@ -1126,8 +1126,10 @@ private fun PracticeScreen(
                             }, modifier = Modifier.fillMaxWidth(), enabled = !answered && typedAnswer.isNotBlank()) { Text("Kiểm tra") }
                         }
                         "Điền từ" -> {
-                            val sentenceHasTerm = current.example.contains(current.term, ignoreCase = true)
-                            val sentence = if (sentenceHasTerm) current.example.replace(Regex(Regex.escape(current.term), RegexOption.IGNORE_CASE), "______") else "Nghĩa tiếng Việt: ${current.meaning}"
+                            // Hide only whole-word matches; "art" must not blank "party".
+                            val termPattern = Regex("(?<![\\\\p{L}\\\\p{N}_])\${Regex.escape(current.term)}(?![\\\\p{L}\\\\p{N}_])", RegexOption.IGNORE_CASE)
+                            val sentenceHasTerm = current.example.contains(termPattern)
+                            val sentence = if (sentenceHasTerm) termPattern.replace(current.example, "______") else "Nghĩa tiếng Việt: \${current.meaning}"
                             Text("Hoàn thành câu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(sentence, style = MaterialTheme.typography.bodyLarge)
                             if (!sentenceHasTerm) Text("Chưa có câu ví dụ chứa từ này; hãy nhập từ tiếng Anh tương ứng.")
