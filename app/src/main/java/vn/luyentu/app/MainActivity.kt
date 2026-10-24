@@ -879,8 +879,22 @@ private fun PracticeScreen(
         else mode
     }
     val choices = remember(current?.id, allWords.size, activeMode) {
-        if (current == null) emptyList()
-        else (allWords.map { it.meaning }.filter { it.isNotBlank() && it != current.meaning }.distinct().shuffled().take(3) + current.meaning).shuffled()
+        if (current == null) {
+            emptyList()
+        } else {
+            // Meanings can differ only by case or whitespace; normalize before de-duplicating
+            // so a multiple-choice question never shows visually equivalent answers twice.
+            fun meaningKey(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ")
+            val correctMeaning = current.meaning.trim()
+            val correctKey = meaningKey(correctMeaning)
+            val distractors = allWords
+                .map { it.meaning.trim() }
+                .filter { it.isNotBlank() && meaningKey(it) != correctKey }
+                .distinctBy { meaningKey(it) }
+                .shuffled()
+                .take(3)
+            (distractors + correctMeaning).shuffled()
+        }
     }
     val matchBatch = if (activeMode == "Nối từ") sessionWords.take(4) else emptyList()
     val shuffledMatchTerms = remember(matchBatch.map { it.id }) { matchBatch.shuffled() }
