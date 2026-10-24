@@ -80,10 +80,10 @@ object CsvTools {
     }
 
     fun exportPlainText(words: List<VocabularyWord>): String = buildString {
-        appendLine("term\\tmeaning\\texample\\tipa\\ttopic")
+        appendLine("term\tmeaning\texample\tipa\ttopic")
         words.forEach { word ->
             appendLine(listOf(word.term, word.meaning, word.example, word.ipa, word.topic)
-                .joinToString("\\t") { it.replace("\\t", " ").replace("\\r", " ").replace("\\n", " ") })
+                .joinToString("\t") { it.replace("\t", " ").replace("\r", " ").replace("\n", " ") })
         }
     }
 
