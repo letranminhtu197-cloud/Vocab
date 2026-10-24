@@ -42,6 +42,7 @@ private fun LuyenTuApp() {
     var words by remember { mutableStateOf(db.getAllWords()) }
     var dueWords by remember { mutableStateOf(db.getDueWords()) }
     var reminderEnabled by remember { mutableStateOf(context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).getBoolean(DailyReminderWorker.ENABLED_KEY, false)) }
+    var dailyGoal by remember { mutableIntStateOf(context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).getInt("daily_review_goal", 10)) }
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val refresh = {
         words = db.getAllWords()
@@ -116,6 +117,12 @@ private fun LuyenTuApp() {
         reminderEnabled = false
         Toast.makeText(context, "Đã tắt nhắc ôn hằng ngày.", Toast.LENGTH_SHORT).show()
     }
+    val updateDailyGoal: (Int) -> Unit = { goal ->
+        context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE)
+            .edit().putInt("daily_review_goal", goal).apply()
+        dailyGoal = goal
+        Toast.makeText(context, "Đã đặt mục tiêu ${goal} lượt ôn/ngày.", Toast.LENGTH_SHORT).show()
+    }
     val titles = listOf("Tổng quan", "Sổ từ", "Luyện tập", "Thống kê", "Cài đặt", "Lộ trình")
     val icons = listOf(Icons.Default.Home, Icons.Default.AutoStories, Icons.Default.School, Icons.Default.BarChart, Icons.Default.Settings, Icons.Default.Route)
 
@@ -168,7 +175,9 @@ private fun LuyenTuApp() {
                     onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") },
                     reminderEnabled = reminderEnabled,
                     onEnableReminder = enableReminder,
-                    onDisableReminder = disableReminder
+                    onDisableReminder = disableReminder,
+                    dailyGoal = dailyGoal,
+                    onDailyGoalChange = updateDailyGoal
                 )
                 5 -> RoadmapScreen(padding, words, db)
                 else -> SettingsScreen(
@@ -178,7 +187,9 @@ private fun LuyenTuApp() {
                     onExportText = { exportTxt.launch("LuyenTu-vocabulary.txt") },
                     reminderEnabled = reminderEnabled,
                     onEnableReminder = enableReminder,
-                    onDisableReminder = disableReminder
+                    onDisableReminder = disableReminder,
+                    dailyGoal = dailyGoal,
+                    onDailyGoalChange = updateDailyGoal
                 )
             }
         }
@@ -285,10 +296,21 @@ private fun VocabularyScreen(padding: PaddingValues, words: List<VocabularyWord>
 
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit) {
+private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit, dailyGoal: Int, onDailyGoalChange: (Int) -> Unit) {
     Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Cài đặt & dữ liệu", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Nhập và xuất bộ từ bằng CSV hoặc TXT/TSV. Dữ liệu được nhập vào bộ nhớ cục bộ của ứng dụng; không cần đăng nhập.")
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Mục tiêu ôn tập", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Đặt số lượt ôn mong muốn mỗi ngày.")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(5, 10, 20).forEach { goal ->
+                        FilterChip(selected = dailyGoal == goal, onClick = { onDailyGoalChange(goal) }, label = { Text("$goal lượt") })
+                    }
+                }
+            }
+        }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Nhắc ôn hằng ngày", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
