@@ -4,6 +4,10 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 data class VocabularyWord(
     val id: Long,
@@ -17,6 +21,8 @@ data class VocabularyWord(
     val repetitions: Int = 0,
     val easeFactor: Double = 2.5
 )
+
+data class ReviewHistoryItem(val term: String, val grade: Int, val reviewedAt: Long)
 
 class VocabularyDatabase(context: Context) :
     SQLiteOpenHelper(context.applicationContext, DATABASE_NAME, null, DATABASE_VERSION) {
@@ -185,6 +191,60 @@ class VocabularyDatabase(context: Context) :
 
     fun reviewCount(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM review_log", null).use {
         if (it.moveToFirst()) it.getInt(0) else 0
+    }
+
+    fun masteredWordCount(): Int = readableDatabase.rawQuery(
+        "SELECT COUNT(*) FROM vocabulary WHERE repetitions >= 3 AND interval_days >= 7", null
+    ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+
+    fun reviewedToday(): Int {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val start = calendar.timeInMillis
+        return readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM review_log WHERE reviewed_at >= ?",
+            arrayOf(start.toString())
+        ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+    }
+
+    fun dailyReviewCounts(): List<Pair<String, Int>> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        calendar.add(Calendar.DAY_OF_YEAR, -6)
+        val labelFormat = SimpleDateFormat("EEE", Locale.getDefault())
+        val result = mutableListOf<Pair<String, Int>>()
+        repeat(7) {
+            val start = calendar.timeInMillis
+            calendar.add(Calendar.DAY_OF_YEAR, 1)
+            val end = calendar.timeInMillis
+            val count = readableDatabase.rawQuery(
+                "SELECT COUNT(*) FROM review_log WHERE reviewed_at >= ? AND reviewed_at < ?",
+                arrayOf(start.toString(), end.toString())
+            ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+            result += labelFormat.format(Date(start)) to count
+        }
+        return result
+    }
+
+    fun recentReviewHistory(limit: Int = 30): List<ReviewHistoryItem> {
+        val result = mutableListOf<ReviewHistoryItem>()
+        readableDatabase.rawQuery(
+            "SELECT vocabulary.term, review_log.grade, review_log.reviewed_at " +
+                "FROM review_log INNER JOIN vocabulary ON vocabulary.id = review_log.word_id " +
+                "ORDER BY review_log.reviewed_at DESC LIMIT ?",
+            arrayOf(limit.coerceIn(1, 200).toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                result += ReviewHistoryItem(cursor.getString(0), cursor.getInt(1), cursor.getLong(2))
+            }
+        }
+        return result
     }
 
     companion object {
