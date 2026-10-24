@@ -144,8 +144,8 @@ private fun LuyenTuApp() {
                         val restoredReminder = settings?.optBoolean("reminderEnabled", false)
                         Triple(counts, restoredGoal, restoredReminder)
                     }
-                    if (result.second != null) dailyGoal = result.second
-                    if (result.third != null) reminderEnabled = result.third
+                    result.second?.let { dailyGoal = it }
+                    result.third?.let { reminderEnabled = it }
                     if (result.second != null || result.third != null) {
                         context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).edit().apply {
                             result.second?.let { putInt("daily_review_goal", it) }

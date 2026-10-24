@@ -54,7 +54,12 @@ class SrsSchedulerTest {
         assertEquals(7, result.intervalDays)
         assertEquals(now + 7 * 24 * 60 * 60 * 1000L, result.nextReviewAt)
         assertEquals(3, result.repetitions)
-        assertEquals(3, result.learningLevelAfter(result))
+        val levelAfter = VocabularyWord(
+            id = fresh.id, term = fresh.term, meaning = fresh.meaning, example = fresh.example,
+            ipa = fresh.ipa, topic = fresh.topic, intervalDays = result.intervalDays,
+            repetitions = result.repetitions
+        ).learningLevel
+        assertEquals(3, levelAfter)
     }
 
     @Test
@@ -67,10 +72,4 @@ class SrsSchedulerTest {
         assertTrue(result.nextReviewAt > now)
     }
 
-    private fun SrsSchedule.learningLevelAfter(result: SrsSchedule): Int =
-        VocabularyWord(
-            id = fresh.id, term = fresh.term, meaning = fresh.meaning, example = fresh.example,
-            ipa = fresh.ipa, topic = fresh.topic, intervalDays = result.intervalDays,
-            repetitions = result.repetitions
-        ).learningLevel
 }
