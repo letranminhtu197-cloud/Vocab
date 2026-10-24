@@ -159,7 +159,7 @@ private fun LuyenTuApp() {
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Metric("Chuỗi học", "${db.currentStreakDays()} ngày", Modifier.weight(1f))
-                        Metric("Ôn hôm nay", db.reviewedToday().toString(), Modifier.weight(1f))
+                        Metric("Mục tiêu hôm nay", "${db.reviewedToday()}/${dailyGoal}", Modifier.weight(1f))
                     }
                     Text("Tiến độ và lịch ôn được lưu trên điện thoại; không cần kết nối mạng.")
                     Text("Các phần nhập/xuất bộ từ, bài tập đa dạng và thống kê chi tiết vẫn đang được phát triển.",
