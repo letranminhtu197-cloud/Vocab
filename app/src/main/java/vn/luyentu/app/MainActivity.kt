@@ -320,6 +320,8 @@ private fun VocabularyScreen(
     var editExample by remember(editingWord?.id) { mutableStateOf(editingWord?.example.orEmpty()) }
     var editError by remember { mutableStateOf("") }
     var addWordDialog by rememberSaveable { mutableStateOf(false) }
+    var viewingDeckContent by rememberSaveable { mutableStateOf(false) }
+    var deckSearch by rememberSaveable { mutableStateOf("") }
     var decks by remember { mutableStateOf(db.getDecks()) }
     var folders by remember { mutableStateOf(db.getFolders()) }
     var createDialog by rememberSaveable { mutableStateOf<String?>(null) }
@@ -338,10 +340,89 @@ private fun VocabularyScreen(
             (selectedTopic == "Tất cả" || it.topic == selectedTopic)
     }
 
+    if (!viewingDeckContent) {
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Bộ từ của tôi", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(decks.size.toString() + " bộ từ • " + folders.size + " thư mục",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { createDialog = "folder"; newContainerName = "" }) { Icon(Icons.Default.CreateNewFolder, "Tạo thư mục") }
+                IconButton(onClick = { createDialog = "deck"; newContainerName = ""; selectedFolderId = null }) { Icon(Icons.Default.AddBox, "Tạo bộ từ") }
+            }
+            OutlinedTextField(
+                value = deckSearch, onValueChange = { deckSearch = it }, modifier = Modifier.fillMaxWidth(),
+                label = { Text("Tìm bộ từ hoặc thư mục") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                onClick = { onActiveDeckChange(null); viewingDeckContent = true }
+            ) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Icons.Default.CollectionsBookmark, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Tất cả từ vựng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(words.size.toString() + " từ • Xem toàn bộ từ trong thư viện", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Icon(Icons.Default.ChevronRight, null)
+                }
+            }
+            val visibleDecks = decks.filter { deck ->
+                deck.name.contains(deckSearch, true) ||
+                    folders.any { folder -> folder.id == deck.folderId && folder.name.contains(deckSearch, true) }
+            }
+            val unfiledDecks = visibleDecks.filter { it.folderId == null }
+            if (unfiledDecks.isNotEmpty()) {
+                Text("BỘ TỪ CỦA BẠN", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                unfiledDecks.forEach { deck ->
+                    LibraryDeckCard(
+                        deck = deck, folderName = null,
+                        onOpen = { onActiveDeckChange(deck.id); viewingDeckContent = true },
+                        onRename = { onActiveDeckChange(deck.id); createDialog = "renameDeck"; newContainerName = deck.name },
+                        onDelete = { onActiveDeckChange(deck.id); confirmDeleteDeck = true }
+                    )
+                }
+            }
+            folders.forEach { folder ->
+                val folderDecks = visibleDecks.filter { it.folderId == folder.id }
+                if (folder.name.contains(deckSearch, true) || folderDecks.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Icon(Icons.Default.Folder, null, tint = MaterialTheme.colorScheme.tertiary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(folder.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { editingFolderId = folder.id; createDialog = "renameFolder"; newContainerName = folder.name }) { Icon(Icons.Default.Edit, "Đổi tên thư mục") }
+                        IconButton(onClick = { confirmDeleteFolderId = folder.id }) { Icon(Icons.Default.Delete, "Xóa thư mục") }
+                    }
+                    if (folderDecks.isEmpty()) {
+                        Text("Chưa có bộ từ trong thư mục này.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        folderDecks.forEach { deck ->
+                            LibraryDeckCard(
+                                deck = deck, folderName = folder.name,
+                                onOpen = { onActiveDeckChange(deck.id); viewingDeckContent = true },
+                                onRename = { onActiveDeckChange(deck.id); createDialog = "renameDeck"; newContainerName = deck.name },
+                                onDelete = { onActiveDeckChange(deck.id); confirmDeleteDeck = true }
+                            )
+                        }
+                    }
+                }
+            }
+            if (visibleDecks.isEmpty() && deckSearch.isNotBlank()) Text("Không tìm thấy bộ từ hoặc thư mục.")
+            Text("Chọn một bộ từ để xem, thêm và luyện tập các từ trong bộ đó.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else {
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            IconButton(onClick = { viewingDeckContent = false }) { Icon(Icons.Default.ArrowBack, "Quay lại bộ từ") }
             Column(Modifier.weight(1f)) {
-                Text("Bộ từ của bạn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(if (activeDeckId == null) "Tất cả từ vựng" else db.deckName(activeDeckId), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("${deckWords.size} từ • ${if (activeDeckId == null) "tất cả bộ từ" else db.deckName(activeDeckId)}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -451,8 +532,9 @@ private fun VocabularyScreen(
                     IconButton(onClick = { db.deleteWord(word.id); refresh() }) { Icon(Icons.Default.Delete, "Xoá từ") }
                 } }
             }
-            if (filtered.isEmpty()) item { Text(if (search.isBlank()) "Chưa có từ. Hãy thêm từ đầu tiên ở biểu mẫu trên." else "Không tìm thấy từ.") }
+            if (filtered.isEmpty()) item { Text(if (search.isBlank()) "Chưa có từ trong bộ này. Nhấn Thêm từ để bắt đầu." else "Không tìm thấy từ.") }
         }
+    }
     }
     if (addWordDialog) {
         AlertDialog(
@@ -602,6 +684,33 @@ private fun VocabularyScreen(
     }
 }
 
+
+@Composable
+private fun LibraryDeckCard(
+    deck: VocabularyDeck,
+    folderName: String?,
+    onOpen: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth(), onClick = onOpen,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoStories, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(deck.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(deck.wordCount.toString() + " từ • " + deck.dueCount + " đến hạn",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (!folderName.isNullOrBlank()) Text(folderName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                Text("Xem bộ từ  ›", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onRename) { Icon(Icons.Default.Edit, "Đổi tên bộ từ") }
+            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "Xóa bộ từ") }
+        }
+    }
+}
 
 @Composable
 private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit, dailyGoal: Int, onDailyGoalChange: (Int) -> Unit) {
