@@ -52,6 +52,9 @@ private fun LuyenTuApp() {
     var activeDeckId by rememberSaveable { mutableStateOf(db.getDecks().firstOrNull()?.id) }
     var reminderEnabled by remember { mutableStateOf(context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).getBoolean(DailyReminderWorker.ENABLED_KEY, false)) }
     var dailyGoal by remember { mutableIntStateOf(context.getSharedPreferences(DailyReminderWorker.PREFS, android.content.Context.MODE_PRIVATE).getInt("daily_review_goal", 10)) }
+    val widgetPrefs = remember(context) { context.getSharedPreferences("luyentu_widget_prefs", android.content.Context.MODE_PRIVATE) }
+    var widgetStrategy by remember { mutableStateOf(widgetPrefs.getString("word_strategy", "due") ?: "due") }
+    var widgetAvatar by remember { mutableStateOf(widgetPrefs.getString("avatar", "📚") ?: "📚") }
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val refresh = {
         words = db.getAllWords()
@@ -312,7 +315,11 @@ private fun LuyenTuApp() {
                     onEnableReminder = enableReminder,
                     onDisableReminder = disableReminder,
                     dailyGoal = dailyGoal,
-                    onDailyGoalChange = updateDailyGoal
+                    onDailyGoalChange = updateDailyGoal,
+                    widgetStrategy = widgetStrategy,
+                    onWidgetStrategyChange = { value -> widgetStrategy = value; widgetPrefs.edit().putString("word_strategy", value).apply(); LuyenTuWidgetProvider.updateAll(context) },
+                    widgetAvatar = widgetAvatar,
+                    onWidgetAvatarChange = { value -> widgetAvatar = value; widgetPrefs.edit().putString("avatar", value).apply(); LuyenTuWidgetProvider.updateAll(context) }
                 )
                 5 -> RoadmapScreen(padding, words, db)
                 else -> SettingsScreen(
@@ -769,7 +776,7 @@ private fun LibraryDeckCard(
 }
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit, dailyGoal: Int, onDailyGoalChange: (Int) -> Unit) {
+private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExport: () -> Unit, onExportText: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit, reminderEnabled: Boolean, onEnableReminder: () -> Unit, onDisableReminder: () -> Unit, dailyGoal: Int, onDailyGoalChange: (Int) -> Unit, widgetStrategy: String, onWidgetStrategyChange: (String) -> Unit, widgetAvatar: String, onWidgetAvatarChange: (String) -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -795,6 +802,27 @@ private fun SettingsScreen(padding: PaddingValues, onImport: () -> Unit, onExpor
                     OutlinedButton(onClick = onDisableReminder, modifier = Modifier.fillMaxWidth()) { Text("Tắt nhắc ôn") }
                 } else {
                     Button(onClick = onEnableReminder, modifier = Modifier.fillMaxWidth()) { Text("Bật nhắc ôn") }
+                }
+            }
+        }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Widget màn hình chính", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Chọn loại từ hiển thị và biểu tượng. Thay đổi được lưu cục bộ và cập nhật widget ngay.")
+                Text("Từ hiển thị", style = MaterialTheme.typography.labelLarge)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("due" to "Từ đến hạn ôn", "alphabetical" to "Theo thứ tự A–Z", "random" to "Từ ngẫu nhiên").forEach { (key, label) ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                            RadioButton(selected = widgetStrategy == key, onClick = { onWidgetStrategyChange(key) })
+                            Text(label, modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                Text("Biểu tượng", style = MaterialTheme.typography.labelLarge)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("📚", "🦊", "🐼", "🐸", "🚀", "🌱").forEach { avatar ->
+                        FilterChip(selected = widgetAvatar == avatar, onClick = { onWidgetAvatarChange(avatar) }, label = { Text(avatar) })
+                    }
                 }
             }
         }
