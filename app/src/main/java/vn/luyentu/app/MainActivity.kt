@@ -333,7 +333,11 @@ private fun LuyenTuApp() {
                     onEnableReminder = enableReminder,
                     onDisableReminder = disableReminder,
                     dailyGoal = dailyGoal,
-                    onDailyGoalChange = updateDailyGoal
+                    onDailyGoalChange = updateDailyGoal,
+                    widgetStrategy = widgetStrategy,
+                    onWidgetStrategyChange = { value -> widgetStrategy = value; widgetPrefs.edit().putString("word_strategy", value).apply(); LuyenTuWidgetProvider.updateAll(context) },
+                    widgetAvatar = widgetAvatar,
+                    onWidgetAvatarChange = { value -> widgetAvatar = value; widgetPrefs.edit().putString("avatar", value).apply(); LuyenTuWidgetProvider.updateAll(context) }
                 )
             }
         }
