@@ -1,0 +1,102 @@
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, nativeImage, globalShortcut } = require('electron');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const APP_NAME = 'Aurestar';
+let win = null, tray = null, reminderTimer = null;
+let state = null;
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const dataDir = () => app.getPath('userData');
+const dataFile = () => path.join(dataDir(), 'aurestar-data.json');
+const backupDir = () => path.join(dataDir(), 'backups');
+const defaultState = () => ({
+  schemaVersion: 1, createdAt: Date.now(),
+  settings: { notifications:true, dailyReminder:'08:00', taskReminders:true, autoBackup:true, backupTime:'23:30', focusPreset:25, focusShortBreak:5, focusLongBreak:15, focusLongBreakEvery:4, blockedWebsites:['tiktok.com','facebook.com','youtube.com'], blockDuringFocus:true, startWithWindows:false, minimizeToTray:true, theme:'dark', language:'en' },
+  profile:{totalFocusMinutes:0,level:1,xp:0,streak:0,lastActiveDate:''},
+  tasks:[], habits:[], lists:[{id:'inbox',name:'Inbox',color:'red',createdAt:Date.now()}],
+  focusSessions:[], workoutSessions:[], completions:[], remindersSent:{}, focus:{active:false,paused:false,phase:'focus',remaining:1500,total:1500,startedAt:0,taskId:null,completedCycles:0},
+  motivationQuotes:['Start now. Not later.','Well begun is half done.','Great things are done by a series of small things brought together.','You do not have to see the whole staircase; just take the first step.']
+});
+function readState(){
+  try { const s=JSON.parse(fs.readFileSync(dataFile(),'utf8')); return { ...defaultState(), ...s, settings:{...defaultState().settings,...s.settings}, profile:{...defaultState().profile,...s.profile}, focus:{...defaultState().focus,...s.focus} }; }
+  catch { return defaultState(); }
+}
+function saveState(){ fs.mkdirSync(dataDir(),{recursive:true}); fs.writeFileSync(dataFile(),JSON.stringify(state,null,2),'utf8'); }
+function notify(title,body){
+  if (!state?.settings?.notifications || !Notification.isSupported()) return;
+  new Notification({title,body,silent:false}).show();
+}
+function sendReminder(type, text){
+  const key = `${today()}:${type}`;
+  if(state.remindersSent[key]) return;
+  state.remindersSent[key]=Date.now(); saveState(); notify(APP_NAME,text);
+}
+function checkSchedule(){
+  if(!state) return;
+  const now=new Date(), hm=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const stamp=`${today()}:${hm}`;
+  if(hm==='05:30') sendReminder('wake-0530','Every morning is a new beginning.');
+  if(hm==='06:00') sendReminder('wake-0600','The secret of getting ahead is getting started.');
+  if(hm==='20:45') sendReminder('wind-down','Rest is part of the work. Begin winding down.');
+  if(hm==='21:00') sendReminder('sleep','A well-spent day brings happy sleep.');
+  if(hm===state.settings.dailyReminder) sendReminder('daily','Your study plan is ready. Choose one clear task and take the first step.');
+  if(state.settings.taskReminders){
+    for(const t of state.tasks||[]) if(!t.archived && t.dueDate===today() && t.dueTime===hm && !(t.completedDates||[]).includes(today())) sendReminder('task-'+t.id,`Task reminder: ${t.title}`);
+  }
+  if(state.settings.autoBackup && hm===state.settings.backupTime && !state.remindersSent[today()+':backup']){
+    try{fs.mkdirSync(backupDir(),{recursive:true});fs.copyFileSync(dataFile(),path.join(backupDir(),`aurestar-${today()}.json`));state.remindersSent[today()+':backup']=Date.now();saveState();}catch(e){console.error('Auto backup failed',e);}
+  }
+}
+function createWindow(){
+  win=new BrowserWindow({width:1440,height:920,minWidth:1024,minHeight:700,show:false,backgroundColor:'#211217',title:APP_NAME,autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  win.loadFile(path.join(__dirname,'index.html'));
+  win.once('ready-to-show',()=>win.show());
+  win.on('close',(e)=>{if(state?.settings?.minimizeToTray && tray && !app.isQuitting){e.preventDefault();win.hide();}});
+  win.on('closed',()=>{win=null;});
+}
+function createTray(){
+  const iconPath=path.join(__dirname,'..','legacy-extension','Aurestar','icons','icon16.png');
+  let icon=fs.existsSync(iconPath)?nativeImage.createFromPath(iconPath):nativeImage.createEmpty();
+  if(process.platform==='win32' && !icon.isEmpty()) icon=icon.resize({width:16,height:16});
+  tray=new Tray(icon);tray.setToolTip(APP_NAME);
+  tray.setContextMenu(Menu.buildFromTemplate([
+    {label:'Open Aurestar',click:()=>{if(!win)createWindow();else win.show();}},
+    {label:'Start / pause focus',accelerator:'Ctrl+Shift+L',click:()=>toggleFocus()},
+    {label:'Quick add task',accelerator:'Ctrl+Shift+K',click:()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');}},
+    {type:'separator'},{label:'Quit',click:()=>{app.isQuitting=true;app.quit();}}
+  ]));
+  tray.on('double-click',()=>{if(!win)createWindow();else win.show();});
+}
+function toggleFocus(){
+  if(!state.focus.active){state.focus.active=true;state.focus.paused=false;state.focus.phase='focus';state.focus.total=(Number(state.settings.focusPreset)||25)*60;state.focus.remaining=state.focus.total;state.focus.startedAt=Date.now();}
+  else {state.focus.paused=!state.focus.paused;}
+  saveState();win?.webContents.send('aurestar:state',state);
+}
+ipcMain.handle('state:get',()=>state);
+ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');state={...state,...next};saveState();return state;});
+ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
+  const t=state.tasks.find(x=>String(x.id)===String(id));if(!t)return {ok:false};
+  t.completedDates=Array.isArray(t.completedDates)?t.completedDates:[];
+  const done=t.completedDates.includes(date);
+  if(done)t.completedDates=t.completedDates.filter(d=>d!==date);else{t.completedDates.push(date);state.completions.push({id:String(id),kind:'task',date,at:Date.now()});state.profile.xp=(state.profile.xp||0)+10;}
+  saveState();return {ok:true,done:!done,state};
+});
+ipcMain.handle('focus:toggle',()=>{toggleFocus();return state.focus;});
+ipcMain.handle('focus:reset',(_e,minutes)=>{state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:Math.max(1,Number(minutes)||25)*60,total:Math.max(1,Number(minutes)||25)*60,startedAt:0};saveState();return state.focus;});
+ipcMain.handle('focus:finish',(_e,minutes)=>{const n=Math.max(1,Number(minutes)||25);state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes:n,createdAt:Date.now()});state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+n;state.profile.xp=(state.profile.xp||0)+n;state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:(Number(state.settings.focusPreset)||25)*60,total:(Number(state.settings.focusPreset)||25)*60,startedAt:0,completedCycles:(state.focus.completedCycles||0)+1};state.completions.push({kind:'focus',date:today(),minutes:n,at:Date.now()});saveState();return state;});
+ipcMain.handle('data:export',async()=>{const r=await dialog.showSaveDialog(win,{title:'Export Aurestar backup',defaultPath:`Aurestar-${today()}.json`,filters:[{name:'JSON backup',extensions:['json']}]});if(r.canceled||!r.filePath)return {canceled:true};fs.writeFileSync(r.filePath,JSON.stringify(state,null,2),'utf8');return {ok:true,filePath:r.filePath};});
+ipcMain.handle('data:import',async()=>{const r=await dialog.showOpenDialog(win,{title:'Restore Aurestar backup',properties:['openFile'],filters:[{name:'JSON backup',extensions:['json']}]});if(r.canceled||!r.filePaths[0])return {canceled:true};const next=JSON.parse(fs.readFileSync(r.filePaths[0],'utf8'));if(!next||typeof next!=='object'||!Array.isArray(next.tasks))throw new Error('This file is not a valid Aurestar data backup.');state={...defaultState(),...next,settings:{...defaultState().settings,...next.settings}};saveState();win?.webContents.send('aurestar:state',state);return {ok:true,state};});
+ipcMain.handle('backup:now',()=>{fs.mkdirSync(backupDir(),{recursive:true});const p=path.join(backupDir(),`aurestar-${today()}-${Date.now()}.json`);fs.copyFileSync(dataFile(),p);return {ok:true,path:p};});
+ipcMain.handle('notification:test',()=>{notify(APP_NAME,'Notifications are working.');return {ok:true};});
+ipcMain.handle('app:open-external',async(_e,url)=>{if(typeof url!=='string'||!/^https?:\/\//i.test(url))return false;await shell.openExternal(url);return true;});
+ipcMain.handle('app:version',()=>app.getVersion());
+app.whenReady().then(()=>{
+  state=readState();saveState();createWindow();createTray();
+  reminderTimer=setInterval(checkSchedule,15000);checkSchedule();
+  globalShortcut.register('CommandOrControl+Shift+L',toggleFocus);
+  globalShortcut.register('CommandOrControl+Shift+K',()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');});
+  if(process.platform==='win32' && state.settings.startWithWindows){app.setLoginItemSettings({openAtLogin:true});}
+  app.on('activate',()=>{if(!win)createWindow();else win.show();});
+});
+app.on('before-quit',()=>{app.isQuitting=true;if(reminderTimer)clearInterval(reminderTimer);globalShortcut.unregisterAll();saveState();});
+app.on('window-all-closed',()=>{if(process.platform!=='darwin' && !state?.settings?.minimizeToTray)app.quit();});
