@@ -1,0 +1,63 @@
+{
+  "name": "aurestar-desktop",
+  "version": "1.0.0",
+  "description": "Aurestar Windows desktop study planner",
+  "private": true,
+  "main": "main.cjs",
+  "author": "Aurestar",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable",
+    "dist:nsis": "electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.aurestar.desktop",
+    "productName": "Aurestar",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "../legacy-extension/Aurestar/assets/**/*",
+      "../legacy-extension/Aurestar/icons/**/*",
+      "../legacy-extension/Aurestar/logo-star.svg",
+      "../legacy-extension/Aurestar/icon.svg"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "../legacy-extension/Aurestar/icons/icon128.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "Aurestar-Portable-${version}.${ext}"
+    }
+  }
+}
