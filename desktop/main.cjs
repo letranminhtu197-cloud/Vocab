@@ -83,7 +83,7 @@ function tickFocus(){
     }
     focusSaveCounter=0;
   }
-  if(focusSaveCounter>=10 || state.focus.remaining===0){saveState();focusSaveCounter=0;}
+  if(focusSaveCounter>=10 || focusSaveCounter===0){saveState();focusSaveCounter=0;}
   win?.webContents.send('aurestar:state',state);
 }
 function createWindow(){
