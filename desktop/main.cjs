@@ -90,7 +90,7 @@ function toggleFocus(){
   saveState();win?.webContents.send('aurestar:state',state);
 }
 ipcMain.handle('state:get',()=>state);
-ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');state={...state,...next};saveState();return state;});
+ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');const previousStart=Boolean(state?.settings?.startWithWindows);state={...state,...next};saveState();if(process.platform==='win32'&&Boolean(state.settings?.startWithWindows)!==previousStart)app.setLoginItemSettings({openAtLogin:Boolean(state.settings.startWithWindows)});return state;});
 ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
   const t=state.tasks.find(x=>String(x.id)===String(id));if(!t)return {ok:false};
   t.completedDates=Array.isArray(t.completedDates)?t.completedDates:[];
