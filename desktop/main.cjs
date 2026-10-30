@@ -65,13 +65,22 @@ function tickFocus(){
   state.focus.remaining=Math.max(0,Number(state.focus.remaining||0)-1);
   focusSaveCounter++;
   if(state.focus.remaining===0){
-    const minutes=Math.max(1,Math.round((Number(state.focus.total)||1500)/60));
-    state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes,createdAt:Date.now()});
-    state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+minutes;
-    state.profile.xp=(state.profile.xp||0)+minutes;
-    state.completions.push({kind:'focus',date:today(),minutes,at:Date.now()});
-    state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:(Number(state.settings.focusPreset)||25)*60,total:(Number(state.settings.focusPreset)||25)*60,startedAt:0,completedCycles:(state.focus.completedCycles||0)+1};
-    showReminderLine('Take a breath. Drink some water. Begin again.');
+    if(state.focus.phase==='break'){
+      const next=(Number(state.settings.focusPreset)||25)*60;
+      state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:next,total:next,startedAt:0};
+      showReminderLine('Break complete. Start your next focus session.');
+    } else {
+      const minutes=Math.max(1,Math.round((Number(state.focus.total)||1500)/60));
+      state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes,createdAt:Date.now()});
+      state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+minutes;
+      state.profile.xp=(state.profile.xp||0)+minutes;
+      state.completions.push({kind:'focus',date:today(),minutes,at:Date.now()});
+      const cycles=(state.focus.completedCycles||0)+1;
+      const every=Math.max(1,Number(state.settings.focusLongBreakEvery)||4);
+      const breakMinutes=cycles%every===0?(Number(state.settings.focusLongBreak)||15):(Number(state.settings.focusShortBreak)||5);
+      state.focus={...state.focus,active:false,paused:false,phase:'break',remaining:breakMinutes*60,total:breakMinutes*60,startedAt:0,completedCycles:cycles};
+      showReminderLine('Take a breath. Drink some water. Begin again.');
+    }
     focusSaveCounter=0;
   }
   if(focusSaveCounter>=10 || state.focus.remaining===0){saveState();focusSaveCounter=0;}
@@ -98,8 +107,16 @@ function createTray(){
   tray.on('double-click',()=>{if(!win)createWindow();else win.show();});
 }
 function toggleFocus(){
-  if(!state.focus.active){state.focus.active=true;state.focus.paused=false;state.focus.phase='focus';state.focus.total=(Number(state.settings.focusPreset)||25)*60;state.focus.remaining=state.focus.total;state.focus.startedAt=Date.now();}
-  else {state.focus.paused=!state.focus.paused;}
+  if(!state.focus.active){
+    state.focus.active=true;state.focus.paused=false;
+    if(state.focus.phase==='break'){
+      state.focus.total=Math.max(1,Number(state.focus.remaining)||Number(state.settings.focusShortBreak||5)*60);
+      state.focus.remaining=state.focus.total;
+    } else {
+      state.focus.phase='focus';state.focus.total=(Number(state.settings.focusPreset)||25)*60;state.focus.remaining=state.focus.total;
+    }
+    state.focus.startedAt=Date.now();
+  } else {state.focus.paused=!state.focus.paused;}
   saveState();win?.webContents.send('aurestar:state',state);
 }
 ipcMain.handle('state:get',()=>state);
