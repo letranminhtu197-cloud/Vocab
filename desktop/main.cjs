@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const APP_NAME = 'Aurestar';
-let win = null, tray = null, reminderTimer = null;
+let win = null, tray = null, reminderTimer = null, focusTickTimer = null, focusSaveCounter = 0;
 let state = null;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const dataDir = () => app.getPath('userData');
@@ -47,6 +47,23 @@ function checkSchedule(){
     try{fs.mkdirSync(backupDir(),{recursive:true});fs.copyFileSync(dataFile(),path.join(backupDir(),`aurestar-${today()}.json`));state.remindersSent[today()+':backup']=Date.now();saveState();}catch(e){console.error('Auto backup failed',e);}
   }
 }
+function tickFocus(){
+  if(!state?.focus?.active || state.focus.paused) return;
+  state.focus.remaining=Math.max(0,Number(state.focus.remaining||0)-1);
+  focusSaveCounter++;
+  if(state.focus.remaining===0){
+    const minutes=Math.max(1,Math.round((Number(state.focus.total)||1500)/60));
+    state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes,createdAt:Date.now()});
+    state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+minutes;
+    state.profile.xp=(state.profile.xp||0)+minutes;
+    state.completions.push({kind:'focus',date:today(),minutes,at:Date.now()});
+    state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:(Number(state.settings.focusPreset)||25)*60,total:(Number(state.settings.focusPreset)||25)*60,startedAt:0,completedCycles:(state.focus.completedCycles||0)+1};
+    notify(APP_NAME,'Focus session complete. Take a short break, then choose your next step.');
+    focusSaveCounter=0;
+  }
+  if(focusSaveCounter>=10 || state.focus.remaining===0){saveState();focusSaveCounter=0;}
+  win?.webContents.send('aurestar:state',state);
+}
 function createWindow(){
   win=new BrowserWindow({width:1440,height:920,minWidth:1024,minHeight:700,show:false,backgroundColor:'#211217',title:APP_NAME,autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   win.loadFile(path.join(__dirname,'index.html'));
@@ -55,7 +72,7 @@ function createWindow(){
   win.on('closed',()=>{win=null;});
 }
 function createTray(){
-  const iconPath=path.join(__dirname,'..','legacy-extension','Aurestar','icons','icon16.png');
+  const iconPath=path.join(__dirname,'icons','icon16.png');
   let icon=fs.existsSync(iconPath)?nativeImage.createFromPath(iconPath):nativeImage.createEmpty();
   if(process.platform==='win32' && !icon.isEmpty()) icon=icon.resize({width:16,height:16});
   tray=new Tray(icon);tray.setToolTip(APP_NAME);
@@ -92,11 +109,11 @@ ipcMain.handle('app:open-external',async(_e,url)=>{if(typeof url!=='string'||!/^
 ipcMain.handle('app:version',()=>app.getVersion());
 app.whenReady().then(()=>{
   state=readState();saveState();createWindow();createTray();
-  reminderTimer=setInterval(checkSchedule,15000);checkSchedule();
+  reminderTimer=setInterval(checkSchedule,15000);focusTickTimer=setInterval(tickFocus,1000);checkSchedule();
   globalShortcut.register('CommandOrControl+Shift+L',toggleFocus);
   globalShortcut.register('CommandOrControl+Shift+K',()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');});
   if(process.platform==='win32' && state.settings.startWithWindows){app.setLoginItemSettings({openAtLogin:true});}
   app.on('activate',()=>{if(!win)createWindow();else win.show();});
 });
-app.on('before-quit',()=>{app.isQuitting=true;if(reminderTimer)clearInterval(reminderTimer);globalShortcut.unregisterAll();saveState();});
+app.on('before-quit',()=>{app.isQuitting=true;if(reminderTimer)clearInterval(reminderTimer);if(focusTickTimer)clearInterval(focusTickTimer);globalShortcut.unregisterAll();saveState();});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin' && !state?.settings?.minimizeToTray)app.quit();});
