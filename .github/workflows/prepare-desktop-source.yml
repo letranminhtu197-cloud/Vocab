@@ -1,6 +1,10 @@
 name: Prepare Aurestar source for desktop rebuild
 
 on:
+  push:
+    branches: [desktop-rebuild]
+    paths:
+      - '.github/workflows/prepare-desktop-source.yml'
   workflow_dispatch:
 
 permissions:
