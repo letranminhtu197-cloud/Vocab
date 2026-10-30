@@ -6,8 +6,10 @@
   "main": "main.cjs",
   "author": "Aurestar",
   "scripts": {
+    "prestart": "npm run prepare-assets",
     "start": "electron .",
-    "dist": "electron-builder --win nsis portable",
+    "prepare-assets": "node prepare-assets.cjs",
+    "dist": "npm run prepare-assets && electron-builder --win nsis portable",
     "dist:nsis": "electron-builder --win nsis",
     "dist:portable": "electron-builder --win portable"
   },
@@ -28,10 +30,10 @@
       "index.html",
       "renderer.js",
       "styles.css",
-      "../legacy-extension/Aurestar/assets/**/*",
-      "../legacy-extension/Aurestar/icons/**/*",
-      "../legacy-extension/Aurestar/logo-star.svg",
-      "../legacy-extension/Aurestar/icon.svg"
+      "assets/**/*",
+      "icons/**/*",
+      "logo-star.svg",
+      "icon.svg"
     ],
     "win": {
       "target": [
@@ -48,7 +50,7 @@
           ]
         }
       ],
-      "icon": "../legacy-extension/Aurestar/icons/icon128.png"
+      "icon": "icons/icon128.png"
     },
     "nsis": {
       "oneClick": false,
