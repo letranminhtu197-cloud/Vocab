@@ -55,7 +55,7 @@ $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');i
 window.aurestarDesktop.onState(s=>{state=s;render()});
 window.aurestarDesktop.onQuickAdd(addTask);
 async function init(){try{state=await window.aurestarDesktop.getState();render();if(state.focus.active&&!state.focus.paused){startFocusTicker()} }catch(e){$('#content').innerHTML='<article class="card"><h2>Could not load Aurestar</h2><p>'+esc(e.message)+'</p></article>'}}
-function startFocusTicker(){if(focusTick)clearInterval(focusTick);focusTick=setInterval(async()=>{if(!state?.focus?.active||state.focus.paused)return;state.focus.remaining=Math.max(0,Number(state.focus.remaining)-1);if(state.focus.remaining<=0){state.focus.active=false;state.focus.paused=false;await window.aurestarDesktop.saveState(state);toast('Focus timer finished. Take a short break.');state=await window.aurestarDesktop.getState()}const el=$('#timerDisplay');if(el)el.textContent=timerText();},1000)}
+function startFocusTicker(){if(focusTick)clearInterval(focusTick);focusTick=setInterval(async()=>{const next=await window.aurestarDesktop.getState();const wasActive=Boolean(state?.focus?.active);state=next;const el=$('#timerDisplay');if(el)el.textContent=timerText();if(wasActive&&!state.focus.active){render();toast('Focus session complete. Take a short break.');}},1000)}
 const oldToggle=window.aurestarDesktop.toggleFocus;
 document.addEventListener('click',e=>{if(e.target.closest('[data-focus-toggle]')){setTimeout(()=>{if(state?.focus?.active&&!state.focus.paused)startFocusTicker();else if(focusTick){clearInterval(focusTick);focusTick=null}},30)}});
 init();
