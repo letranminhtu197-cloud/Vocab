@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const APP_NAME = 'Aurestar';
-let win = null, tray = null, reminderTimer = null, focusTickTimer = null, focusSaveCounter = 0;
+let win = null, tray = null, reminderWindow = null, reminderTimer = null, focusTickTimer = null, focusSaveCounter = 0;
 let state = null;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const dataDir = () => app.getPath('userData');
@@ -26,10 +26,22 @@ function notify(title,body){
   if (!state?.settings?.notifications || !Notification.isSupported()) return;
   new Notification({title,body,silent:false}).show();
 }
+function showReminderLine(text){
+  try {
+    if(reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
+    reminderWindow=new BrowserWindow({width:980,height:260,frame:false,transparent:false,alwaysOnTop:true,skipTaskbar:true,resizable:false,show:false,backgroundColor:'#211217',webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});
+    const safe=String(text||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const html='<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#211217;color:#f6e9ec;font:700 30px/1.45 Inter,Segoe UI,system-ui,sans-serif}body{display:grid;place-items:center;padding:34px;text-align:center}main{max-width:900px}body:before{content:"★";position:absolute;top:20px;color:#f6c555;font-size:16px;opacity:.8}</style></head><body><main>'+safe+'</main></body></html>';
+    reminderWindow.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent(html));
+    reminderWindow.once('ready-to-show',()=>reminderWindow?.showInactive());
+    const current=reminderWindow;setTimeout(()=>{if(current&&!current.isDestroyed())current.close();},10000);
+    reminderWindow.on('closed',()=>{if(reminderWindow===current)reminderWindow=null;});
+  } catch(e){console.warn('Reminder window failed',e);notify(APP_NAME,text);}
+}
 function sendReminder(type, text){
   const key = `${today()}:${type}`;
   if(state.remindersSent[key]) return;
-  state.remindersSent[key]=Date.now(); saveState(); notify(APP_NAME,text);
+  state.remindersSent[key]=Date.now(); saveState(); showReminderLine(text);
 }
 function checkSchedule(){
   if(!state) return;
@@ -39,6 +51,7 @@ function checkSchedule(){
   if(hm==='06:00') sendReminder('wake-0600','The secret of getting ahead is getting started.');
   if(hm==='20:45') sendReminder('wind-down','Rest is part of the work. Begin winding down.');
   if(hm==='21:00') sendReminder('sleep','A well-spent day brings happy sleep.');
+  if(hm>='06:00' && hm<'20:45' && !state.focus.active){const quotes=state.motivationQuotes||['Start now. Not later.','Well begun is half done.','The secret of getting ahead is getting started.'];sendReminder('study-'+hm,quotes[Math.floor(Math.random()*quotes.length)]);}
   if(hm===state.settings.dailyReminder) sendReminder('daily','Your study plan is ready. Choose one clear task and take the first step.');
   if(state.settings.taskReminders){
     for(const t of state.tasks||[]) if(!t.archived && t.dueDate===today() && t.dueTime===hm && !(t.completedDates||[]).includes(today())) sendReminder('task-'+t.id,`Task reminder: ${t.title}`);
@@ -58,7 +71,7 @@ function tickFocus(){
     state.profile.xp=(state.profile.xp||0)+minutes;
     state.completions.push({kind:'focus',date:today(),minutes,at:Date.now()});
     state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:(Number(state.settings.focusPreset)||25)*60,total:(Number(state.settings.focusPreset)||25)*60,startedAt:0,completedCycles:(state.focus.completedCycles||0)+1};
-    notify(APP_NAME,'Focus session complete. Take a short break, then choose your next step.');
+    showReminderLine('Take a breath. Drink some water. Begin again.');
     focusSaveCounter=0;
   }
   if(focusSaveCounter>=10 || state.focus.remaining===0){saveState();focusSaveCounter=0;}
@@ -100,7 +113,7 @@ ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
 });
 ipcMain.handle('focus:toggle',()=>{toggleFocus();return state.focus;});
 ipcMain.handle('focus:reset',(_e,minutes)=>{state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:Math.max(1,Number(minutes)||25)*60,total:Math.max(1,Number(minutes)||25)*60,startedAt:0};saveState();return state.focus;});
-ipcMain.handle('focus:finish',(_e,minutes)=>{const n=Math.max(1,Number(minutes)||25);state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes:n,createdAt:Date.now()});state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+n;state.profile.xp=(state.profile.xp||0)+n;state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:(Number(state.settings.focusPreset)||25)*60,total:(Number(state.settings.focusPreset)||25)*60,startedAt:0,completedCycles:(state.focus.completedCycles||0)+1};state.completions.push({kind:'focus',date:today(),minutes:n,at:Date.now()});saveState();return state;});
+ipcMain.handle('focus:finish',(_e,minutes)=>{const n=Math.max(1,Number(minutes)||25);state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes:n,createdAt:Date.now()});state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+n;state.profile.xp=(state.profile.xp||0)+n;state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:(Number(state.settings.focusPreset)||25)*60,total:(Number(state.settings.focusPreset)||25)*60,startedAt:0,completedCycles:(state.focus.completedCycles||0)+1};state.completions.push({kind:'focus',date:today(),minutes:n,at:Date.now()});saveState();showReminderLine('Take a breath. Drink some water. Begin again.');return state;});
 ipcMain.handle('data:export',async()=>{const r=await dialog.showSaveDialog(win,{title:'Export Aurestar backup',defaultPath:`Aurestar-${today()}.json`,filters:[{name:'JSON backup',extensions:['json']}]});if(r.canceled||!r.filePath)return {canceled:true};fs.writeFileSync(r.filePath,JSON.stringify(state,null,2),'utf8');return {ok:true,filePath:r.filePath};});
 ipcMain.handle('data:import',async()=>{const r=await dialog.showOpenDialog(win,{title:'Restore Aurestar backup',properties:['openFile'],filters:[{name:'JSON backup',extensions:['json']}]});if(r.canceled||!r.filePaths[0])return {canceled:true};const next=JSON.parse(fs.readFileSync(r.filePaths[0],'utf8'));if(!next||typeof next!=='object'||!Array.isArray(next.tasks))throw new Error('This file is not a valid Aurestar data backup.');state={...defaultState(),...next,settings:{...defaultState().settings,...next.settings}};saveState();win?.webContents.send('aurestar:state',state);return {ok:true,state};});
 ipcMain.handle('backup:now',()=>{fs.mkdirSync(backupDir(),{recursive:true});const p=path.join(backupDir(),`aurestar-${today()}-${Date.now()}.json`);fs.copyFileSync(dataFile(),p);return {ok:true,path:p};});
