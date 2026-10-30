@@ -25,6 +25,13 @@ jobs:
       - name: Install dependencies
         working-directory: desktop
         run: npm install
+      - name: Validate JavaScript syntax
+        working-directory: desktop
+        run: |
+          node --check main.cjs
+          node --check preload.cjs
+          node --check renderer.js
+          node -e "JSON.parse(require('node:fs').readFileSync('package.json','utf8')); console.log('package.json valid')"
       - name: Package Windows app
         working-directory: desktop
         run: npm run dist
