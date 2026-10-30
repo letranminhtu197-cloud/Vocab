@@ -1,4 +1,8 @@
 name: Build Aurestar Desktop
+
+concurrency:
+  group: aurestar-desktop-${{ github.ref }}
+  cancel-in-progress: true
 on:
   workflow_dispatch:
   push:
