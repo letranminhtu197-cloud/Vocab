@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const APP_NAME = 'Aurestar';
-let win = null, tray = null, pomodoroWidget = null, reminderWindow = null, reminderTimer = null, focusTickTimer = null, focusSaveCounter = 0;
+let win = null, tray = null, pomodoroWidget = null, itsukiWindow = null, reminderWindow = null, reminderTimer = null, focusTickTimer = null, focusSaveCounter = 0;
 let state = null;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const dataDir = () => app.getPath('userData');
@@ -83,11 +83,26 @@ function tickFocus(){
     focusSaveCounter=0;
   }
   if(focusSaveCounter>=10 || focusSaveCounter===0){saveState();focusSaveCounter=0;}
-  win?.webContents.send('aurestar:state',state);broadcastWidget();
+  win?.webContents.send('aurestar:state',state);broadcastWidget();broadcastItsuki('focus-tick');
 }
 
 function widgetPayload(){return {focus:state?.focus||{},settings:state?.settings||{}};}
 function broadcastWidget(){if(pomodoroWidget&&!pomodoroWidget.isDestroyed())pomodoroWidget.webContents.send('pomodoro:state',widgetPayload());}
+
+function broadcastItsuki(eventName){
+  if(itsukiWindow&&!itsukiWindow.isDestroyed())itsukiWindow.webContents.send('itsuki:event',{event:eventName,focus:state?.focus||{}});
+}
+function createItsuki(){
+  if(itsukiWindow&&!itsukiWindow.isDestroyed()){itsukiWindow.show();itsukiWindow.moveTop();return;}
+  const area=require('electron').screen.getPrimaryDisplay().workArea;
+  itsukiWindow=new BrowserWindow({width:370,height:330,x:18,y:Math.max(12,area.y+area.height-350),frame:false,transparent:true,alwaysOnTop:true,skipTaskbar:true,resizable:false,show:false,backgroundColor:'#00000000',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  itsukiWindow.loadFile(path.join(__dirname,'itsuki.html'));
+  itsukiWindow.once('ready-to-show',()=>{itsukiWindow?.show();itsukiWindow?.moveTop();broadcastItsuki('startup');});
+  itsukiWindow.on('close',e=>{if(!app.isQuitting){e.preventDefault();itsukiWindow.hide();}});
+  itsukiWindow.on('closed',()=>{itsukiWindow=null;});
+}
+function hideItsuki(){if(itsukiWindow&&!itsukiWindow.isDestroyed())itsukiWindow.hide();}
+
 function createPomodoroWidget(){
   if(pomodoroWidget&&!pomodoroWidget.isDestroyed()){pomodoroWidget.show();pomodoroWidget.moveTop();return;}
   pomodoroWidget=new BrowserWindow({width:300,height:176, x:Math.max(12,require('electron').screen.getPrimaryDisplay().workAreaSize.width-320),y:90,frame:false,transparent:true,alwaysOnTop:true,skipTaskbar:true,resizable:false,minimizable:false,maximizable:false,closable:true,show:false,backgroundColor:'#00000000',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
@@ -112,6 +127,8 @@ function createTray(){
   tray.setContextMenu(Menu.buildFromTemplate([
     {label:'Open Aurestar',click:()=>{if(!win)createWindow();else win.show();}},
     {label:'Show Pomodoro widget',click:()=>createPomodoroWidget()},
+    {label:'Show Itsuki companion',click:()=>createItsuki()},
+    {label:'Hide Itsuki companion',click:()=>hideItsuki()},
     {label:'Start / pause focus',accelerator:'Ctrl+Shift+L',click:()=>toggleFocus()},
     {label:'Quick add task',accelerator:'Ctrl+Shift+K',click:()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');}},
     {type:'separator'},{label:'Quit',click:()=>{app.isQuitting=true;app.quit();}}
@@ -129,11 +146,14 @@ function toggleFocus(){
     }
     state.focus.startedAt=Date.now();
   } else {state.focus.paused=!state.focus.paused;}
-  saveState();win?.webContents.send('aurestar:state',state);broadcastWidget();
+  saveState();win?.webContents.send('aurestar:state',state);broadcastWidget();broadcastItsuki(state.focus.active?(state.focus.phase==='break'?'break-start':'focus-start'):'focus-stop');
 }
 ipcMain.handle('state:get',()=>state);
 ipcMain.handle('pomodoro:widget-close',()=>{closePomodoroWidget();return {ok:true};});
 ipcMain.handle('pomodoro:widget-open',()=>{createPomodoroWidget();return {ok:true};});
+ipcMain.handle('itsuki:hide',()=>{hideItsuki();return {ok:true};});
+ipcMain.handle('itsuki:show',()=>{createItsuki();return {ok:true};});
+ipcMain.handle('itsuki:dismiss',()=>{broadcastItsuki('dismiss');return {ok:true};});
 ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');const previousStart=Boolean(state?.settings?.startWithWindows);state={...state,...next};saveState();broadcastWidget();if(process.platform==='win32'&&Boolean(state.settings?.startWithWindows)!==previousStart)app.setLoginItemSettings({openAtLogin:Boolean(state.settings.startWithWindows)});return state;});
 ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
   const t=state.tasks.find(x=>String(x.id)===String(id));if(!t)return {ok:false};
@@ -152,7 +172,7 @@ ipcMain.handle('notification:test',()=>{notify(APP_NAME,'Notifications are worki
 ipcMain.handle('app:open-external',async(_e,url)=>{if(typeof url!=='string'||!/^https?:\/\//i.test(url))return false;await shell.openExternal(url);return true;});
 ipcMain.handle('app:version',()=>app.getVersion());
 app.whenReady().then(()=>{
-  state=readState();saveState();createWindow();createTray();createPomodoroWidget();
+  state=readState();saveState();createWindow();createTray();createPomodoroWidget();createItsuki();
   reminderTimer=setInterval(checkSchedule,15000);focusTickTimer=setInterval(tickFocus,1000);checkSchedule();
   globalShortcut.register('CommandOrControl+Shift+L',toggleFocus);
   globalShortcut.register('CommandOrControl+Shift+K',()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');});
