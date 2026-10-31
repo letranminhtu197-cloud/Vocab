@@ -10,7 +10,7 @@ const occursOn=(t,k=today())=>{const r=t.repeat||{type:'none'};if(r.type==='dail
 const fmtDate=d=>d?new Date(d+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}):'No due date';
 function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toastTick);toastTick=setTimeout(()=>el.classList.remove('show'),2600)}
 async function persist(){state=await window.aurestarDesktop.saveState(state);render()}
-function titleFor(v){return({overview:'Overview',tasks:'Tasks',habits:'Habits',focus:'Focus',calendar:'Calendar',training:'Training',progress:'Progress',settings:'Settings'})[v]||'Overview'}
+function titleFor(v){return({overview:'Today',tasks:'Tasks',habits:'Habits',focus:'Focus',calendar:'Calendar',training:'Training',progress:'Progress',settings:'Settings'})[v]||'Overview'}
 function setView(v){view=v;$$('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));$('#pageTitle').textContent=titleFor(v);render()}
 function stat(label,value,sub){return `<article class="card"><div class="stat-label">${label}</div><div class="stat-value">${value}</div><div class="stat-sub">${sub||' '}</div></article>`}
 function taskRow(t){const isDone=done(t);return `<div class="task ${isDone?'done':''}"><button class="check ${isDone?'done':''}" data-complete="${esc(t.id)}" aria-label="Complete task">${isDone?'✓':''}</button><div class="task-main"><div class="task-title">${esc(t.title)}</div><div class="task-meta">${esc(t.dueDate?fmtDate(t.dueDate):'No due date')}${t.dueTime?' · '+esc(t.dueTime):''}${t.priority?' · '+esc(t.priority):''}</div></div><button class="button secondary small" data-edit="${esc(t.id)}">Edit</button><button class="button secondary small" data-delete="${esc(t.id)}">×</button></div>`}
