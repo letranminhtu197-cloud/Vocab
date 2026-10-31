@@ -1653,3 +1653,26 @@ body.privacy-mode .command-momentum-itsuki { display: none !important; }
 .calendar-history-v25 .year-heatmap-grid .year-heat-cell.level-2,
 .calendar-history-v25 .year-heatmap-grid .year-heat-cell.level-3,
 .calendar-history-v25 .year-heatmap-grid .year-heat-cell.level-4{border-width:1px}
+
+/* One-click full-session Training */
+.gym-included-chip{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border:1px solid rgba(217,78,103,.28);border-radius:999px;background:rgba(217,78,103,.08);color:#f4c7d0;font-size:9px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
+
+/* Duolingo-inspired daily study streak */
+.study-streak-card{display:grid;grid-template-columns:minmax(190px,.85fr) minmax(250px,1.4fr) auto;align-items:center;gap:16px;margin-top:12px;padding:16px 18px;border:1px solid rgba(217,78,103,.28);border-radius:16px;background:linear-gradient(110deg,rgba(101,41,56,.42),rgba(48,27,37,.9));box-shadow:var(--shadow-soft)}
+.study-streak-summary{display:flex;flex-direction:column;gap:5px;min-width:0}
+.study-streak-number{display:flex;align-items:center;gap:8px;font-size:30px;line-height:1;font-weight:950;color:#fff1f3;font-variant-numeric:tabular-nums}
+.study-streak-flame{font-size:27px;filter:drop-shadow(0 3px 7px rgba(238,112,81,.3))}
+.study-streak-label{font-size:11px;color:#e3c4cb}
+.study-streak-message{font-size:11px;line-height:1.45;color:#caaeb5}
+.study-streak-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;min-width:0}
+.study-streak-day{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;color:#ad929a}
+.study-streak-day-name{font-size:9px;font-weight:800;text-transform:uppercase}
+.study-streak-day-mark{width:30px;height:30px;display:grid;place-items:center;border:1px solid #63414b;border-radius:50%;background:#2e1920;color:#9c7f88;font-size:13px;font-weight:900}
+.study-streak-day.is-active .study-streak-day-mark{border-color:rgba(248,148,87,.75);background:linear-gradient(145deg,#a64a3e,#6a2b37);color:#fff4e9;box-shadow:0 3px 12px rgba(222,93,75,.18)}
+.study-streak-day.is-today .study-streak-day-name{color:#ffe0e6}
+.study-streak-day.is-today .study-streak-day-mark{outline:2px solid rgba(248,148,87,.25);outline-offset:2px}
+.study-streak-best{display:flex;flex-direction:column;gap:4px;min-width:90px;padding-left:14px;border-left:1px solid rgba(217,78,103,.2)}
+.study-streak-best span{font-size:9px;color:#b99ba4;text-transform:uppercase;letter-spacing:.08em}
+.study-streak-best strong{font-size:17px;color:#f7e7eb;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:850px){.study-streak-card{grid-template-columns:1fr;gap:13px}.study-streak-best{padding:10px 0 0;border-left:0;border-top:1px solid rgba(217,78,103,.2)}}
+@media(max-width:520px){.study-streak-week{gap:3px}.study-streak-day-mark{width:26px;height:26px}}
