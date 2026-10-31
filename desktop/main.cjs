@@ -110,7 +110,8 @@ function createTray(){
   if(process.platform==='win32' && !icon.isEmpty()) icon=icon.resize({width:16,height:16});
   tray=new Tray(icon);tray.setToolTip(APP_NAME);
   tray.setContextMenu(Menu.buildFromTemplate([
-    {label:'Open Aurestar',click:()=>{if(!win)createWindow();else win.show();}},\n    {label:'Show Pomodoro widget',click:()=>createPomodoroWidget()},
+    {label:'Open Aurestar',click:()=>{if(!win)createWindow();else win.show();}},
+    {label:'Show Pomodoro widget',click:()=>createPomodoroWidget()},
     {label:'Start / pause focus',accelerator:'Ctrl+Shift+L',click:()=>toggleFocus()},
     {label:'Quick add task',accelerator:'Ctrl+Shift+K',click:()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');}},
     {type:'separator'},{label:'Quit',click:()=>{app.isQuitting=true;app.quit();}}
@@ -130,8 +131,10 @@ function toggleFocus(){
   } else {state.focus.paused=!state.focus.paused;}
   saveState();win?.webContents.send('aurestar:state',state);broadcastWidget();
 }
-ipcMain.handle('state:get',()=>state);\nipcMain.handle('pomodoro:widget-close',()=>{closePomodoroWidget();return {ok:true};});\nipcMain.handle('pomodoro:widget-open',()=>{createPomodoroWidget();return {ok:true};});
-ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');const previousStart=Boolean(state?.settings?.startWithWindows);state={...state,...next};saveState();if(process.platform==='win32'&&Boolean(state.settings?.startWithWindows)!==previousStart)app.setLoginItemSettings({openAtLogin:Boolean(state.settings.startWithWindows)});return state;});
+ipcMain.handle('state:get',()=>state);
+ipcMain.handle('pomodoro:widget-close',()=>{closePomodoroWidget();return {ok:true};});
+ipcMain.handle('pomodoro:widget-open',()=>{createPomodoroWidget();return {ok:true};});
+ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');const previousStart=Boolean(state?.settings?.startWithWindows);state={...state,...next};saveState();broadcastWidget();if(process.platform==='win32'&&Boolean(state.settings?.startWithWindows)!==previousStart)app.setLoginItemSettings({openAtLogin:Boolean(state.settings.startWithWindows)});return state;});
 ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
   const t=state.tasks.find(x=>String(x.id)===String(id));if(!t)return {ok:false};
   t.completedDates=Array.isArray(t.completedDates)?t.completedDates:[];
