@@ -158,6 +158,7 @@ ipcMain.handle('itsuki:hide',()=>{hideItsuki();return {ok:true};});
 ipcMain.handle('itsuki:show',()=>{createItsuki();return {ok:true};});
 ipcMain.handle('itsuki:dismiss',()=>{broadcastItsuki('dismiss');return {ok:true};});
 ipcMain.handle('app:show',()=>{if(!win)createWindow();win?.show();win?.focus();return {ok:true};});
+ipcMain.handle('itsuki:art-url',()=>{const file=app.isPackaged?path.join(process.resourcesPath,'itsuki','itsuki-pet.png'):path.join(__dirname,'..','legacy-extension','Aurestar','assets','itsuki','itsuki-pet.png');return require('node:url').pathToFileURL(file).href;});
 ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');const previousStart=Boolean(state?.settings?.startWithWindows);state={...state,...next};saveState();broadcastWidget();if(process.platform==='win32'&&Boolean(state.settings?.startWithWindows)!==previousStart)app.setLoginItemSettings({openAtLogin:Boolean(state.settings.startWithWindows)});return state;});
 ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
   const t=state.tasks.find(x=>String(x.id)===String(id));if(!t)return {ok:false};
