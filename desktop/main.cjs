@@ -95,11 +95,44 @@ function toggleItsuki(){
   if(itsukiWindow&&!itsukiWindow.isDestroyed()&&itsukiWindow.isVisible())hideItsuki();
   else createItsuki();
 }
+let globalItsukiHotkeyHook=null;
+function installItsukiHotkeys(){
+  if(globalItsukiHotkeyHook)return;
+  try{
+    const {uIOhook,UiohookKey}=require('uiohook-napi');
+    const altCodes=new Set([UiohookKey.Alt,UiohookKey.AltRight]);
+    const ctrlCodes=new Set([UiohookKey.Ctrl,UiohookKey.CtrlRight]);
+    let altDown=false,ctrlDown=false,comboTriggered=false;
+    uIOhook.on('keydown',event=>{
+      const key=Number(event?.keycode);
+      if(altCodes.has(key))altDown=true;
+      if(ctrlCodes.has(key))ctrlDown=true;
+      if(altDown&&ctrlDown&&!comboTriggered){
+        comboTriggered=true;
+        createItsuki();
+      }
+    });
+    uIOhook.on('keyup',event=>{
+      const key=Number(event?.keycode);
+      if(altCodes.has(key)){
+        const shouldHide=altDown&&!comboTriggered&&!ctrlDown;
+        altDown=false;
+        comboTriggered=false;
+        if(shouldHide)hideItsuki();
+      }
+      if(ctrlCodes.has(key))ctrlDown=false;
+    });
+    uIOhook.start();
+    globalItsukiHotkeyHook=uIOhook;
+  }catch(error){
+    console.error('Could not register global Itsuki hotkeys. Alt hides Itsuki; Ctrl+Alt shows it.',error);
+  }
+}
 function bindAltToggle(browserWindow){
+  // Avoid opening Chromium's menu bar when Alt is pressed inside an Aurestar window.
+  // Global show/hide handling is performed once by the OS-level hook.
   browserWindow.webContents.on('before-input-event',(event,input)=>{
-    if(input.type==='keyDown'&&input.key==='Alt'&&!input.isAutoRepeat){
-      event.preventDefault();toggleItsuki();
-    }
+    if(input.type==='keyDown'&&input.key==='Alt')event.preventDefault();
   });
 }
 function createBackgroundWindow(){
@@ -234,9 +267,8 @@ function createTray(){
   tray.setContextMenu(Menu.buildFromTemplate([
     {label:'Open Aurestar',click:()=>{if(!win)createWindow();else win.show();}},
     {label:'Show Pomodoro widget',click:()=>createPomodoroWidget()},
-    {label:'Show Itsuki companion',click:()=>createItsuki()},
-    {label:'Hide Itsuki companion',click:()=>hideItsuki()},
-    {label:'Toggle Itsuki (Alt)',click:()=>{if(itsukiWindow&&!itsukiWindow.isDestroyed()&&itsukiWindow.isVisible())hideItsuki();else createItsuki();}},
+    {label:'Show Itsuki (Ctrl+Alt)',click:()=>createItsuki()},
+    {label:'Hide Itsuki (Alt)',click:()=>hideItsuki()},
     {label:'Start / pause focus',accelerator:'Ctrl+Shift+L',click:()=>toggleFocus()},
     {label:'Quick add task',accelerator:'Ctrl+Shift+K',click:()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');}},
     {type:'separator'},{label:'Quit',click:()=>{app.isQuitting=true;app.quit();}}
@@ -306,9 +338,9 @@ app.whenReady().then(()=>{
   globalShortcut.register('CommandOrControl+Shift+L',toggleFocus);
   globalShortcut.register('CommandOrControl+Shift+K',()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');});
   // A bare Alt key is handled by before-input-event while an Aurestar window is focused.
-  globalShortcut.register('Alt+Shift+I',toggleItsuki);
+  installItsukiHotkeys();
   if(process.platform==='win32' && state.settings.startWithWindows){app.setLoginItemSettings({openAtLogin:true});}
   app.on('activate',()=>{if(!win)createWindow();else win.show();if(!pomodoroWidget)createPomodoroWidget();});
 });
-app.on('before-quit',()=>{app.isQuitting=true;if(reminderTimer)clearInterval(reminderTimer);if(focusTickTimer)clearInterval(focusTickTimer);globalShortcut.unregisterAll();saveState();});
+app.on('before-quit',()=>{app.isQuitting=true;if(reminderTimer)clearInterval(reminderTimer);if(focusTickTimer)clearInterval(focusTickTimer);try{globalItsukiHotkeyHook?.stop();}catch{}globalShortcut.unregisterAll();saveState();});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin' && !state?.settings?.minimizeToTray)app.quit();});
