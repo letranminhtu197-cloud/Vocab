@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 10,
+  "description": "English-only Itsuki study motivation and bedtime reminders. Legacy dialogue text has been replaced.",
+  "targetImageCount": 30,
+  "verifiedImageCount": 30,
+  "images": [
+    {
+      "id": "itsuki-01",
+      "src": "assets/itsuki/1.jpg",
+      "primaryExpression": "cheerful",
+      "expressions": [
+        "cheerful",
+        "supportive"
+      ],
+      "visualNotes": "Laughing with eyes closed",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Focus on one task at a time. Small steps still move you forward."
+    },
+    {
+      "id": "itsuki-02",
+      "src": "assets/itsuki/2.jpg",
+      "primaryExpression": "serious",
+      "expressions": [
+        "serious",
+        "determined"
+      ],
+      "visualNotes": "Neutral, serious gaze",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Do not wait for motivation. Start first, and let momentum follow."
+    },
+    {
+      "id": "itsuki-03",
+      "src": "assets/itsuki/3.jpg",
+      "primaryExpression": "cheerful",
+      "expressions": [
+        "cheerful",
+        "supportive"
+      ],
+      "visualNotes": "Bright smile and upbeat pose",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Return to your goal. Ten focused minutes beat ten minutes of scrolling."
+    },
+    {
+      "id": "itsuki-04",
+      "src": "assets/itsuki/4.jpg",
+      "primaryExpression": "sad",
+      "expressions": [
+        "sad",
+        "concerned"
+      ],
+      "visualNotes": "Downcast, subdued expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Do not trade your sleep for a few more minutes of scrolling."
+    },
+    {
+      "id": "itsuki-05",
+      "src": "assets/itsuki/5.jpg",
+      "primaryExpression": "surprised",
+      "expressions": [
+        "surprised",
+        "shy"
+      ],
+      "visualNotes": "Wide eyes and flushed cheeks",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Keep a steady study rhythm. Small daily progress adds up."
+    },
+    {
+      "id": "itsuki-06",
+      "src": "assets/itsuki/6.jpg",
+      "primaryExpression": "concerned",
+      "expressions": [
+        "concerned",
+        "serious"
+      ],
+      "visualNotes": "Worried, subdued gaze",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Put your phone away and give your attention to what matters most."
+    },
+    {
+      "id": "itsuki-07",
+      "src": "assets/itsuki/7.jpg",
+      "primaryExpression": "surprised",
+      "expressions": [
+        "surprised",
+        "curious"
+      ],
+      "visualNotes": "Wide-eyed surprise",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "If the task feels difficult, break it down and begin with one small step."
+    },
+    {
+      "id": "itsuki-08",
+      "src": "assets/itsuki/8.jpg",
+      "primaryExpression": "surprised",
+      "expressions": [
+        "surprised",
+        "confused"
+      ],
+      "visualNotes": "Dizzy, startled expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "You do not need to solve everything tonight. Rest now and continue tomorrow."
+    },
+    {
+      "id": "itsuki-09",
+      "src": "assets/itsuki/9.jpg",
+      "primaryExpression": "shy",
+      "expressions": [
+        "shy",
+        "supportive"
+      ],
+      "visualNotes": "Blushing, gentle expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Keep going. Every focused minute is an investment in yourself."
+    },
+    {
+      "id": "itsuki-10",
+      "src": "assets/itsuki/10.jpg",
+      "primaryExpression": "displeased",
+      "expressions": [
+        "displeased",
+        "angry"
+      ],
+      "visualNotes": "Open-mouthed upset expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "A good study session begins by closing distractions."
+    },
+    {
+      "id": "itsuki-11",
+      "src": "assets/itsuki/11.jpg",
+      "primaryExpression": "shy",
+      "expressions": [
+        "shy",
+        "displeased"
+      ],
+      "visualNotes": "Blushing with a slightly stern look",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Take a breath, choose one task, and work on it for the time you planned."
+    },
+    {
+      "id": "itsuki-12",
+      "src": "assets/itsuki/12.jpg",
+      "primaryExpression": "shy",
+      "expressions": [
+        "shy",
+        "surprised"
+      ],
+      "visualNotes": "Embarrassed, startled expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Do not trade your sleep for a few more minutes of scrolling."
+    },
+    {
+      "id": "itsuki-13",
+      "src": "assets/itsuki/13.jpg",
+      "primaryExpression": "angry",
+      "expressions": [
+        "angry",
+        "displeased"
+      ],
+      "visualNotes": "Eyes shut, shouting in frustration",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Focus on one task at a time. Small steps still move you forward."
+    },
+    {
+      "id": "itsuki-14",
+      "src": "assets/itsuki/14.jpg",
+      "primaryExpression": "displeased",
+      "expressions": [
+        "displeased",
+        "angry"
+      ],
+      "visualNotes": "Annoyed, shouting expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Do not wait for motivation. Start first, and let momentum follow."
+    },
+    {
+      "id": "itsuki-15",
+      "src": "assets/itsuki/15.jpg",
+      "primaryExpression": "serious",
+      "expressions": [
+        "serious",
+        "supportive"
+      ],
+      "visualNotes": "Calm, attentive expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Return to your goal. Ten focused minutes beat ten minutes of scrolling."
+    },
+    {
+      "id": "itsuki-16",
+      "src": "assets/itsuki/16.jpg",
+      "primaryExpression": "sad",
+      "expressions": [
+        "sad",
+        "shy"
+      ],
+      "visualNotes": "Tearful, distressed expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "You do not need to solve everything tonight. Rest now and continue tomorrow."
+    },
+    {
+      "id": "itsuki-17",
+      "src": "assets/itsuki/17.jpg",
+      "primaryExpression": "angry",
+      "expressions": [
+        "angry",
+        "displeased"
+      ],
+      "visualNotes": "Blushing, angry pout",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Keep a steady study rhythm. Small daily progress adds up."
+    },
+    {
+      "id": "itsuki-18",
+      "src": "assets/itsuki/18.jpg",
+      "primaryExpression": "displeased",
+      "expressions": [
+        "displeased",
+        "serious"
+      ],
+      "visualNotes": "Grumpy, displeased expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Put your phone away and give your attention to what matters most."
+    },
+    {
+      "id": "itsuki-19",
+      "src": "assets/itsuki/19.jpg",
+      "primaryExpression": "relaxed",
+      "expressions": [
+        "relaxed",
+        "cheerful"
+      ],
+      "visualNotes": "Playful relaxed pose",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "If the task feels difficult, break it down and begin with one small step."
+    },
+    {
+      "id": "itsuki-20",
+      "src": "assets/itsuki/20.jpg",
+      "primaryExpression": "cheerful",
+      "expressions": [
+        "cheerful",
+        "supportive"
+      ],
+      "visualNotes": "Laughing energetically",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Do not trade your sleep for a few more minutes of scrolling."
+    },
+    {
+      "id": "itsuki-21",
+      "src": "assets/itsuki/21.jpg",
+      "primaryExpression": "determined",
+      "expressions": [
+        "determined",
+        "serious"
+      ],
+      "visualNotes": "Studying with glasses and focused posture",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Keep going. Every focused minute is an investment in yourself."
+    },
+    {
+      "id": "itsuki-22",
+      "src": "assets/itsuki/22.jpg",
+      "primaryExpression": "cheerful",
+      "expressions": [
+        "cheerful",
+        "supportive"
+      ],
+      "visualNotes": "Eyes closed, warm smile",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "A good study session begins by closing distractions."
+    },
+    {
+      "id": "itsuki-23",
+      "src": "assets/itsuki/23.jpg",
+      "primaryExpression": "shy",
+      "expressions": [
+        "shy",
+        "displeased"
+      ],
+      "visualNotes": "Flustered, hands raised",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Take a breath, choose one task, and work on it for the time you planned."
+    },
+    {
+      "id": "itsuki-24",
+      "src": "assets/itsuki/24.jpg",
+      "primaryExpression": "determined",
+      "expressions": [
+        "determined",
+        "serious"
+      ],
+      "visualNotes": "Intense, determined gaze",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "You do not need to solve everything tonight. Rest now and continue tomorrow."
+    },
+    {
+      "id": "itsuki-25",
+      "src": "assets/itsuki/25.jpg",
+      "primaryExpression": "surprised",
+      "expressions": [
+        "surprised",
+        "concerned"
+      ],
+      "visualNotes": "Wide-eyed startled expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Focus on one task at a time. Small steps still move you forward."
+    },
+    {
+      "id": "itsuki-26",
+      "src": "assets/itsuki/26.jpg",
+      "primaryExpression": "confident",
+      "expressions": [
+        "confident",
+        "cheerful"
+      ],
+      "visualNotes": "Confident smile",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Do not wait for motivation. Start first, and let momentum follow."
+    },
+    {
+      "id": "itsuki-27",
+      "src": "assets/itsuki/27.jpg",
+      "primaryExpression": "surprised",
+      "expressions": [
+        "surprised",
+        "shy"
+      ],
+      "visualNotes": "Wide eyes and flushed cheeks",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Return to your goal. Ten focused minutes beat ten minutes of scrolling."
+    },
+    {
+      "id": "itsuki-28",
+      "src": "assets/itsuki/28.jpg",
+      "primaryExpression": "determined",
+      "expressions": [
+        "determined",
+        "confident"
+      ],
+      "visualNotes": "Focused, confident smile",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Do not trade your sleep for a few more minutes of scrolling."
+    },
+    {
+      "id": "itsuki-29",
+      "src": "assets/itsuki/29.jpg",
+      "primaryExpression": "thoughtful",
+      "expressions": [
+        "thoughtful",
+        "relaxed"
+      ],
+      "visualNotes": "Quiet, thoughtful expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Keep a steady study rhythm. Small daily progress adds up."
+    },
+    {
+      "id": "itsuki-30",
+      "src": "assets/itsuki/30.jpg",
+      "primaryExpression": "sleepy",
+      "expressions": [
+        "sleepy",
+        "displeased"
+      ],
+      "visualNotes": "Half-lidded, tired expression",
+      "source": "User-provided offline image archive; visually reviewed in contact sheet",
+      "dialogue": "Put your phone away and give your attention to what matters most."
+    },
+    {
+      "id": "itsuki-chibi-fallback",
+      "src": "assets/itsuki/itsuki-pet.png",
+      "primaryExpression": "cheerful",
+      "expressions": [
+        "cheerful",
+        "supportive"
+      ],
+      "visualNotes": "Bundled chibi fallback, used only if all numbered images fail validation.",
+      "source": "Original project archive",
+      "dialogue": "If the task feels difficult, break it down and begin with one small step."
+    }
+  ]
+}
