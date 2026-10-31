@@ -67,10 +67,9 @@ function wireView(){
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)setView(b.dataset.view)});
 window.aurestarDesktop.onState(s=>{state=s;render()});
 window.aurestarDesktop.onQuickAdd(addTask);
-async function init(){try{state=await window.aurestarDesktop.getState();render();if(state.focus.active&&!state.focus.paused){startFocusTicker()} }catch(e){$('#content').innerHTML='<article class="card"><h2>Could not load Aurestar</h2><p>'+esc(e.message)+'</p></article>'}}
+async function init(){try{state=await window.aurestarDesktop.getState();render();if(state.focus.active&&!state.focus.paused){startFocusTicker()}if(state.training?.active&&!state.training.paused){startTrainingTicker()} }catch(e){$('#content').innerHTML='<article class="card"><h2>Could not load Aurestar</h2><p>'+esc(e.message)+'</p></article>'}}
 function startTrainingTicker(){if(trainingTick)clearInterval(trainingTick);trainingTick=setInterval(async()=>{if(!state?.training?.active||state.training.paused){clearInterval(trainingTick);trainingTick=null;return;}state.training.elapsed=(Number(state.training.elapsed)||0)+1;state.training.remaining=state.training.elapsed;const el=$('#trainingTimerDisplay');if(el)el.textContent=trainingTimerText();if(state.training.elapsed%10===0){await window.aurestarDesktop.saveState(state)}},1000)}
 function startFocusTicker(){if(focusTick)clearInterval(focusTick);focusTick=setInterval(async()=>{const next=await window.aurestarDesktop.getState();const wasActive=Boolean(state?.focus?.active);state=next;const el=$('#timerDisplay');if(el)el.textContent=timerText();if(wasActive&&!state.focus.active){render();toast('Focus session complete. Take a short break.');}},1000)}
 const oldToggle=window.aurestarDesktop.toggleFocus;
 document.addEventListener('click',e=>{if(e.target.closest('[data-focus-toggle]')){setTimeout(()=>{if(state?.focus?.active&&!state.focus.paused)startFocusTicker();else if(focusTick){clearInterval(focusTick);focusTick=null}},30)}});
 init();
-if(state?.training?.active&&!state.training.paused)startTrainingTicker();
