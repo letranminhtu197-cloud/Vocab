@@ -26,18 +26,7 @@ function notify(title,body){
   if (!state?.settings?.notifications || !Notification.isSupported()) return;
   new Notification({title,body,silent:false}).show();
 }
-function showReminderLine(text){
-  try {
-    if(reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
-    reminderWindow=new BrowserWindow({width:980,height:260,frame:false,transparent:false,alwaysOnTop:true,skipTaskbar:true,resizable:false,show:false,backgroundColor:'#211217',webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});
-    const safe=String(text||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const html='<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#211217;color:#f6e9ec;font:700 30px/1.45 Inter,Segoe UI,system-ui,sans-serif}body{display:grid;place-items:center;padding:34px;text-align:center}main{max-width:900px}body:before{content:"★";position:absolute;top:20px;color:#f6c555;font-size:16px;opacity:.8}</style></head><body><main>'+safe+'</main></body></html>';
-    reminderWindow.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent(html));
-    reminderWindow.once('ready-to-show',()=>reminderWindow?.showInactive());
-    const current=reminderWindow;setTimeout(()=>{if(current&&!current.isDestroyed())current.close();},10000);
-    reminderWindow.on('closed',()=>{if(reminderWindow===current)reminderWindow=null;});
-  } catch(e){console.warn('Reminder window failed',e);notify(APP_NAME,text);}
-}
+function showReminderLine(_text){ /* Motivation-style overlays intentionally removed. */ }
 function sendReminder(type, text){
   const key = `${today()}:${type}`;
   if(state.remindersSent[key]) return;
@@ -129,6 +118,7 @@ function createTray(){
     {label:'Show Pomodoro widget',click:()=>createPomodoroWidget()},
     {label:'Show Itsuki companion',click:()=>createItsuki()},
     {label:'Hide Itsuki companion',click:()=>hideItsuki()},
+    {label:'Toggle Itsuki (Alt)',click:()=>{if(itsukiWindow&&!itsukiWindow.isDestroyed()&&itsukiWindow.isVisible())hideItsuki();else createItsuki();}},
     {label:'Start / pause focus',accelerator:'Ctrl+Shift+L',click:()=>toggleFocus()},
     {label:'Quick add task',accelerator:'Ctrl+Shift+K',click:()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');}},
     {type:'separator'},{label:'Quit',click:()=>{app.isQuitting=true;app.quit();}}
@@ -176,6 +166,7 @@ app.whenReady().then(()=>{
   reminderTimer=setInterval(checkSchedule,15000);focusTickTimer=setInterval(tickFocus,1000);checkSchedule();
   globalShortcut.register('CommandOrControl+Shift+L',toggleFocus);
   globalShortcut.register('CommandOrControl+Shift+K',()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');});
+  globalShortcut.register('Alt',()=>{if(itsukiWindow&&!itsukiWindow.isDestroyed()&&itsukiWindow.isVisible())hideItsuki();else createItsuki();});
   if(process.platform==='win32' && state.settings.startWithWindows){app.setLoginItemSettings({openAtLogin:true});}
   app.on('activate',()=>{if(!win)createWindow();else win.show();if(!pomodoroWidget)createPomodoroWidget();});
 });
