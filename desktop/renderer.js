@@ -6,7 +6,7 @@ const id=()=>crypto.randomUUID();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const done=(t,d=today())=>(t.completedDates||[]).includes(d);
 const weekdayFor=k=>new Date(String(k)+'T12:00:00').getDay();
-const occursOn=(t,k=today())=>{const r=t.repeat||{type:'none'};if(r.type==='daily')return !r.startDate||k>=r.startDate;if(r.type==='weekly')return (!r.startDate||k>=r.startDate)&&(r.weekdays||[]).map(Number).includes(weekdayFor(k));return !t.dueDate||t.dueDate<=k;};
+const occursOn=(t,k=today())=>{const r=t.repeat||{type:'none'};if(r.type==='daily')return !r.startDate||k>=r.startDate;if(r.type==='weekly')return (!r.startDate||k>=r.startDate)&&(r.weekdays||[]).map(Number).includes(weekdayFor(k));return !t.dueDate||t.dueDate===k;};
 const fmtDate=d=>d?new Date(d+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}):'No due date';
 function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toastTick);toastTick=setTimeout(()=>el.classList.remove('show'),2600)}
 async function persist(){state=await window.aurestarDesktop.saveState(state);render()}
