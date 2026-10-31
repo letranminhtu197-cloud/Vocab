@@ -117,7 +117,7 @@ const chromeApi = {
   tabs: {
     query(_query, callback) { return callbackResult(Promise.resolve([]), callback); },
     get(_id, callback) { return callbackResult(Promise.reject(new Error('Browser tabs are not available in desktop mode')), callback); },
-    create(options, callback) { const url=String(options?.url||''); const p=/^https?:\\/\\//i.test(url)?ipcRenderer.invoke('app:open-external',url).then(()=>({id:-1,url,active:options?.active!==false})):Promise.resolve(null); return callbackResult(p, callback); },
+    create(options, callback) { const url=String(options?.url||''); const p=(url.startsWith('http://')||url.startsWith('https://'))?ipcRenderer.invoke('app:open-external',url).then(()=>({id:-1,url,active:options?.active!==false})):Promise.resolve(null); return callbackResult(p, callback); },
     update(_id, _options, callback) { return callbackResult(Promise.resolve(null), callback); },
     sendMessage(_id, _message, callback) { return callbackResult(Promise.resolve(null), callback); },
     onActivated: activatedTabEvent,
