@@ -57,7 +57,8 @@
       "icons/**/*",
       "logo-star.svg",
       "icon.svg",
-      "background-host.html"
+      "background-host.html",
+      "bridge-alias.js"
     ],
     "win": {
       "target": [
