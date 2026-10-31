@@ -335,7 +335,7 @@ function renderDashboard(el){
   </div>`;
   bindGlobal();
   $('#dashboardAdd')?.addEventListener('click',()=>openTaskForm());
-  $('#dashboardStartWorkout')?.addEventListener('click',()=>startGymWorkout(gymTasksForDay(k).filter(t=>!taskDone(t,k)).map(t=>t.id)));
+  $('#dashboardStartWorkout')?.addEventListener('click',()=>startGymWorkout());
   $$('[data-cal-day]').forEach(b=>b.addEventListener('click',()=>{selectedDate=b.dataset.calDay;calendarDate=fromKey(selectedDate);navigate('calendar')}));
   startTimeWidget();
 }
@@ -370,8 +370,8 @@ function workoutStepLabel(f,cfg,step){if(f.phase==="rest")return "REST";if(f.pha
 function renderGym(el){
   const day=today(),tasks=gymTasksForDay(day),f=state.workoutEngine||{};
   const workoutDone=workoutDoneForDay(day);
-  const open=workoutDone?[]:(tasks.length?[tasks[0]]:[]);
-  const done=workoutDone&&tasks.length?1:0;
+  const open=workoutDone?[]:tasks.filter(t=>!taskDone(t,day));
+  const done=tasks.length-open.length;
   const dayLabel=fromKey(day).toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long'});
   const activeWorkout=Array.isArray(f.taskIds)&&f.taskIds.length>0;
 
@@ -388,7 +388,7 @@ function renderGym(el){
           <h2>${esc(task?.title||'Workout')}</h2>
           <p>Follow the current task, finish the set, and Aurestar will handle the recovery timer and move to the next task automatically.</p>
         </div>
-        <div class="gym-hero-status"><span class="gym-status-dot ${f.active?'live':f.paused?'paused':''}"></span><strong>${f.active?'RUNNING':f.paused?'PAUSED':'READY'}</strong><small>${p.done}/${p.total} exercises completed · 1 workout task</small></div>
+        <div class="gym-hero-status"><span class="gym-status-dot ${f.active?'live':f.paused?'paused':''}"></span><strong>${f.active?'RUNNING':f.paused?'PAUSED':'READY'}</strong><small>${p.done}/${p.total} exercises completed · one guided session</small></div>
       </header>
       <div class="gym-active-grid">
         <section class="gym-focus-card">
@@ -407,10 +407,10 @@ function renderGym(el){
           ${entry?.sets?.length?`<div class="gym-set-history"><span class="section-kicker">CURRENT EXERCISE</span><div>${entry.sets.map((x,i)=>x?`<span>Set ${i+1}: <b>${x.actualReps!=null?`${x.actualReps} reps`:formatGymClock(x.actualSeconds||0)}</b></span>`:'').join('')}</div></div>`:''}
         </section>
         <aside class="gym-sidebar-card">
-          <div class="gym-side-head"><div><span class="section-kicker">WORKOUT TASK</span><h3>${workoutDoneForDay(day)?1:0}/1 completed</h3><p>${p.done}/${p.total} exercises finished</p></div><strong>${workoutDoneForDay(day)?100:0}%</strong></div>
+          <div class="gym-side-head"><div><span class="section-kicker">FULL WORKOUT</span><h3>${p.done}/${p.total} exercises completed</h3><p>All remaining exercises are in this session</p></div><strong>${workoutDoneForDay(day)?100:0}%</strong></div>
           <div class="gym-progress"><i style="width:${workoutDoneForDay(day)?100:0}%"></i></div>
           <div class="gym-task-stack">${f.taskIds.map((id,i)=>{const tt=state.tasks.find(x=>String(x.id)===String(id));const isDone=i<(Number(f.taskIndex)||0);const isCurrent=i===Number(f.taskIndex||0);return `<button type="button" class="gym-task-stack-row ${isDone?'done':''} ${isCurrent?'current':''}" data-gym-current="${esc(id)}"><span>${isDone?'✓':i+1}</span><div><b>${esc(tt?.title||'Exercise')}</b><small>${esc(workoutConfigLabel(tt?.workoutConfig||{}))}</small></div><em>${isCurrent?'NOW':isDone?'DONE':''}</em></button>`}).join('')}</div>
-          <div class="gym-side-note"><b>Next</b><span>${esc(f.taskIds[(Number(f.taskIndex)||0)+1]?state.tasks.find(x=>String(x.id)===String(f.taskIds[(Number(f.taskIndex)||0)+1]))?.title||'Next task':'Last task of the workout')}</span></div>
+          <div class="gym-side-note"><b>Next exercise</b><span>${esc(f.taskIds[(Number(f.taskIndex)||0)+1]?state.tasks.find(x=>String(x.id)===String(f.taskIds[(Number(f.taskIndex)||0)+1]))?.title||'Next task':'Last task of the workout')}</span></div>
         </aside>
       </div>
     </div>`;
@@ -426,11 +426,11 @@ function renderGym(el){
         <h2>Today's workout</h2>
         <p>All exercises, sets and recovery intervals are grouped into one Workout task.</p>
         <div class="gym-hero-actions">
-          ${tasks.length?(open.length?`<button class="gym-start-today" id="gymStartToday"><span>▶</span><div><strong>Start Today's Workout</strong><small>1 workout task · ${tasks.length} exercises · guided sets, rest and cardio</small></div></button>`:`<div class="gym-complete-banner"><span>✓</span><div><strong>Today's workout is complete</strong><small>1/1 workout task completed · ${tasks.length} exercises</small></div></div>`):`<div class="gym-complete-banner"><span>＋</span><div><strong>No workout scheduled</strong><small>Add exercises to create one Workout task.</small></div></div>`}
+          ${tasks.length?(open.length?`<button class="gym-start-today" id="gymStartToday"><span>▶</span><div><strong>Start all exercises</strong><small>One click starts all ${open.length} remaining exercises in one guided session.</small></div></button>`:`<div class="gym-complete-banner"><span>✓</span><div><strong>Today's workout is complete</strong><small>1/1 workout task completed · ${tasks.length} exercises</small></div></div>`):`<div class="gym-complete-banner"><span>＋</span><div><strong>No workout scheduled</strong><small>Add exercises to create one Workout task.</small></div></div>`}
           <button class="gym-settings-button" data-nav="settings">⚙ Gym settings</button>
         </div>
       </div>
-      <div class="gym-hero-summary"><div><b>${tasks.length?1:0}</b><span>Workout tasks</span></div><div><b>${done}</b><span>Completed</span></div><div><b>${open.length}</b><span>Remaining</span></div></div>
+      <div class="gym-hero-summary"><div><b>${tasks.length}</b><span>Exercises</span></div><div><b>${done}</b><span>Completed</span></div><div><b>${open.length}</b><span>Remaining</span></div></div>
     </header>
 
     <section class="gym-howto">
@@ -440,27 +440,33 @@ function renderGym(el){
     </section>
 
     <section class="gym-workout-panel">
-      <div class="gym-panel-header"><div><span class="section-kicker">ONE WORKOUT TASK</span><h3>Exercise schedule</h3></div><span class="gym-panel-count">${tasks.length} exercises</span></div>
+      <div class="gym-panel-header"><div><span class="section-kicker">ALL EXERCISES · ONE SESSION</span><h3>Today's exercise schedule</h3></div><span class="gym-panel-count">${tasks.length} exercises</span></div>
       <div class="gym-task-list">${tasks.map((t,i)=>{const isDone=taskDone(t,day);return `<article class="gym-task-card ${isDone?'done':''}">
         <div class="gym-task-index">${isDone?'✓':i+1}</div>
         <div class="gym-task-main"><div class="gym-task-title"><b>${esc(t.title)}</b>${isDone?'<span class="gym-done-chip">DONE</span>':''}</div><div class="gym-task-details"><span>${esc(workoutConfigLabel(t.workoutConfig))}</span>${t.dueTime?`<span>◷ ${esc(t.dueTime)}</span>`:''}</div></div>
-        <div class="gym-task-actions">${!isDone?`<button class="gym-task-start" data-gym-single="${esc(t.id)}">▶ Start</button>`:''}<button class="gym-task-edit" data-gym-edit="${esc(t.id)}">Edit</button></div>
+        <div class="gym-task-actions">${!isDone?'<span class="gym-included-chip">IN FULL SESSION</span>':'<span class="gym-done-chip">DONE</span>'}<button class="gym-task-edit" data-gym-edit="${esc(t.id)}">Edit</button></div>
       </article>`}).join('')||`<div class="gym-empty-state"><strong>No gym tasks scheduled today.</strong><span>Open a Task and enable Gym Timer to add it to today's workout.</span><button class="gym-task-start" data-gym-new-task>＋ Create task</button></div>`}</div>
     </section>
 
-    <section class="gym-history-panel"><div class="gym-panel-header"><div><span class="section-kicker">RECENT WORKOUTS</span><h3>History</h3></div><span class="gym-panel-count">${(state.workoutSessions||[]).length} sessions</span></div>${(state.workoutSessions||[]).length?`<div class="gym-history-list">${(state.workoutSessions||[]).slice(-8).reverse().map(s=>`<article class="gym-history-row"><div><b>${esc(String(s.date||''))} · ${s.completed?'Completed':'Stopped'}</b><small>1 workout task · ${Array.isArray(s.taskIds)?s.taskIds.length:0} exercises · ${formatGymClock(Number(s.duration)||0)}</small></div><strong class="${s.completed?'gym-history-ok':'gym-history-stopped'}">${s.completed?'✓':'—'}</strong></article>`).join('')}</div>`:`<div class="gym-empty-history">Your completed workout sessions will appear here.</div>`}</section>
+    <section class="gym-history-panel"><div class="gym-panel-header"><div><span class="section-kicker">RECENT WORKOUTS</span><h3>History</h3></div><span class="gym-panel-count">${(state.workoutSessions||[]).length} sessions</span></div>${(state.workoutSessions||[]).length?`<div class="gym-history-list">${(state.workoutSessions||[]).slice(-8).reverse().map(s=>`<article class="gym-history-row"><div><b>${esc(String(s.date||''))} · ${s.completed?'Completed':'Stopped'}</b><small>one guided session · ${Array.isArray(s.taskIds)?s.taskIds.length:0} exercises · ${formatGymClock(Number(s.duration)||0)}</small></div><strong class="${s.completed?'gym-history-ok':'gym-history-stopped'}">${s.completed?'✓':'—'}</strong></article>`).join('')}</div>`:`<div class="gym-empty-history">Your completed workout sessions will appear here.</div>`}</section>
 
     <section class="gym-customization-panel"><div><span class="section-kicker">EASY TO CUSTOMIZE</span><h3>Change the timer without rebuilding your Tasks</h3><p>Open any gym task to change sets, reps, time, rest, MAX mode or a cardio circuit. The task itself stays the same for Today, XP, quests and history.</p></div><button class="gym-task-edit" data-gym-new-task>＋ New task</button></section>
   </div>`;
 
   bindGlobal();
-  $('#gymStartToday')?.addEventListener('click',()=>startGymWorkout(open.map(t=>t.id)));
-  $$('[data-gym-single]').forEach(b=>b.addEventListener('click',()=>startGymWorkout([b.dataset.gymSingle])));
+  $('#gymStartToday')?.addEventListener('click',()=>startGymWorkout());
+  $('[data-gym-single]').forEach(b=>b.addEventListener('click',()=>startGymWorkout()));
   $$('[data-gym-edit]').forEach(b=>b.addEventListener('click',()=>openTaskForm(b.dataset.gymEdit)));
   $$('[data-gym-new-task]').forEach(b=>b.addEventListener('click',()=>openTaskForm()));
 }
-async function startGymWorkout(taskIds){const ids=(taskIds||[]).map(String).filter(Boolean);if(!ids.length){toast("No open gym Tasks","error");return;}const r=await action("startWorkout",{taskIds:ids,date:today()});if(r){activeView="gym";history.replaceState(null,"","#gym");renderShell();}}
-async function startGymFromTask(id){await startGymWorkout([id]);}
+async function startGymWorkout(){
+  const day=today();
+  const ids=gymTasksForDay(day).filter(t=>!taskDone(t,day)).map(t=>String(t.id));
+  if(!ids.length){toast("All exercises for today are already complete","success");return;}
+  const r=await action("startWorkout",{taskIds:ids,date:day});
+  if(r){activeView="gym";gymLastStateKey="";history.replaceState(null,"","#gym");renderShell();}
+}
+async function startGymFromTask(){await startGymWorkout();}
 function startGymUiLoop(){if(gymUiTimer)clearInterval(gymUiTimer);gymUiTimer=setInterval(async()=>{if(activeView!=="gym")return;try{const r=await send("getState");if(!r?.ok)return;state=r.state||state;const f=state.workoutEngine||{};if(!f.taskIds?.length){renderGym($('#view'));return;}const key=JSON.stringify({phase:f.phase,active:f.active,paused:f.paused,ti:f.taskIndex,si:f.setIndex,ri:f.circuitRound,ci:f.circuitIndex});if(key!==gymLastStateKey){gymLastStateKey=key;renderGym($('#view'));return;}const d=$('#gymTimerDisplay');if(!d)return;const {step}=currentGymContext();d.textContent=f.phase==="rest"||f.phase==="roundRest"?formatGymClock(gymPhaseSeconds()):step?.mode==="max"?formatGymClock(gymMaxElapsed()):step?.mode==="time"?formatGymClock((f.active||f.paused)?gymExerciseCountdown():Number(step.durationSeconds)||0):"READY";}catch(e){console.warn("gym ui",e)}},800)}
 function bindGymActive(){
   $('#gymStop')?.addEventListener('click',async()=>{const r=await action('workoutStop');if(r){gymLastStateKey="";renderGym($('#view'));}});
