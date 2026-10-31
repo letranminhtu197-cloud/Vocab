@@ -14,12 +14,17 @@ const defaultState = () => ({
   settings: { notifications:true, dailyReminder:'08:00', taskReminders:true, autoBackup:true, backupTime:'23:30', focusPreset:25, focusShortBreak:5, focusLongBreak:15, focusLongBreakEvery:4, blockedWebsites:['tiktok.com','facebook.com','youtube.com'], blockDuringFocus:true, startWithWindows:false, minimizeToTray:true, theme:'dark', language:'en' },
   profile:{totalFocusMinutes:0,level:1,xp:0,streak:0,lastActiveDate:''},
   tasks:[], habits:[], lists:[{id:'inbox',name:'Inbox',color:'red',createdAt:Date.now()}],
-  focusSessions:[], workoutSessions:[], completions:[], remindersSent:{}, focus:{active:false,paused:false,phase:'focus',remaining:1500,total:1500,startedAt:0,taskId:null,completedCycles:0},
+  focusSessions:[], workoutSessions:[], completions:[], remindersSent:{}, training:{active:false,paused:false,remaining:0,elapsed:0,exerciseIndex:0,exercises:[]}, focus:{active:false,paused:false,phase:'focus',remaining:1500,total:1500,startedAt:0,taskId:null,completedCycles:0},
 
 });
 function readState(){
-  try { const s=JSON.parse(fs.readFileSync(dataFile(),'utf8')); return { ...defaultState(), ...s, settings:{...defaultState().settings,...s.settings}, profile:{...defaultState().profile,...s.profile}, focus:{...defaultState().focus,...s.focus} }; }
-  catch { return defaultState(); }
+  let s;try{s=JSON.parse(fs.readFileSync(dataFile(),'utf8'));}catch{return defaultState();}
+  const base=defaultState();
+  const merged={...base,...s,settings:{...base.settings,...s.settings},profile:{...base.profile,...s.profile},focus:{...base.focus,...s.focus},training:{...base.training,...s.training}};
+  merged.tasks=Array.isArray(merged.tasks)?merged.tasks:[];
+  if(!merged.tasks.some(t=>t.trainingAggregate))merged.tasks.push({id:'training-aggregate',title:'Training',trainingAggregate:true,priority:'medium',estimate:30,repeat:{type:'none'},createdAt:Date.now(),completedDates:[],archived:false,notes:'All exercises are tracked within the Training session.'});
+  merged.workoutSessions=Array.isArray(merged.workoutSessions)?merged.workoutSessions:[];
+  return merged;
 }
 function saveState(){ fs.mkdirSync(dataDir(),{recursive:true}); fs.writeFileSync(dataFile(),JSON.stringify(state,null,2),'utf8'); }
 function notify(title,body){
