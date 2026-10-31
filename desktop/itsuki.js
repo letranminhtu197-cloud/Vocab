@@ -14,16 +14,17 @@ async function refreshItsuki(record){
     if(!record||typeof record!=='object')return false;
     if(typeof record.message==='string'&&record.message.trim())$('itsukiLine').textContent=record.message;
     $('itsukiStatus').textContent=statusLabels[record.kind]||'Study companion';
-    const match=String(record.imageSrc||'').match(/assets\/itsuki\/(\d+)\.(?:jpg|png)$/i);
-    if(match){
-      const imageKey=String(record.imageId||match[1]);
+    const src=String(record.imageSrc||'');
+    const fileName=src.split('/').pop()||'';
+    const dot=fileName.lastIndexOf('.');
+    const imageNumber=dot>0?fileName.slice(0,dot):'';
+    const imageExt=dot>0?fileName.slice(dot+1).toLowerCase():'';
+    if(src.startsWith('assets/itsuki/')&&!src.includes('..')&&/^[0-9]+$/.test(imageNumber)&&['jpg','png'].includes(imageExt)){
+      const imageKey=String(record.imageId||imageNumber);
       if(displayedImage!==imageKey){
         displayedImage=imageKey;
-        const url=await window.aurestarDesktop.getItsukiArtUrl(Number(match[1]));
-        $('itsukiArt').src=url;
+        $('itsukiArt').src=await window.aurestarDesktop.getItsukiArtUrl(Number(imageNumber));
       }
-    }else if(!$('itsukiArt').src){
-      $('itsukiArt').src=await window.aurestarDesktop.getItsukiArtUrl(1);
     }
     return true;
   }catch(error){console.error('Could not display Itsuki state',error);return false;}
@@ -32,36 +33,13 @@ chrome.storage.onChanged.addListener((changes,area)=>{
   if(area==='local'&&changes.itsukiExpressionState?.newValue)refreshItsuki(changes.itsukiExpressionState.newValue);
 });
 async function boot(){
+  $('itsukiArt').src=await window.aurestarDesktop.getItsukiArtUrl(1);
   const shown=await refreshItsuki();
   if(!shown){
-    $('itsukiArt').src=await window.aurestarDesktop.getItsukiArtUrl(1);
     await sendItsukiEvent('periodic');
     await refreshItsuki();
   }
 }
-function bindDrag(target){
-  if(!target)return;
-  let pointer=null,lastX=0,lastY=0,moved=false;
-  target.addEventListener('pointerdown',event=>{
-    if(event.button!==0||event.target.closest('button'))return;
-    pointer=event.pointerId;lastX=event.screenX;lastY=event.screenY;moved=false;
-    target.setPointerCapture?.(pointer);
-  });
-  target.addEventListener('pointermove',event=>{
-    if(pointer!==event.pointerId)return;
-    const dx=event.screenX-lastX,dy=event.screenY-lastY;
-    if(Math.abs(dx)+Math.abs(dy)>1){moved=true;window.aurestarDesktop.dragItsukiBy(dx,dy);}
-    lastX=event.screenX;lastY=event.screenY;
-  });
-  target.addEventListener('pointerup',event=>{
-    if(pointer!==event.pointerId)return;
-    pointer=null;
-    if(target=== $('itsukiPet')&&!moved)sendItsukiEvent('periodic');
-  });
-  target.addEventListener('pointercancel',()=>{pointer=null;});
-}
-bindDrag($('itsukiPet'));
-bindDrag($('dragHandle'));
 $('hideItsuki').addEventListener('click',()=>window.aurestarDesktop.hideItsuki());
 $('openWorkspace').addEventListener('click',()=>window.aurestarDesktop.openWorkspace());
 boot();
