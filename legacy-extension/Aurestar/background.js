@@ -460,6 +460,25 @@ function longestStreak(set){let best=0,run=0,prev=null;for(const k of [...set].s
 function currentStreak(set,end=dateKey()){let n=0,k=end;while(set.has(k)){n++;k=shiftDate(k,-1)}return n;}
 function syncGoals(s){for(const g of s.goals){const dates=completionDatesForScope(s,g.scope||"all");const streak=currentStreak(dates);g.currentStreak=streak;g.progress=Math.min(Math.max(1,Number(g.target)||30),streak);g.progressPct=Math.round(g.progress/g.target*100);}}
 function recalcHabits(s){for(const h of s.habits){const set=new Set(h.completions||[]);h.streak=currentStreak(set);h.bestStreak=Math.max(Number(h.bestStreak)||0,longestStreak(set));}}
+function recalcStudyStreak(s,end=dateKey()){
+  const validKinds=new Set(["task","habit","focus"]);
+  const activeDates=new Set((s.completions||[])
+    .filter(c=>validKinds.has(String(c.kind||""))&&/^\\d{4}-\\d{2}-\\d{2}$/.test(String(c.date||""))&&String(c.date)<=end)
+    .map(c=>String(c.date)));
+  for(const session of (s.workoutSessions||[])){
+    if(session?.completed===true&&/^\\d{4}-\\d{2}-\\d{2}$/.test(String(session.date||""))&&String(session.date)<=end)activeDates.add(String(session.date));
+  }
+  const anchor=activeDates.has(end)?end:shiftDate(end,-1);
+  const current=currentStreak(activeDates,anchor);
+  const previous=s.profile?.studyStreak||{};
+  const lastActiveDate=[...activeDates].sort().at(-1)||"";
+  s.profile.studyStreak={
+    current,
+    best:Math.max(Math.max(0,Number(previous.best)||0),longestStreak(activeDates)),
+    lastActiveDate,
+    activeToday:activeDates.has(end)
+  };
+}
 function achievementCheck(s){
   const xp=Number(s.profile.xp)||0;
   const level=Number(s.profile.level)||1;
@@ -603,7 +622,7 @@ function achievementCheck(s){
     }
   }
 }
-function recalcDerived(s){recalcHabits(s);syncGoals(s);achievementCheck(s);}
+function recalcDerived(s){recalcHabits(s);recalcStudyStreak(s);syncGoals(s);achievementCheck(s);}
 let bootstrapPromise=null;
 function emptyStateSeed(){
   const now=Date.now();
