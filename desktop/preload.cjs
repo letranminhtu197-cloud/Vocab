@@ -117,7 +117,7 @@ const chromeApi = {
   tabs: {
     query(_query, callback) { return callbackResult(Promise.resolve([]), callback); },
     get(_id, callback) { return callbackResult(Promise.reject(new Error('Browser tabs are not available in desktop mode')), callback); },
-    create(_options, callback) { return callbackResult(Promise.resolve(null), callback); },
+    create(options, callback) { const url=String(options?.url||''); const p=/^https?:\\/\\//i.test(url)?ipcRenderer.invoke('app:open-external',url).then(()=>({id:-1,url,active:options?.active!==false})):Promise.resolve(null); return callbackResult(p, callback); },
     update(_id, _options, callback) { return callbackResult(Promise.resolve(null), callback); },
     sendMessage(_id, _message, callback) { return callbackResult(Promise.resolve(null), callback); },
     onActivated: activatedTabEvent,
@@ -144,7 +144,7 @@ const chromeApi = {
     closeDocument() { return Promise.resolve(); }
   },
   sidePanel: { setPanelBehavior() { return Promise.resolve(); } },
-  downloads: { download() { return Promise.resolve(-1); } }
+  downloads: { download(options = {}, callback) { const anchor=document.createElement('a'); anchor.href=String(options.url||''); anchor.download=String(options.filename||'aurestar-backup.json').split(/[\\/]/).pop(); anchor.style.display='none'; document.body.appendChild(anchor); anchor.click(); anchor.remove(); return callbackResult(Promise.resolve(1),callback); } }
 };
 
 ipcRenderer.on('chrome:storage-changed', (_event, changes, area) => storageChangedEvent.dispatch(changes, area));
