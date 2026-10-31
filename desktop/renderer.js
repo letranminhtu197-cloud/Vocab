@@ -303,6 +303,26 @@ function renderDashboard(el){
   const focusToday=state.focusSessions.filter(x=>x.date===k);
   const focusMinutes=focusToday.reduce((n,x)=>n+Number(x.minutes||0),0);
   const completionPct=todayTasks.length?Math.round(done.length/todayTasks.length*100):0;
+  const savedStreak=state.profile?.studyStreak||{current:0,best:0,activeToday:false};
+  const streakDates=new Set((state.completions||[])
+    .filter(x=>["task","habit","focus"].includes(String(x.kind||""))&&x.date)
+    .map(x=>String(x.date)));
+  (state.workoutSessions||[]).filter(x=>x?.completed===true&&x.date).forEach(x=>streakDates.add(String(x.date)));
+  const streakMonday=addDays(k,-((fromKey(k).getDay()+6)%7));
+  const streakWeek=Array.from({length:7},(_,i)=>{
+    const day=addDays(streakMonday,i);
+    return {day,active:streakDates.has(day),isToday:day===k};
+  });
+  const streakMessage=savedStreak.activeToday
+    ?"You've protected today's streak. Keep your rhythm going."
+    :Number(savedStreak.current)>0
+      ?"Complete one task, habit or focus session today to extend your streak."
+      :"Complete one task, habit or focus session to start your streak.";
+  const streakDaysMarkup=streakWeek.map(x=>
+    '<div class="study-streak-day '+(x.active?'is-active ':'')+(x.isToday?'is-today':'')+'">'+
+    '<span class="study-streak-day-name">'+fromKey(x.day).toLocaleDateString('en-US',{weekday:'narrow'})+'</span>'+
+    '<span class="study-streak-day-mark">'+(x.active?'🔥':'·')+'</span></div>'
+  ).join('');
   const week=Array.from({length:7},(_,i)=>addDays(k,i-6)).map(d=>({d,c:state.completions.filter(x=>x.date===d).length}));
   const max=Math.max(1,...week.map(x=>x.c));
   const next=open.slice().sort((a,b)=>{const pa={urgent:0,high:1,medium:2,low:3};return (pa[a.priority]??2)-(pa[b.priority]??2)}).slice(0,4);
@@ -324,6 +344,16 @@ function renderDashboard(el){
       <button class="command-kpi" data-nav="today"><span>Today</span><strong>${done.length}/${todayTasks.length}</strong><small>${completionPct}% complete</small><i><em style="width:${completionPct}%"></em></i></button>
       <button class="command-kpi" data-nav="focus"><span>Focus</span><strong>${focusMinutes}/${Number(state.settings.dailyFocusGoalMin)||120}m</strong><small>${focusToday.length} session${focusToday.length===1?'':'s'} today</small><i><em style="width:${Math.min(100,Math.round(focusMinutes/Math.max(1,Number(state.settings.dailyFocusGoalMin)||120)*100))}%"></em></i></button>
       
+    </section>
+
+    <section class="study-streak-card" aria-label="Daily study streak">
+      <div class="study-streak-summary">
+        <span class="section-kicker">DAILY STUDY STREAK</span>
+        <div class="study-streak-number"><span class="study-streak-flame">🔥</span><strong>\${Math.max(0,Number(savedStreak.current)||0)}</strong><small>days</small></div>
+        <div class="study-streak-message">\${esc(streakMessage)}</div>
+      </div>
+      <div class="study-streak-week" aria-label="This week's activity">\${streakDaysMarkup}</div>
+      <div class="study-streak-best"><span>BEST STREAK</span><strong>\${Math.max(Number(savedStreak.best)||0,Number(savedStreak.current)||0)} days</strong></div>
     </section>
 
     <div class="command-grid">
