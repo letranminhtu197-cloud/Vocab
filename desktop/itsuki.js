@@ -25,6 +25,4 @@ $('openApp').onclick=()=>window.aurestarDesktop.openWorkspace();
 $('quietToday').onclick=()=>window.aurestarDesktop.hideItsuki();
 $('dismiss').onclick=()=>say("Got it. Keep going at your own pace.");
 $('showLine').onclick=()=>say(lines[lastEvent]||lines.startup);
-$('hidePet').onclick=()=>window.aurestarDesktop.hideItsuki();
-$('showLine').onclick=()=>say(lines[lastEvent]||lines.startup);
 document.addEventListener('keydown',e=>{if(e.key==="Escape")window.aurestarDesktop.hideItsuki();});
