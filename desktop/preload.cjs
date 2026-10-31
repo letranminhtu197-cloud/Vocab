@@ -187,7 +187,7 @@ const desktopApi = {
   getItsukiArtUrl: (index) => ipcRenderer.invoke('itsuki:art-url', index),
   dragItsukiBy: (dx, dy) => ipcRenderer.send('itsuki:drag', { dx, dy }),
   getBackgroundScriptUrl: () => ipcRenderer.invoke('chrome:background-script-url'),
-  announceBackgroundReady: () => ipcRenderer.send('chrome:background-ready'),
+  announceBackgroundReady: () => { startupEvent.dispatch(); ipcRenderer.send('chrome:background-ready'); },
   onItsukiEvent: (fn) => { const handler=(_e,p)=>fn(p); ipcRenderer.on('itsuki:event',handler); return () => ipcRenderer.removeListener('itsuki:event',handler); },
   onPomodoroState: (fn) => { const handler=(_e,s)=>fn(s); ipcRenderer.on('pomodoro:state',handler); return () => ipcRenderer.removeListener('pomodoro:state',handler); },
   resetFocus: (minutes) => ipcRenderer.invoke('focus:reset', minutes),
