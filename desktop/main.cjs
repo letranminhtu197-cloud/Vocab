@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const APP_NAME = 'Aurestar';
-let win = null, tray = null, reminderWindow = null, reminderTimer = null, focusTickTimer = null, focusSaveCounter = 0;
+let win = null, tray = null, pomodoroWidget = null, reminderWindow = null, reminderTimer = null, focusTickTimer = null, focusSaveCounter = 0;
 let state = null;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const dataDir = () => app.getPath('userData');
@@ -15,7 +15,7 @@ const defaultState = () => ({
   profile:{totalFocusMinutes:0,level:1,xp:0,streak:0,lastActiveDate:''},
   tasks:[], habits:[], lists:[{id:'inbox',name:'Inbox',color:'red',createdAt:Date.now()}],
   focusSessions:[], workoutSessions:[], completions:[], remindersSent:{}, focus:{active:false,paused:false,phase:'focus',remaining:1500,total:1500,startedAt:0,taskId:null,completedCycles:0},
-  motivationQuotes:['Start now. Not later.','Well begun is half done.','Great things are done by a series of small things brought together.','You do not have to see the whole staircase; just take the first step.']
+
 });
 function readState(){
   try { const s=JSON.parse(fs.readFileSync(dataFile(),'utf8')); return { ...defaultState(), ...s, settings:{...defaultState().settings,...s.settings}, profile:{...defaultState().profile,...s.profile}, focus:{...defaultState().focus,...s.focus} }; }
@@ -51,7 +51,6 @@ function checkSchedule(){
   if(hm==='06:00') sendReminder('wake-0600','The secret of getting ahead is getting started.');
   if(hm==='20:45') sendReminder('wind-down','Rest is part of the work. Begin winding down.');
   if(hm==='21:00') sendReminder('sleep','A well-spent day brings happy sleep.');
-  if(hm>='06:00' && hm<'20:45' && !state.focus.active){const quotes=state.motivationQuotes||['Start now. Not later.','Well begun is half done.','The secret of getting ahead is getting started.'];sendReminder('study-'+hm,quotes[Math.floor(Math.random()*quotes.length)]);}
   if(hm===state.settings.dailyReminder) sendReminder('daily','Your study plan is ready. Choose one clear task and take the first step.');
   if(state.settings.taskReminders){
     for(const t of state.tasks||[]) if(!t.archived && t.dueDate===today() && t.dueTime===hm && !(t.completedDates||[]).includes(today())) sendReminder('task-'+t.id,`Task reminder: ${t.title}`);
@@ -84,8 +83,20 @@ function tickFocus(){
     focusSaveCounter=0;
   }
   if(focusSaveCounter>=10 || focusSaveCounter===0){saveState();focusSaveCounter=0;}
-  win?.webContents.send('aurestar:state',state);
+  win?.webContents.send('aurestar:state',state);broadcastWidget();
 }
+
+function widgetPayload(){return {focus:state?.focus||{},settings:state?.settings||{}};}
+function broadcastWidget(){if(pomodoroWidget&&!pomodoroWidget.isDestroyed())pomodoroWidget.webContents.send('pomodoro:state',widgetPayload());}
+function createPomodoroWidget(){
+  if(pomodoroWidget&&!pomodoroWidget.isDestroyed()){pomodoroWidget.show();pomodoroWidget.moveTop();return;}
+  pomodoroWidget=new BrowserWindow({width:300,height:176, x:Math.max(12,require('electron').screen.getPrimaryDisplay().workAreaSize.width-320),y:90,frame:false,transparent:true,alwaysOnTop:true,skipTaskbar:true,resizable:false,minimizable:false,maximizable:false,closable:true,show:false,backgroundColor:'#00000000',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  pomodoroWidget.loadFile(path.join(__dirname,'pomodoro-widget.html'));
+  pomodoroWidget.once('ready-to-show',()=>{pomodoroWidget?.show();pomodoroWidget?.moveTop();broadcastWidget();});
+  pomodoroWidget.on('closed',()=>{pomodoroWidget=null;});
+}
+function closePomodoroWidget(){if(pomodoroWidget&&!pomodoroWidget.isDestroyed())pomodoroWidget.close();}
+
 function createWindow(){
   win=new BrowserWindow({width:1440,height:920,minWidth:1024,minHeight:700,show:false,backgroundColor:'#211217',title:APP_NAME,autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   win.loadFile(path.join(__dirname,'index.html'));
@@ -99,7 +110,7 @@ function createTray(){
   if(process.platform==='win32' && !icon.isEmpty()) icon=icon.resize({width:16,height:16});
   tray=new Tray(icon);tray.setToolTip(APP_NAME);
   tray.setContextMenu(Menu.buildFromTemplate([
-    {label:'Open Aurestar',click:()=>{if(!win)createWindow();else win.show();}},
+    {label:'Open Aurestar',click:()=>{if(!win)createWindow();else win.show();}},\n    {label:'Show Pomodoro widget',click:()=>createPomodoroWidget()},
     {label:'Start / pause focus',accelerator:'Ctrl+Shift+L',click:()=>toggleFocus()},
     {label:'Quick add task',accelerator:'Ctrl+Shift+K',click:()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');}},
     {type:'separator'},{label:'Quit',click:()=>{app.isQuitting=true;app.quit();}}
@@ -117,9 +128,9 @@ function toggleFocus(){
     }
     state.focus.startedAt=Date.now();
   } else {state.focus.paused=!state.focus.paused;}
-  saveState();win?.webContents.send('aurestar:state',state);
+  saveState();win?.webContents.send('aurestar:state',state);broadcastWidget();
 }
-ipcMain.handle('state:get',()=>state);
+ipcMain.handle('state:get',()=>state);\nipcMain.handle('pomodoro:widget-close',()=>{closePomodoroWidget();return {ok:true};});\nipcMain.handle('pomodoro:widget-open',()=>{createPomodoroWidget();return {ok:true};});
 ipcMain.handle('state:save',(_e,next)=>{if(!next||typeof next!=='object')throw new Error('Invalid state');const previousStart=Boolean(state?.settings?.startWithWindows);state={...state,...next};saveState();if(process.platform==='win32'&&Boolean(state.settings?.startWithWindows)!==previousStart)app.setLoginItemSettings({openAtLogin:Boolean(state.settings.startWithWindows)});return state;});
 ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
   const t=state.tasks.find(x=>String(x.id)===String(id));if(!t)return {ok:false};
@@ -129,8 +140,8 @@ ipcMain.handle('task:complete',(_e,{id,date=today()})=>{
   saveState();return {ok:true,done:!done,state};
 });
 ipcMain.handle('focus:toggle',()=>{toggleFocus();return state.focus;});
-ipcMain.handle('focus:reset',(_e,minutes)=>{state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:Math.max(1,Number(minutes)||25)*60,total:Math.max(1,Number(minutes)||25)*60,startedAt:0};saveState();return state.focus;});
-ipcMain.handle('focus:finish',(_e,minutes)=>{const n=Math.max(1,Number(minutes)||25);state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes:n,createdAt:Date.now()});state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+n;state.profile.xp=(state.profile.xp||0)+n;const cycles=(state.focus.completedCycles||0)+1;const every=Math.max(1,Number(state.settings.focusLongBreakEvery)||4);const breakMinutes=cycles%every===0?(Number(state.settings.focusLongBreak)||15):(Number(state.settings.focusShortBreak)||5);state.focus={...state.focus,active:false,paused:false,phase:'break',remaining:breakMinutes*60,total:breakMinutes*60,startedAt:0,completedCycles:cycles};state.completions.push({kind:'focus',date:today(),minutes:n,at:Date.now()});saveState();showReminderLine('Take a breath. Drink some water. Begin again.');return state;});
+ipcMain.handle('focus:reset',(_e,minutes)=>{state.focus={...state.focus,active:false,paused:false,phase:'focus',remaining:Math.max(1,Number(minutes)||25)*60,total:Math.max(1,Number(minutes)||25)*60,startedAt:0};saveState();broadcastWidget();return state.focus;});
+ipcMain.handle('focus:finish',(_e,minutes)=>{const n=Math.max(1,Number(minutes)||25);state.focusSessions.push({id:crypto.randomUUID(),date:today(),minutes:n,createdAt:Date.now()});state.profile.totalFocusMinutes=(state.profile.totalFocusMinutes||0)+n;state.profile.xp=(state.profile.xp||0)+n;const cycles=(state.focus.completedCycles||0)+1;const every=Math.max(1,Number(state.settings.focusLongBreakEvery)||4);const breakMinutes=cycles%every===0?(Number(state.settings.focusLongBreak)||15):(Number(state.settings.focusShortBreak)||5);state.focus={...state.focus,active:false,paused:false,phase:'break',remaining:breakMinutes*60,total:breakMinutes*60,startedAt:0,completedCycles:cycles};state.completions.push({kind:'focus',date:today(),minutes:n,at:Date.now()});saveState();showReminderLine('Take a breath. Drink some water. Begin again.');broadcastWidget();return state;});
 ipcMain.handle('data:export',async()=>{const r=await dialog.showSaveDialog(win,{title:'Export Aurestar backup',defaultPath:`Aurestar-${today()}.json`,filters:[{name:'JSON backup',extensions:['json']}]});if(r.canceled||!r.filePath)return {canceled:true};fs.writeFileSync(r.filePath,JSON.stringify(state,null,2),'utf8');return {ok:true,filePath:r.filePath};});
 ipcMain.handle('data:import',async()=>{const r=await dialog.showOpenDialog(win,{title:'Restore Aurestar backup',properties:['openFile'],filters:[{name:'JSON backup',extensions:['json']}]});if(r.canceled||!r.filePaths[0])return {canceled:true};const next=JSON.parse(fs.readFileSync(r.filePaths[0],'utf8'));if(!next||typeof next!=='object'||!Array.isArray(next.tasks))throw new Error('This file is not a valid Aurestar data backup.');state={...defaultState(),...next,settings:{...defaultState().settings,...next.settings}};saveState();win?.webContents.send('aurestar:state',state);return {ok:true,state};});
 ipcMain.handle('backup:now',()=>{fs.mkdirSync(backupDir(),{recursive:true});const p=path.join(backupDir(),`aurestar-${today()}-${Date.now()}.json`);fs.copyFileSync(dataFile(),p);return {ok:true,path:p};});
@@ -138,12 +149,12 @@ ipcMain.handle('notification:test',()=>{notify(APP_NAME,'Notifications are worki
 ipcMain.handle('app:open-external',async(_e,url)=>{if(typeof url!=='string'||!/^https?:\/\//i.test(url))return false;await shell.openExternal(url);return true;});
 ipcMain.handle('app:version',()=>app.getVersion());
 app.whenReady().then(()=>{
-  state=readState();saveState();createWindow();createTray();
+  state=readState();saveState();createWindow();createTray();createPomodoroWidget();
   reminderTimer=setInterval(checkSchedule,15000);focusTickTimer=setInterval(tickFocus,1000);checkSchedule();
   globalShortcut.register('CommandOrControl+Shift+L',toggleFocus);
   globalShortcut.register('CommandOrControl+Shift+K',()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');});
   if(process.platform==='win32' && state.settings.startWithWindows){app.setLoginItemSettings({openAtLogin:true});}
-  app.on('activate',()=>{if(!win)createWindow();else win.show();});
+  app.on('activate',()=>{if(!win)createWindow();else win.show();if(!pomodoroWidget)createPomodoroWidget();});
 });
 app.on('before-quit',()=>{app.isQuitting=true;if(reminderTimer)clearInterval(reminderTimer);if(focusTickTimer)clearInterval(focusTickTimer);globalShortcut.unregisterAll();saveState();});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin' && !state?.settings?.minimizeToTray)app.quit();});
