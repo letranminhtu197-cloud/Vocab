@@ -22,7 +22,15 @@ function readState(){
   const base=defaultState();
   const merged={...base,...s,settings:{...base.settings,...s.settings},profile:{...base.profile,...s.profile},focus:{...base.focus,...s.focus},training:{...base.training,...s.training}};
   merged.tasks=Array.isArray(merged.tasks)?merged.tasks:[];
-  if(!merged.tasks.some(t=>t.trainingAggregate))merged.tasks.push({id:'training-aggregate',title:'Training',trainingAggregate:true,priority:'medium',estimate:30,repeat:{type:'none'},createdAt:Date.now(),completedDates:[],archived:false,notes:'All exercises are tracked within the Training session.'});
+  const exerciseTasks=merged.tasks.filter(t=>t.workoutConfig?.enabled||t.workoutExercise===true);
+  const aggregate=merged.tasks.find(t=>t.trainingAggregate)||{id:'training-aggregate',title:'Training',trainingAggregate:true,priority:'medium',estimate:30,repeat:{type:'none'},createdAt:Date.now(),completedDates:[],archived:false,notes:'All exercises are tracked within the Training session.'};
+  if(exerciseTasks.length){
+    const daySets=exerciseTasks.map(t=>new Set(t.completedDates||[]));
+    const common=[...(daySets[0]||[])].filter(day=>daySets.every(set=>set.has(day)));
+    aggregate.completedDates=[...new Set([...(aggregate.completedDates||[]),...common])];
+    merged.tasks=merged.tasks.filter(t=>!exerciseTasks.includes(t));
+  }
+  if(!merged.tasks.includes(aggregate))merged.tasks.push(aggregate);
   merged.workoutSessions=Array.isArray(merged.workoutSessions)?merged.workoutSessions:[];
   return merged;
 }
