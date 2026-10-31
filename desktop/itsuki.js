@@ -7,7 +7,7 @@ const lines={
  "focus-tick":"You're doing well. Keep your attention on the next small step.",
  dismiss:"All right. I'll be right here when you need me."
 };
-let lastEvent="",lineHidden=false;
+let lastEvent="",lineHidden=false;window.aurestarDesktop.getItsukiArtUrl().then(url=>{$('itsukiArt').src=url}).catch(()=>{});
 function say(text){$('line').textContent=text;$('line').hidden=false;lineHidden=false;}
 window.aurestarDesktop.onItsukiEvent(payload=>{
  const event=payload?.event||"";
@@ -21,6 +21,8 @@ window.aurestarDesktop.onItsukiEvent(payload=>{
 });
 $('hideLine').onclick=()=>{$('line').hidden=true;lineHidden=true;};
 $('hidePet').onclick=()=>window.aurestarDesktop.hideItsuki();
+$('openApp').onclick=()=>window.aurestarDesktop.openWorkspace();
+$('quietToday').onclick=()=>window.aurestarDesktop.hideItsuki();
 $('dismiss').onclick=()=>say("Got it. Keep going at your own pace.");
 $('showLine').onclick=()=>say(lines[lastEvent]||lines.startup);
 $('hidePet').onclick=()=>window.aurestarDesktop.hideItsuki();
