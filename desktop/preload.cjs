@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('aurestarDesktop', {
   hideItsuki: () => ipcRenderer.invoke('itsuki:hide'),
   showItsuki: () => ipcRenderer.invoke('itsuki:show'),
   dismissItsuki: () => ipcRenderer.invoke('itsuki:dismiss'),
+  openWorkspace: () => ipcRenderer.invoke('app:show'),
   onItsukiEvent: (fn) => { const handler=(_e,p)=>fn(p); ipcRenderer.on('itsuki:event',handler); return () => ipcRenderer.removeListener('itsuki:event',handler); },
   onPomodoroState: (fn) => { const handler=(_e,s)=>fn(s); ipcRenderer.on('pomodoro:state',handler); return () => ipcRenderer.removeListener('pomodoro:state',handler); },
   resetFocus: (minutes) => ipcRenderer.invoke('focus:reset', minutes),
