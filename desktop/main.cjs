@@ -9,6 +9,108 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const dataDir = () => app.getPath('userData');
 const dataFile = () => path.join(dataDir(), 'aurestar-data.json');
 const backupDir = () => path.join(dataDir(), 'backups');
+let backgroundWin=null, chromeBackgroundReady=false;
+const pendingChromeMessages=new Map();
+const chromeBackgroundWaiters=[];
+let chromeStorageCache=null;
+const chromeStorageFile=()=>path.join(dataDir(),'aurestar-chrome-storage.json');
+function cloneValue(value){return value===undefined?undefined:JSON.parse(JSON.stringify(value));}
+function readChromeStorage(){
+  if(chromeStorageCache)return chromeStorageCache;
+  try{chromeStorageCache=JSON.parse(fs.readFileSync(chromeStorageFile(),'utf8'))||{};}
+  catch{
+    chromeStorageCache={};
+    try{
+      const legacy=JSON.parse(fs.readFileSync(dataFile(),'utf8'));
+      for(const key of ['settings','profile','lists','tasks','habits','focusSessions','workoutSessions','completions','achievements','goals','reviews']){
+        if(legacy[key]!==undefined)chromeStorageCache[key]=legacy[key];
+      }
+    }catch{}
+    saveChromeStorage();
+  }
+  return chromeStorageCache;
+}
+function saveChromeStorage(){
+  fs.mkdirSync(dataDir(),{recursive:true});
+  fs.writeFileSync(chromeStorageFile(),JSON.stringify(chromeStorageCache||{},null,2),'utf8');
+}
+function chromeStorageGet(keys){
+  const source=readChromeStorage();
+  if(keys===null||keys===undefined)return cloneValue(source);
+  const wanted=typeof keys==='string'?[keys]:Array.isArray(keys)?keys:Object.keys(keys);
+  const out={};
+  for(const key of wanted){
+    if(Object.prototype.hasOwnProperty.call(source,key))out[key]=cloneValue(source[key]);
+    else if(keys&&typeof keys==='object'&&!Array.isArray(keys)&&Object.prototype.hasOwnProperty.call(keys,key))out[key]=cloneValue(keys[key]);
+  }
+  return out;
+}
+function broadcastChromeStorage(changes){
+  if(!Object.keys(changes).length)return;
+  for(const w of BrowserWindow.getAllWindows()){
+    if(!w.isDestroyed())w.webContents.send('chrome:storage-changed',changes,'local');
+  }
+}
+function chromeStorageSet(items){
+  const store=readChromeStorage(),changes={};
+  for(const [key,value] of Object.entries(items||{})){
+    const oldValue=store[key],newValue=cloneValue(value);
+    if(JSON.stringify(oldValue)!==JSON.stringify(newValue)){
+      changes[key]={...(oldValue===undefined?{}:{oldValue:cloneValue(oldValue)}),newValue:cloneValue(newValue)};
+      store[key]=newValue;
+    }
+  }
+  saveChromeStorage();broadcastChromeStorage(changes);return true;
+}
+function chromeStorageRemove(keys){
+  const store=readChromeStorage(),changes={};
+  for(const key of (Array.isArray(keys)?keys:[keys])){
+    if(typeof key!=='string'||!Object.prototype.hasOwnProperty.call(store,key))continue;
+    changes[key]={oldValue:cloneValue(store[key])};delete store[key];
+  }
+  saveChromeStorage();broadcastChromeStorage(changes);return true;
+}
+function chromeStorageClear(){
+  const store=readChromeStorage(),changes={};
+  for(const [key,value] of Object.entries(store))changes[key]={oldValue:cloneValue(value)};
+  chromeStorageCache={};saveChromeStorage();broadcastChromeStorage(changes);return true;
+}
+function waitForChromeBackground(){
+  if(chromeBackgroundReady&&backgroundWin&&!backgroundWin.isDestroyed())return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error('Desktop background service did not start')),15000);
+    chromeBackgroundWaiters.push(()=>{clearTimeout(timer);resolve();});
+  });
+}
+function sendChromeMessage(message){
+  return waitForChromeBackground().then(()=>new Promise((resolve,reject)=>{
+    const id=crypto.randomUUID(),timer=setTimeout(()=>{
+      pendingChromeMessages.delete(id);reject(new Error('Chrome background message timed out'));
+    },20000);
+    pendingChromeMessages.set(id,{resolve,reject,timer});
+    backgroundWin.webContents.send('chrome:dispatch-message',{id,message,sender:{id:'aurestar-desktop',url:'aurestar://desktop'}});
+  }));
+}
+function toggleItsuki(){
+  if(itsukiWindow&&!itsukiWindow.isDestroyed()&&itsukiWindow.isVisible())hideItsuki();
+  else createItsuki();
+}
+function bindAltToggle(browserWindow){
+  browserWindow.webContents.on('before-input-event',(event,input)=>{
+    if(input.type==='keyDown'&&input.key==='Alt'&&!input.isAutoRepeat){
+      event.preventDefault();toggleItsuki();
+    }
+  });
+}
+function createBackgroundWindow(){
+  if(backgroundWin&&!backgroundWin.isDestroyed())return;
+  chromeBackgroundReady=false;
+  backgroundWin=new BrowserWindow({width:2,height:2,show:false,frame:false,skipTaskbar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  backgroundWin.webContents.setBackgroundThrottling(false);
+  backgroundWin.loadFile(path.join(__dirname,'background-host.html'));
+  backgroundWin.on('closed',()=>{backgroundWin=null;chromeBackgroundReady=false;});
+}
+
 const defaultState = () => ({
   schemaVersion: 1, createdAt: Date.now(),
   settings: { notifications:true, dailyReminder:'08:00', taskReminders:true, autoBackup:true, backupTime:'23:30', focusPreset:25, focusShortBreak:5, focusLongBreak:15, focusLongBreakEvery:4, blockedWebsites:['tiktok.com','facebook.com','youtube.com'], blockDuringFocus:true, startWithWindows:false, minimizeToTray:true, theme:'dark', language:'en' },
@@ -98,6 +200,7 @@ function createItsuki(){
   if(itsukiWindow&&!itsukiWindow.isDestroyed()){itsukiWindow.show();itsukiWindow.moveTop();return;}
   const area=require('electron').screen.getPrimaryDisplay().workArea;
   itsukiWindow=new BrowserWindow({width:370,height:330,x:18,y:Math.max(12,area.y+area.height-350),frame:false,transparent:true,alwaysOnTop:true,skipTaskbar:true,resizable:false,show:false,backgroundColor:'#00000000',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  bindAltToggle(itsukiWindow);
   itsukiWindow.loadFile(path.join(__dirname,'itsuki.html'));
   itsukiWindow.once('ready-to-show',()=>{itsukiWindow?.show();itsukiWindow?.moveTop();broadcastItsuki('startup');});
   itsukiWindow.on('close',e=>{if(!app.isQuitting){e.preventDefault();itsukiWindow.hide();}});
@@ -108,6 +211,7 @@ function hideItsuki(){if(itsukiWindow&&!itsukiWindow.isDestroyed())itsukiWindow.
 function createPomodoroWidget(){
   if(pomodoroWidget&&!pomodoroWidget.isDestroyed()){pomodoroWidget.show();pomodoroWidget.moveTop();return;}
   pomodoroWidget=new BrowserWindow({width:300,height:176, x:Math.max(12,require('electron').screen.getPrimaryDisplay().workAreaSize.width-320),y:90,frame:false,transparent:true,alwaysOnTop:true,skipTaskbar:true,resizable:false,minimizable:false,maximizable:false,closable:true,show:false,backgroundColor:'#00000000',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  bindAltToggle(pomodoroWidget);
   pomodoroWidget.loadFile(path.join(__dirname,'pomodoro-widget.html'));
   pomodoroWidget.once('ready-to-show',()=>{pomodoroWidget?.show();pomodoroWidget?.moveTop();broadcastWidget();});
   pomodoroWidget.on('closed',()=>{pomodoroWidget=null;});
@@ -116,6 +220,7 @@ function closePomodoroWidget(){if(pomodoroWidget&&!pomodoroWidget.isDestroyed())
 
 function createWindow(){
   win=new BrowserWindow({width:1440,height:920,minWidth:1024,minHeight:700,show:false,backgroundColor:'#211217',title:APP_NAME,autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  bindAltToggle(win);
   win.loadFile(path.join(__dirname,'index.html'));
   win.once('ready-to-show',()=>win.show());
   win.on('close',(e)=>{if(state?.settings?.minimizeToTray && tray && !app.isQuitting){e.preventDefault();win.hide();}});
@@ -138,19 +243,39 @@ function createTray(){
   ]));
   tray.on('double-click',()=>{if(!win)createWindow();else win.show();});
 }
-function toggleFocus(){
-  if(!state.focus.active){
-    state.focus.active=true;state.focus.paused=false;
-    if(state.focus.phase==='break'){
-      state.focus.total=Math.max(1,Number(state.focus.remaining)||Number(state.settings.focusShortBreak||5)*60);
-      state.focus.remaining=state.focus.total;
-    } else {
-      state.focus.phase='focus';state.focus.total=(Number(state.settings.focusPreset)||25)*60;state.focus.remaining=state.focus.total;
-    }
-    state.focus.startedAt=Date.now();
-  } else {state.focus.paused=!state.focus.paused;}
-  saveState();win?.webContents.send('aurestar:state',state);broadcastWidget();broadcastItsuki(state.focus.active?(state.focus.phase==='break'?'break-start':'focus-start'):'focus-stop');
+async function toggleFocus(){
+  try{
+    const current=await sendChromeMessage({type:'getFocusState'});
+    const active=Boolean(current?.result?.focus?.active);
+    await sendChromeMessage({type:active?'focusPause':'focusStart'});
+  }catch(error){console.error('Focus shortcut failed',error);}
 }
+ipcMain.on('chrome:background-ready',()=>{
+  chromeBackgroundReady=true;
+  for(const resolve of chromeBackgroundWaiters.splice(0))resolve();
+});
+ipcMain.on('chrome:send-response',(_event,payload)=>{
+  const pending=pendingChromeMessages.get(payload?.id);if(!pending)return;
+  clearTimeout(pending.timer);pendingChromeMessages.delete(payload.id);pending.resolve(payload.response);
+});
+ipcMain.handle('chrome:send-message',(_event,message)=>sendChromeMessage(message));
+ipcMain.handle('chrome:storage:get',(_event,keys)=>chromeStorageGet(keys));
+ipcMain.handle('chrome:storage:set',(_event,items)=>chromeStorageSet(items));
+ipcMain.handle('chrome:storage:remove',(_event,keys)=>chromeStorageRemove(keys));
+ipcMain.handle('chrome:storage:clear',()=>chromeStorageClear());
+ipcMain.handle('chrome:background-script-url',()=>{
+  const file=app.isPackaged?path.join(process.resourcesPath,'aurestar-chrome','background.js'):path.join(__dirname,'..','legacy-extension','Aurestar','background.js');
+  return require('node:url').pathToFileURL(file).href;
+});
+ipcMain.handle('chrome:notification',(_event,payload)=>{
+  const options=payload?.options||{};
+  if(Notification.isSupported())new Notification({title:String(options.title||APP_NAME),body:String(options.message||''),silent:!!options.silent}).show();
+  return String(payload?.id||'');
+});
+ipcMain.on('itsuki:drag',(_event,{dx=0,dy=0}={})=>{
+  if(!itsukiWindow||itsukiWindow.isDestroyed())return;
+  const [x,y]=itsukiWindow.getPosition();itsukiWindow.setPosition(x+Math.round(Number(dx)||0),y+Math.round(Number(dy)||0));
+});
 ipcMain.handle('state:get',()=>state);
 ipcMain.handle('pomodoro:widget-close',()=>{closePomodoroWidget();return {ok:true};});
 ipcMain.handle('pomodoro:widget-open',()=>{createPomodoroWidget();return {ok:true};});
@@ -177,11 +302,11 @@ ipcMain.handle('notification:test',()=>{notify(APP_NAME,'Notifications are worki
 ipcMain.handle('app:open-external',async(_e,url)=>{if(typeof url!=='string'||!/^https?:\/\//i.test(url))return false;await shell.openExternal(url);return true;});
 ipcMain.handle('app:version',()=>app.getVersion());
 app.whenReady().then(()=>{
-  state=readState();saveState();createWindow();createTray();createPomodoroWidget();createItsuki();
-  reminderTimer=setInterval(checkSchedule,15000);focusTickTimer=setInterval(tickFocus,1000);checkSchedule();
+  state=readState();saveState();createBackgroundWindow();createWindow();createTray();createPomodoroWidget();createItsuki();
   globalShortcut.register('CommandOrControl+Shift+L',toggleFocus);
   globalShortcut.register('CommandOrControl+Shift+K',()=>{if(!win)createWindow();win?.show();win?.webContents.send('aurestar:quick-add');});
-  globalShortcut.register('Alt',()=>{if(itsukiWindow&&!itsukiWindow.isDestroyed()&&itsukiWindow.isVisible())hideItsuki();else createItsuki();});
+  // A bare Alt key is handled by before-input-event while an Aurestar window is focused.
+  globalShortcut.register('Alt+Shift+I',toggleItsuki);
   if(process.platform==='win32' && state.settings.startWithWindows){app.setLoginItemSettings({openAtLogin:true});}
   app.on('activate',()=>{if(!win)createWindow();else win.show();if(!pomodoroWidget)createPomodoroWidget();});
 });
