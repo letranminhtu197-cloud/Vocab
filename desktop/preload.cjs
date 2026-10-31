@@ -202,4 +202,4 @@ const desktopApi = {
   onQuickAdd: (fn) => { const handler=()=>fn(); ipcRenderer.on('aurestar:quick-add',handler); return () => ipcRenderer.removeListener('aurestar:quick-add',handler); }
 };
 contextBridge.exposeInMainWorld('aurestarDesktop', desktopApi);
-contextBridge.exposeInMainWorld('chrome', chromeApi);
+contextBridge.exposeInMainWorld('aurestarChrome', chromeApi);
