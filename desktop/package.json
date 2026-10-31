@@ -20,8 +20,22 @@
   },
   "build": {
     "extraResources": [
-      { "from": "../legacy-extension/Aurestar/assets/itsuki/itsuki-pet.png", "to": "itsuki/itsuki-pet.png" },
-      { "from": "../legacy-extension/Aurestar/assets/itsuki", "to": "itsuki/expressions", "filter": ["*.jpg", "expressions.json"] }
+      {
+        "from": "../legacy-extension/Aurestar/assets/itsuki/itsuki-pet.png",
+        "to": "itsuki/itsuki-pet.png"
+      },
+      {
+        "from": "../legacy-extension/Aurestar/assets/itsuki",
+        "to": "itsuki/expressions",
+        "filter": [
+          "*.jpg",
+          "expressions.json"
+        ]
+      },
+      {
+        "from": "../legacy-extension/Aurestar/background.js",
+        "to": "aurestar-chrome/background.js"
+      }
     ],
     "appId": "com.aurestar.desktop",
     "productName": "Aurestar",
@@ -42,7 +56,8 @@
       "assets/**/*",
       "icons/**/*",
       "logo-star.svg",
-      "icon.svg"
+      "icon.svg",
+      "background-host.html"
     ],
     "win": {
       "target": [
