@@ -15,9 +15,8 @@ function render(response){
     : (f.countdown===false?'Count-up':'Countdown')+' · '+(Number(f.mode)||Number(s.focusPreset)||25)+' min focus';
   $('toggle').textContent=active?'Pause':paused?'Resume':isBreak?'Start break':'Start focus';
   $('break').disabled=active||paused||isBreak;
-  $('skip').hidden=!isBreak;
-  $('stop').disabled=!(active||paused);
-  $('reset').disabled=!(active||paused||isBreak||f.phase==='idle');
+  $('break').textContent=isBreak?'Skip break':'Start break';
+  $('reset').textContent=(active||paused)?'Stop':'Reset';
 }
 async function refresh(){
   if(busy)return;
@@ -37,10 +36,14 @@ $('toggle').addEventListener('click',()=>{
   const f=latestState?.focusEngine||{};
   act(f.active?'focusPause':'focusStart',{mode:latestState?.settings?.focusPreset||25});
 });
-$('break').addEventListener('click',()=>act('focusStartBreak',{kind:'short'}));
-$('skip').addEventListener('click',()=>act('focusSkipBreak'));
-$('reset').addEventListener('click',()=>act('focusReset',{mode:latestState?.settings?.focusPreset||25}));
-$('stop').addEventListener('click',()=>act('focusStop'));
+$('break').addEventListener('click',()=>{
+  const isBreak=latestState?.focusEngine?.phase==='break';
+  act(isBreak?'focusSkipBreak':'focusStartBreak',isBreak?{}:{kind:'short'});
+});
+$('reset').addEventListener('click',()=>{
+  const f=latestState?.focusEngine||{};
+  act(f.active||f.paused?'focusStop':'focusReset',{mode:latestState?.settings?.focusPreset||25});
+});
 $('close').addEventListener('click',()=>window.aurestarDesktop.closePomodoroWidget());
 chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.focusEngine)refresh();});
 refresh();
