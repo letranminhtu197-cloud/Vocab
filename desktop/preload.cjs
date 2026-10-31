@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('aurestarDesktop', {
   saveState: (state) => ipcRenderer.invoke('state:save', state),
   completeTask: (payload) => ipcRenderer.invoke('task:complete', payload),
   toggleFocus: () => ipcRenderer.invoke('focus:toggle'),
+  closePomodoroWidget: () => ipcRenderer.invoke('pomodoro:widget-close'),
+  onPomodoroState: (fn) => { const handler=(_e,s)=>fn(s); ipcRenderer.on('pomodoro:state',handler); return () => ipcRenderer.removeListener('pomodoro:state',handler); },
   resetFocus: (minutes) => ipcRenderer.invoke('focus:reset', minutes),
   finishFocus: (minutes) => ipcRenderer.invoke('focus:finish', minutes),
   exportData: () => ipcRenderer.invoke('data:export'),
