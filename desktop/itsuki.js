@@ -1,28 +1,8 @@
 const $=id=>document.getElementById(id);
-const lines={
- startup:"Hey! I'm here. Let's take one small step at a time.",
- "focus-start":"You've started. Stay with this one task—I'll keep you company.",
- "break-start":"Focus time is complete. Take a real break and come back refreshed.",
- "focus-stop":"No rush. When you're ready, we can begin another focused session.",
- "focus-tick":"You're doing well. Keep your attention on the next small step.",
- dismiss:"All right. I'll be right here when you need me."
-};
-let lastEvent="",lineHidden=false;window.aurestarDesktop.getItsukiArtUrl().then(url=>{$('itsukiArt').src=url}).catch(()=>{});
-function say(text){$('line').textContent=text;$('line').hidden=false;lineHidden=false;}
-window.aurestarDesktop.onItsukiEvent(payload=>{
- const event=payload?.event||"";
- if(event==="dismiss"){say(lines.dismiss);return;}
- if(event==="focus-tick"){
-   const f=payload?.focus||{};
-   if(f.active&&!f.paused&&f.phase==="focus"&&lastEvent!=="focus-start"){lastEvent="focus-start";say(lines["focus-start"]);}
-   return;
- }
- if(lines[event]){lastEvent=event;say(lines[event]);}
-});
-$('hideLine').onclick=()=>{$('line').hidden=true;lineHidden=true;};
-$('hidePet').onclick=()=>window.aurestarDesktop.hideItsuki();
-$('openApp').onclick=()=>window.aurestarDesktop.openWorkspace();
-$('quietToday').onclick=()=>window.aurestarDesktop.hideItsuki();
-$('dismiss').onclick=()=>say("Got it. Keep going at your own pace.");
-$('showLine').onclick=()=>say(lines[lastEvent]||lines.startup);
-document.addEventListener('keydown',e=>{if(e.key==="Escape")window.aurestarDesktop.hideItsuki();});
+let expression=1,phrase=0;
+const phrases=["One step at a time.","You're doing well—keep going.","Take a breath, then continue.","Small progress still counts.","Welcome back! Let's focus."];
+function change(){expression=expression%30+1;phrase=(phrase+1)%phrases.length;$('line').textContent=phrases[phrase];window.aurestarDesktop.getItsukiArtUrl(expression).then(url=>{$('itsukiArt').src=url}).catch(()=>{});}
+window.aurestarDesktop.getItsukiArtUrl(1).then(url=>{$('itsukiArt').src=url}).catch(()=>{});
+$('itsukiClick').addEventListener('click',change);
+window.aurestarDesktop.onItsukiEvent(payload=>{const e=payload?.event;const f=payload?.focus||{};if(e==='focus-start')$('line').textContent='Focus time—one task at a time.';else if(e==='break-start')$('line').textContent='Time for a real break.';else if(e==='focus-tick'&&f.active&&!f.paused&&f.phase==='focus')$('line').textContent='Keep your attention on the next small step.';});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')window.aurestarDesktop.hideItsuki();});
