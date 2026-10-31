@@ -349,11 +349,11 @@ function renderDashboard(el){
     <section class="study-streak-card" aria-label="Daily study streak">
       <div class="study-streak-summary">
         <span class="section-kicker">DAILY STUDY STREAK</span>
-        <div class="study-streak-number"><span class="study-streak-flame">🔥</span><strong>\${Math.max(0,Number(savedStreak.current)||0)}</strong><small>days</small></div>
-        <div class="study-streak-message">\${esc(streakMessage)}</div>
+        <div class="study-streak-number"><span class="study-streak-flame">🔥</span><strong>${Math.max(0,Number(savedStreak.current)||0)}</strong><small>days</small></div>
+        <div class="study-streak-message">${esc(streakMessage)}</div>
       </div>
-      <div class="study-streak-week" aria-label="This week's activity">\${streakDaysMarkup}</div>
-      <div class="study-streak-best"><span>BEST STREAK</span><strong>\${Math.max(Number(savedStreak.best)||0,Number(savedStreak.current)||0)} days</strong></div>
+      <div class="study-streak-week" aria-label="This week's activity">${streakDaysMarkup}</div>
+      <div class="study-streak-best"><span>BEST STREAK</span><strong>${Math.max(Number(savedStreak.best)||0,Number(savedStreak.current)||0)} days</strong></div>
     </section>
 
     <div class="command-grid">
