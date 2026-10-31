@@ -18,7 +18,11 @@
     "electron-builder": "^26.0.12",
     "sharp": "^0.34.5"
   },
-  "build": {\n    "extraResources": [\n      { "from": "../legacy-extension/Aurestar/assets/itsuki/itsuki-pet.png", "to": "itsuki/itsuki-pet.png" },\n      { "from": "../legacy-extension/Aurestar/assets/itsuki", "to": "itsuki/expressions", "filter": ["*.jpg", "expressions.json"] }\n    ],
+  "build": {
+    "extraResources": [
+      { "from": "../legacy-extension/Aurestar/assets/itsuki/itsuki-pet.png", "to": "itsuki/itsuki-pet.png" },
+      { "from": "../legacy-extension/Aurestar/assets/itsuki", "to": "itsuki/expressions", "filter": ["*.jpg", "expressions.json"] }
+    ],
     "appId": "com.aurestar.desktop",
     "productName": "Aurestar",
     "directories": {
